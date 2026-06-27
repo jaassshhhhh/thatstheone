@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "that's the one — find any creator deal",
+  title: "That's the one — find any creator deal",
   description: 'Search the memory layer of the creator economy. Find every sponsorship, promo code and creator deal in one place.',
 }
 
