@@ -209,6 +209,20 @@ export default function Home() {
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,.18)' }}>
             Join {count.toLocaleString()} people on the waitlist · No spam, ever
           </p>
+          <a href="/search" style={{
+  display: 'inline-block',
+  marginBottom: 20,
+  fontSize: 13,
+  padding: '9px 22px',
+  borderRadius: 20,
+  background: 'rgba(99,102,241,.15)',
+  color: '#818CF8',
+  border: '1px solid rgba(99,102,241,.25)',
+  textDecoration: 'none',
+  fontWeight: 500,
+}}>
+  Try the search →
+</a>
 
           {/* Platform pills */}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 40 }}>
