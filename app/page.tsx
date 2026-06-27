@@ -1,4 +1,5 @@
 'use client'
+import { supabase } from './lib/supabase'
 import { useEffect, useRef, useState } from 'react'
 
 export default function Home() {
@@ -30,11 +31,22 @@ export default function Home() {
     return () => observer.disconnect()
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) return
-    setSubmitted(true)
-    setCount(c => c + 1)
+    try {
+      const { error } = await supabase
+        .from('waitlist')
+        .insert([{ email }])
+      if (error && error.code !== '23505') {
+        alert('Something went wrong. Please try again.')
+        return
+      }
+      setSubmitted(true)
+      setCount(c => c + 1)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const features = [
