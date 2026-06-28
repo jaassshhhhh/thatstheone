@@ -3,10 +3,11 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 const tabs = [
-    { href: '/feed', label: 'Feed', icon: '◈' },
-    { href: '/search', label: 'Search', icon: '⌕' },
-    { href: '/trending', label: 'Trending', icon: '↑' },
-    { href: '/profile', label: 'Profile', icon: '◎' },
+    { href: '/feed', label: 'Feed', icon: 'ti-layout-grid' },
+    { href: '/search', label: 'Search', icon: 'ti-search' },
+    { href: '/trending', label: 'Trending', icon: 'ti-trending-up' },
+    { href: '/creators', label: 'Creators', icon: 'ti-users' },
+    { href: '/profile', label: 'Profile', icon: 'ti-user' },
   ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -63,20 +64,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         paddingBottom: 'env(safe-area-inset-bottom)',
       }} className="mobile-nav">
         {tabs.map(t => {
-          const active = pathname === t.href
-          return (
-            <Link key={t.href} href={t.href} style={{
-              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-              padding: '10px 0 8px', textDecoration: 'none', gap: 4,
-              color: active ? '#818CF8' : 'rgba(255,255,255,.3)',
-              transition: 'color .15s',
-            }}>
-              <span style={{ fontSize: 18, lineHeight: 1 }}>{t.icon}</span>
-              <span style={{ fontSize: 10, letterSpacing: '.02em' }}>{t.label}</span>
-              {active && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#6366F1', position: 'absolute', bottom: 6 }} />}
-            </Link>
-          )
-        })}
+  const active = pathname === t.href || pathname.startsWith(t.href + '/')
+  return (
+    <Link key={t.href} href={t.href} style={{
+      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+      padding: '8px 0 6px', textDecoration: 'none', gap: 2,
+      color: active ? '#818CF8' : 'rgba(255,255,255,.3)',
+      transition: 'color .15s',
+    }}>
+      <i className={`ti ${t.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
+      <span style={{ fontSize: 9, letterSpacing: '.02em' }}>{t.label}</span>
+      {active && <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#6366F1' }} />}
+    </Link>
+  )
+})}
       </div>
 
       <style>{`

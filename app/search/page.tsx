@@ -1,4 +1,5 @@
 'use client'
+import { useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
@@ -40,6 +41,7 @@ export default function SearchPage() {
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [hasSearched, setHasSearched] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     loadTrending()
@@ -47,7 +49,13 @@ export default function SearchPage() {
     loadCount()
     const recent = JSON.parse(localStorage.getItem('tto_recent') || '[]')
     setRecentSearches(recent)
+    const q = searchParams.get('q')
+    if (q) {
+      setQuery(q)
+      search(q, 'All')
+    }
   }, [])
+ 
 
   async function loadCount() {
     const { count } = await supabase

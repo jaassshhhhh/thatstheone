@@ -18,24 +18,45 @@ async function track(type: string, value: string) {
 }
 
 const CARD_CONFIGS: Record<string, { label: string; icon: string; color: string; bg: string; border: string }> = {
-  VELOCITY:   { label: 'Velocity surge',    icon: 'ti-flame',        color: '#F87171', bg: 'rgba(239,68,68,.1)',    border: 'rgba(239,68,68,.2)' },
-  ORGANIC:    { label: 'Genuine love',      icon: 'ti-heart',        color: '#34D399', bg: 'rgba(16,185,129,.1)',   border: 'rgba(16,185,129,.2)' },
-  NEW_DEAL:   { label: 'New deal spotted',  icon: 'ti-speakerphone', color: '#818CF8', bg: 'rgba(99,102,241,.1)',   border: 'rgba(99,102,241,.2)' },
-  TRENDING:   { label: 'Trending',          icon: 'ti-trending-up',  color: '#FBBF24', bg: 'rgba(245,158,11,.1)',   border: 'rgba(245,158,11,.2)' },
-  MULTI:      { label: 'Multiple creators', icon: 'ti-users',        color: '#C084FC', bg: 'rgba(139,92,246,.1)',   border: 'rgba(139,92,246,.2)' },
-  HOT:        { label: 'Hot deal',          icon: 'ti-bolt',         color: '#34D399', bg: 'rgba(16,185,129,.1)',   border: 'rgba(16,185,129,.2)' },
+  VELOCITY: { label: 'Blowing up',         icon: 'ti-flame',        color: '#F87171', bg: 'rgba(239,68,68,.1)',   border: 'rgba(239,68,68,.25)' },
+  ORGANIC:  { label: 'Genuine love',       icon: 'ti-heart',        color: '#34D399', bg: 'rgba(16,185,129,.1)',  border: 'rgba(16,185,129,.25)' },
+  NEW_DEAL: { label: 'Just dropped',       icon: 'ti-speakerphone', color: '#818CF8', bg: 'rgba(99,102,241,.1)', border: 'rgba(99,102,241,.25)' },
+  TRENDING: { label: 'Everyone\'s talking', icon: 'ti-trending-up', color: '#FBBF24', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.25)' },
+  MULTI:    { label: 'Creator consensus',  icon: 'ti-users',        color: '#C084FC', bg: 'rgba(139,92,246,.1)', border: 'rgba(139,92,246,.25)' },
+  HOT:      { label: 'Limited deal',       icon: 'ti-bolt',         color: '#34D399', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.25)' },
+  PERSONAL: { label: 'For you',            icon: 'ti-sparkles',     color: '#60A5FA', bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.25)' },
 }
 
-function classifyCard(s: any, brandCountMap: Record<string, number>): string {
+function classifyCard(s: any, brandCountMap: Record<string, number>, userSearches: string[]): string {
+  const brand = s.brand_name || s.brands?.name || ''
+  const isSearched = userSearches.some(q => brand.toLowerCase().includes(q.toLowerCase()))
+  if (isSearched) return 'PERSONAL'
   if (s.is_organic) return 'ORGANIC'
-  const count = brandCountMap[s.brands?.name] || 1
+  const count = brandCountMap[brand] || 1
   if (count >= 3) return 'MULTI'
-  if (s.promo_code && s.offer_text) return 'HOT'
-  const days = s.first_seen
-    ? Math.floor((Date.now() - new Date(s.first_seen).getTime()) / 86400000)
-    : 999
+  if ((s.best_code || s.promo_code) && (s.best_offer || s.offer_text)) return 'HOT'
+  const days = s.first_seen ? Math.floor((Date.now() - new Date(s.first_seen).getTime()) / 86400000) : 999
   if (days <= 14) return 'NEW_DEAL'
   return 'TRENDING'
+}
+
+function generateHeadline(s: any, cardType: string, userSearches: string[], brandCountMap: Record<string, number> = {}): string {
+  const brand = s.brand_name || s.brands?.name || 'this brand'
+  const creator = s.creator_name || s.creators?.name || 'a creator'
+  const subs = s.subscriber_count || s.creators?.subscriber_count
+  const subStr = subs >= 1000000 ? `${(subs / 1000000).toFixed(1)}M` : subs >= 1000 ? `${Math.round(subs / 1000)}k` : ''
+  const mentions = s.mention_count || 1
+  const isSearched = userSearches.some(q => brand.toLowerCase().includes(q.toLowerCase()) || q.toLowerCase().includes(brand.toLowerCase()))
+
+  if (isSearched) return `You searched this — ${creator} promoted ${brand} ${mentions > 1 ? `${mentions} times` : 'recently'}`
+  if (cardType === 'ORGANIC') return `${creator} genuinely loves ${brand} — no deal attached`
+  if (cardType === 'MULTI') return `${brand} appearing across ${brandCountMap[brand] || mentions} creators this week`
+  if (cardType === 'HOT') return `${creator} has a deal on ${brand} you won't find elsewhere`
+  if (mentions >= 5) return `${creator} has mentioned ${brand} ${mentions} times — that's conviction`
+  if (cardType === 'NEW_DEAL') return `${brand} just started working with ${subStr ? `${subStr} creator ` : ''}${creator}`
+  if (s.best_offer || s.offer_text) return `${creator} has a ${s.best_offer || s.offer_text} deal on ${brand}`
+  if (s.best_code || s.promo_code) return `${creator}'s ${brand} code — ${mentions > 1 ? `mentioned ${mentions} times` : 'active now'}`
+  return `${creator} and ${brand} — ${mentions > 1 ? `${mentions} mentions` : 'new partnership'}`
 }
 
 function timeAgo(date: string) {
@@ -55,7 +76,7 @@ function formatSubs(n: number) {
   return `${n}`
 }
 
-const FILTERS = ['All', 'Trending', 'Deals', 'Organic', 'New']
+const FILTERS = ['All', 'For you', 'Trending', 'Deals', 'Organic', 'New']
 
 export default function FeedPage() {
   const [feed, setFeed] = useState<any[]>([])
@@ -65,10 +86,17 @@ export default function FeedPage() {
   const [hasMore, setHasMore] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
-  const [totalToday, setTotalToday] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
+  const [userSearches, setUserSearches] = useState<string[]>([])
   const loaderRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { loadFeed(0, true) }, [filter])
+  useEffect(() => {
+    const recent = JSON.parse(localStorage.getItem('tto_recent') || '[]')
+    setUserSearches(recent)
+    supabase.from('sponsorships').select('*', { count: 'exact', head: true }).then(({ count }) => setTotalCount(count || 0))
+  }, [])
+
+  useEffect(() => { loadFeed(0, true) }, [filter, userSearches])
 
   useEffect(() => {
     const obs = new IntersectionObserver(entries => {
@@ -80,102 +108,115 @@ export default function FeedPage() {
     }, { threshold: 0.1 })
     if (loaderRef.current) obs.observe(loaderRef.current)
     return () => obs.disconnect()
-  }, [hasMore, loading, page, filter])
-
-  useEffect(() => {
-    supabase.from('sponsorships')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', new Date(Date.now() - 86400000).toISOString())
-      .then(({ count }) => setTotalToday(count || 0))
-  }, [])
+  }, [hasMore, loading, page])
 
   async function loadFeed(pageNum: number, reset = false) {
     setLoading(true)
     const from = pageNum * 20
     const to = from + 19
 
+    if (filter === 'For you' && userSearches.length === 0) {
+      setFeed([])
+      setLoading(false)
+      return
+    }
+
     let q = supabase
-      .from('sponsorships')
-      .select(`
-        id, promo_code, offer_text, exact_quote,
-        sponsorship_type, is_active, is_organic,
-        first_seen, last_seen, video_title, video_id,
-        dar_score, dar_source,
-        brands ( name, slug ),
-        creators ( name, slug, subscriber_count, category, avatar_url )
-      `)
-      .order('dar_score', { ascending: false })
+      .from('creator_brand_relationships')
+      .select('*')
+      .order('best_dar_score', { ascending: false })
       .order('last_seen', { ascending: false })
       .range(from, to)
 
-    if (filter === 'Deals') q = q.not('promo_code', 'is', null)
+    if (filter === 'Deals') q = q.not('best_code', 'is', null)
     if (filter === 'Organic') q = q.eq('is_organic', true)
     if (filter === 'New') q = q.gte('first_seen', new Date(Date.now() - 14 * 86400000).toISOString())
-    if (filter === 'Trending') q = q.gte('dar_score', 70)
+    if (filter === 'Trending') q = q.gte('best_dar_score', 70)
 
     const { data } = await q
-    const items = (data || []).filter((s: any) => s.brands && s.creators)
+    const items = (data || []).filter((s: any) => s.brand_name && s.creator_name)
 
     const brandMap: Record<string, number> = {}
-    items.forEach((s: any) => {
-      const n = s.brands?.name || ''
-      brandMap[n] = (brandMap[n] || 0) + 1
+    items.forEach((s: any) => { brandMap[s.brand_name || ''] = (brandMap[s.brand_name || ''] || 0) + 1 })
+
+    const classified = items.map((s: any) => {
+      const cardType = classifyCard(s, brandMap, userSearches)
+      return {
+        ...s,
+        cardType,
+        headline: s.headline || generateHeadline(s, cardType, userSearches, brandMap),
+      }
     })
 
-    const classified = items.map((s: any) => ({
-      ...s,
-      cardType: classifyCard(s, brandMap),
-    }))
+    let filtered = classified
+    if (filter === 'For you') filtered = classified.filter(s => s.cardType === 'PERSONAL')
 
-    if (reset) setFeed(classified)
-    else setFeed(prev => [...prev, ...classified])
-
+    if (reset) setFeed(filtered)
+    else setFeed(prev => [...prev, ...filtered])
     setHasMore(items.length === 20)
     setLoading(false)
   }
 
-  const copyCode = async (code: string, id: string) => {
+  const copyCode = async (code: string, id: string, brand: string) => {
     await navigator.clipboard.writeText(code)
     setCopied(id)
-    track('copy', code)
+    track('copy', brand)
     setTimeout(() => setCopied(null), 2000)
   }
+
+  const isHero = (s: any, i: number) => i === 0 || s.cardType === 'PERSONAL' || s.cardType === 'VELOCITY'
 
   return (
     <Layout>
       <style>{`
         @keyframes fadeUp { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
-        .fc { animation: fadeUp .35s ease forwards }
-        .fc:hover { border-color: rgba(255,255,255,.12) !important }
-        .deal-btn:hover { opacity: .85 }
+        @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+        .fc { animation: fadeUp .35s ease forwards; transition: border-color .2s, transform .2s }
+        .fc:hover { border-color: rgba(255,255,255,.15) !important; transform: translateY(-1px) }
+        .filt:hover { background: rgba(255,255,255,.07) !important }
       `}</style>
 
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: '16px 14px 40px' }}>
+      <div style={{ maxWidth: 600, margin: '0 auto', padding: '16px 14px 40px' }}>
 
-        {/* Header */}
-        <div style={{ marginBottom: 14 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.02em', color: '#fff', margin: '0 0 3px' }}>
-            Pulse
-          </h1>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,.3)', margin: 0 }}>
-          {totalToday > 0 ? `${totalToday} sponsorships indexed · ` : ''}What creators are talking about right now
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.03em', color: '#fff', margin: '0 0 2px' }}>
+              Pulse
+              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#34D399', marginLeft: 8, verticalAlign: 'middle', animation: 'pulse 2s infinite' }} />
+            </h1>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,.3)', margin: 0 }}>
+              {totalCount.toLocaleString()} sponsorships indexed · live
+            </p>
+          </div>
+          {userSearches.length > 0 && (
+            <div style={{ fontSize: 11, padding: '5px 10px', borderRadius: 20, background: 'rgba(59,130,246,.1)', color: '#60A5FA', border: '0.5px solid rgba(59,130,246,.2)' }}>
+              ✦ Personalised
+            </div>
+          )}
         </div>
 
-        {/* Filters */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
           {FILTERS.map(f => (
-            <button key={f} onClick={() => { setFilter(f); setPage(0) }}
+            <button key={f} className="filt" onClick={() => { setFilter(f); setPage(0) }}
               style={{ fontSize: 11, padding: '5px 13px', borderRadius: 20, border: '0.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .15s', borderColor: filter === f ? '#6366F1' : 'rgba(255,255,255,.08)', background: filter === f ? 'rgba(99,102,241,.15)' : 'transparent', color: filter === f ? '#818CF8' : 'rgba(255,255,255,.4)' }}>
-              {f}
+              {f === 'For you' ? '✦ For you' : f}
             </button>
           ))}
         </div>
 
-        {/* Feed */}
         {loading && page === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,.2)' }}>
             <p style={{ fontSize: 13 }}>Loading pulse...</p>
+          </div>
+        ) : filter === 'For you' && feed.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', background: 'rgba(255,255,255,.02)', borderRadius: 16, border: '0.5px solid rgba(255,255,255,.07)' }}>
+            <p style={{ fontSize: 28, marginBottom: 12 }}>✦</p>
+            <p style={{ fontSize: 15, fontWeight: 600, color: '#fff', marginBottom: 8 }}>Nothing personalised yet</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,.35)', marginBottom: 20, lineHeight: 1.6 }}>Search for brands or creators you care about<br />and we'll tailor your feed automatically</p>
+            <button onClick={() => setFilter('All')}
+              style={{ fontSize: 13, padding: '8px 20px', borderRadius: 20, background: 'rgba(99,102,241,.15)', color: '#818CF8', border: '0.5px solid rgba(99,102,241,.25)', cursor: 'pointer' }}>
+              Browse all
+            </button>
           </div>
         ) : feed.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
@@ -186,143 +227,154 @@ export default function FeedPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {feed.map((s: any, i: number) => {
               const cfg = CARD_CONFIGS[s.cardType] || CARD_CONFIGS.TRENDING
-              const isOpen = expanded === s.id
-              const hasDeal = s.promo_code || s.offer_text || s.promo_url
+              const isOpen = expanded === s.id || expanded === `${s.creator_id}-${s.brand_id}`
+              const cardId = s.id || `${s.creator_id}-${s.brand_id}`
+              const hasDeal = s.best_code || s.promo_code || s.best_offer || s.offer_text || s.promo_url
+              const hero = isHero(s, i)
+              const quote = s.best_quote || s.exact_quote
+              const code = s.best_code || s.promo_code
+              const offer = s.best_offer || s.offer_text
+              const videoId = s.best_video_id || s.video_id
 
               return (
-                <div key={s.id} className="fc"
-                  style={{ animationDelay: `${Math.min(i, 8) * 0.04}s`, background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 18, padding: 16, cursor: 'pointer', transition: 'border-color .2s', position: 'relative', overflow: 'hidden' }}
-                  onClick={() => { setExpanded(isOpen ? null : s.id); track('click', s.brands?.name || '') }}>
+                <div key={cardId} className="fc"
+                  style={{
+                    animationDelay: `${Math.min(i, 8) * 0.04}s`,
+                    background: hero ? 'rgba(99,102,241,.06)' : 'rgba(255,255,255,.03)',
+                    border: `0.5px solid ${hero ? 'rgba(99,102,241,.2)' : 'rgba(255,255,255,.07)'}`,
+                    borderRadius: hero ? 20 : 16,
+                    padding: hero ? '20px' : '16px',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}
+                  onClick={() => { setExpanded(isOpen ? null : cardId); track('click', s.brand_name || '') }}>
 
-                  {/* Glow */}
-                  <div style={{ position: 'absolute', top: -24, right: -24, width: 80, height: 80, borderRadius: '50%', background: cfg.color, opacity: .07, filter: 'blur(18px)', pointerEvents: 'none' }} />
+                  <div style={{ position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%', background: cfg.color, opacity: hero ? .1 : .06, filter: 'blur(24px)', pointerEvents: 'none' }} />
 
-                  {/* Top row — tag + time */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 500, padding: '3px 9px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `0.5px solid ${cfg.border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `0.5px solid ${cfg.border}`, textTransform: 'uppercase', letterSpacing: '.04em' }}>
                       <i className={`ti ${cfg.icon}`} style={{ fontSize: 11 }} aria-hidden="true" />
                       {cfg.label}
                     </div>
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,.22)' }}>
-                      {timeAgo(s.last_seen || s.first_seen)}
-                    </span>
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)' }}>{timeAgo(s.last_seen || s.first_seen)}</span>
                   </div>
 
-                  {/* Brand + Creator row */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 10, background: cfg.color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: cfg.color, flexShrink: 0 }}>
-                      {s.brands?.name?.[0]?.toUpperCase()}
+                  <p style={{ fontSize: hero ? 16 : 14, fontWeight: 700, color: '#fff', margin: '0 0 12px', lineHeight: 1.3, letterSpacing: '-.01em' }}>
+                    {s.headline}
+                  </p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: cfg.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: cfg.color, flexShrink: 0 }}>
+                      {(s.brand_name || s.brands?.name)?.[0]?.toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 14, fontWeight: 600, margin: '0 0 3px', color: '#fff' }}>
-                        {s.brands?.name}
-                      </p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,.35)' }}>
-                          via {s.creators?.name}
-                        </span>
-                        {s.creators?.subscriber_count > 0 && (
-                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.05)', padding: '1px 6px', borderRadius: 8 }}>
-                            {formatSubs(s.creators.subscriber_count)}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#fff' }}>{s.brand_name || s.brands?.name}</p>
+                        {s.mention_count > 1 && (
+                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.3)', background: 'rgba(255,255,255,.06)', padding: '1px 6px', borderRadius: 6 }}>
+                            {s.mention_count}× mentioned
                           </span>
                         )}
-                        {s.creators?.category && (
-                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 8 }}>
-                            {s.creators.category}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: 0 }}>via {s.creator_name || s.creators?.name}</p>
+                        {(s.subscriber_count || s.creators?.subscriber_count) > 0 && (
+                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.05)', padding: '1px 5px', borderRadius: 6 }}>
+                            {formatSubs(s.subscriber_count || s.creators?.subscriber_count)}
                           </span>
                         )}
                       </div>
                     </div>
-                    {s.dar_score >= 75 && (
-                      <div style={{ flexShrink: 0 }}>
-                        <i className="ti ti-shield-check" style={{ fontSize: 14, color: '#34D399', opacity: .7 }} aria-hidden="true" />
-                      </div>
+                    {(s.best_dar_score || s.dar_score) >= 75 && (
+                      <i className="ti ti-shield-check" style={{ fontSize: 14, color: '#34D399', opacity: .6, flexShrink: 0 }} aria-hidden="true" />
                     )}
                   </div>
 
-                  {/* Quote — always visible */}
-                  {s.exact_quote && (
-                    <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '9px 11px', marginBottom: 10, borderLeft: `2px solid ${cfg.color}` }}>
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
-                        "{s.exact_quote.slice(0, isOpen ? 300 : 120)}{!isOpen && s.exact_quote.length > 120 ? '...' : ''}"
+                  {quote && (
+                    <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '9px 12px', marginTop: 12, borderLeft: `2px solid ${cfg.color}` }}>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
+                        "{quote.slice(0, isOpen ? 300 : 100)}{!isOpen && quote.length > 100 ? '...' : ''}"
                       </p>
                     </div>
                   )}
 
-                  {/* Video title */}
-                  {s.video_title && (
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {s.mention_count > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 11, color: 'rgba(255,255,255,.25)' }}>
+                      <span>First seen {timeAgo(s.first_seen)}</span>
+                      <span>·</span>
+                      <span>Latest {timeAgo(s.last_seen)}</span>
+                      <span>·</span>
+                      <span style={{ color: 'rgba(255,255,255,.4)' }}>{s.mention_count} mentions</span>
+                    </div>
+                  )}
+
+                  {s.video_title && isOpen && (
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', margin: '10px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <i className="ti ti-brand-youtube" style={{ fontSize: 12, marginRight: 4 }} aria-hidden="true" />
                       {s.video_title}
                     </p>
                   )}
 
-                  {/* Bottom row */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, marginTop: 12, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {s.is_active ? (
-                        <span style={{ fontSize: 10, color: '#34D399', display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#34D399', display: 'inline-block' }} />
-                          Active
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)' }}>Unverified</span>
-                      )}
-                      {s.sponsorship_type && (
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 7px', borderRadius: 8 }}>
-                          {s.sponsorship_type}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: s.is_active ? '#34D399' : 'rgba(255,255,255,.2)' }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.is_active ? '#34D399' : 'rgba(255,255,255,.2)', display: 'inline-block' }} />
+                        {s.is_active ? 'Active' : 'Unverified'}
+                      </span>
+                      {s.platform && (
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 6 }}>
+                          {s.platform}
                         </span>
                       )}
                     </div>
 
                     <div style={{ display: 'flex', gap: 6 }}>
-                      {s.video_id && (
-                        <a href={`https://youtube.com/watch?v=${s.video_id}`}
-                          target="_blank" rel="noopener noreferrer"
+                      {videoId && (
+                        <a href={`https://youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}
-                          style={{ fontSize: 11, padding: '5px 11px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.4)', border: '0.5px solid rgba(255,255,255,.08)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <i className="ti ti-player-play" style={{ fontSize: 11 }} aria-hidden="true" />
+                          style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.35)', border: '0.5px solid rgba(255,255,255,.08)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <i className="ti ti-player-play" style={{ fontSize: 10 }} aria-hidden="true" />
                           Watch
                         </a>
                       )}
                       {hasDeal && (
-                        <button className="deal-btn"
+                        <button
                           onClick={e => {
                             e.stopPropagation()
-                            if (s.promo_code) copyCode(s.promo_code, s.id)
-                            else setExpanded(s.id)
+                            if (code) copyCode(code, cardId, s.brand_name || '')
+                            else setExpanded(cardId)
                           }}
-                          style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: copied === s.id ? 'rgba(34,197,94,.15)' : cfg.bg, color: copied === s.id ? '#34D399' : cfg.color, border: `0.5px solid ${copied === s.id ? 'rgba(34,197,94,.3)' : cfg.border}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 500 }}>
-                          {copied === s.id ? '✓ Copied' : s.promo_code ? 'Get code' : 'See deal'}
+                          style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: copied === cardId ? 'rgba(34,197,94,.15)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${copied === cardId ? 'rgba(34,197,94,.3)' : cfg.border}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 600 }}>
+                          {copied === cardId ? '✓ Copied' : code ? 'Get code' : 'See deal'}
                         </button>
                       )}
                     </div>
                   </div>
 
-                  {/* Expanded deal panel */}
                   {isOpen && hasDeal && (
                     <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,.04)', borderRadius: 12, border: `0.5px solid ${cfg.border}` }}
                       onClick={e => e.stopPropagation()}>
-                      {s.offer_text && (
-                        <p style={{ fontSize: 12, color: '#34D399', marginBottom: s.promo_code ? 10 : 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <i className="ti ti-gift" style={{ fontSize: 14 }} aria-hidden="true" />
-                          {s.offer_text}
+                      {offer && (
+                        <p style={{ fontSize: 12, color: '#34D399', marginBottom: code ? 10 : 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <i className="ti ti-gift" style={{ fontSize: 13 }} aria-hidden="true" />
+                          {offer}
                         </p>
                       )}
-                      {s.promo_code && (
+                      {code && (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,.06)', borderRadius: 9, padding: '9px 12px' }}>
-                          <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 600, color: '#fff', letterSpacing: '.08em' }}>
-                            {s.promo_code}
+                          <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '.08em' }}>
+                            {code}
                           </span>
-                          <button onClick={() => copyCode(s.promo_code, s.id)}
-                            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 7, background: copied === s.id ? 'rgba(34,197,94,.2)' : cfg.bg, color: copied === s.id ? '#34D399' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 600 }}>
-                            {copied === s.id ? '✓ Copied!' : 'Copy code'}
+                          <button onClick={() => copyCode(code, cardId, s.brand_name || '')}
+                            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 7, background: copied === cardId ? 'rgba(34,197,94,.2)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 600 }}>
+                            {copied === cardId ? '✓ Copied!' : 'Copy code'}
                           </button>
                         </div>
                       )}
-                      {s.promo_url && !s.promo_code && (
+                      {s.promo_url && !code && (
                         <a href={s.promo_url} target="_blank" rel="noopener noreferrer"
-                          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: cfg.color, textDecoration: 'none', marginTop: 6 }}>
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: cfg.color, textDecoration: 'none', marginTop: 6 }}>
                           <i className="ti ti-external-link" style={{ fontSize: 13 }} aria-hidden="true" />
                           Go to deal
                         </a>
@@ -333,14 +385,9 @@ export default function FeedPage() {
               )
             })}
 
-            {/* Infinite scroll trigger */}
             <div ref={loaderRef} style={{ padding: '20px 0', textAlign: 'center' }}>
-              {loading && page > 0 && (
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,.2)' }}>Loading more...</p>
-              )}
-              {!hasMore && feed.length > 0 && (
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,.15)' }}>You're all caught up</p>
-              )}
+              {loading && page > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,.2)' }}>Loading more...</p>}
+              {!hasMore && feed.length > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,.15)' }}>You're all caught up ✓</p>}
             </div>
           </div>
         )}
