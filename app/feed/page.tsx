@@ -158,7 +158,7 @@ export default function FeedPage() {
             Pulse
           </h1>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,.3)', margin: 0 }}>
-            {totalToday > 0 ? `${totalToday} new sponsorships today · ` : ''}What creators are talking about right now
+          {totalToday > 0 ? `${totalToday} sponsorships indexed · ` : ''}What creators are talking about right now
           </p>
         </div>
 
