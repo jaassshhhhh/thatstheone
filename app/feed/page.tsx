@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 
@@ -11,157 +11,162 @@ function getSession() {
   return s
 }
 
-const CARD_TYPES = {
-  NEW_SPONSOR: { label: 'New sponsor spotted', color: '#6366F1', bg: 'rgba(99,102,241,.12)', icon: '◈' },
-  TRENDING: { label: 'Trending this week', color: '#F59E0B', bg: 'rgba(245,158,11,.12)', icon: '↑' },
-  HOT_DEAL: { label: 'Hot deal', color: '#10B981', bg: 'rgba(16,185,129,.12)', icon: '✦' },
-  ORGANIC: { label: 'Genuine love — not an ad', color: '#8B5CF6', bg: 'rgba(139,92,246,.12)', icon: '◎' },
-  MULTI_CREATOR: { label: 'Multiple creators promoting', color: '#EF4444', bg: 'rgba(239,68,68,.12)', icon: '⊕' },
+async function track(type: string, value: string) {
+  const session = getSession()
+  if (!session) return
+  await supabase.from('user_signals').insert({ session_id: session, signal_type: type, value }).then(() => {})
 }
 
-function classifyCard(s: any, brandCounts: Record<string, number>) {
-  const brandName = s.brands?.name || ''
-  const count = brandCounts[brandName] || 1
+const CARD_CONFIGS: Record<string, { label: string; icon: string; color: string; bg: string; border: string }> = {
+  VELOCITY:   { label: 'Velocity surge',    icon: 'ti-flame',        color: '#F87171', bg: 'rgba(239,68,68,.1)',    border: 'rgba(239,68,68,.2)' },
+  ORGANIC:    { label: 'Genuine love',      icon: 'ti-heart',        color: '#34D399', bg: 'rgba(16,185,129,.1)',   border: 'rgba(16,185,129,.2)' },
+  NEW_DEAL:   { label: 'New deal spotted',  icon: 'ti-speakerphone', color: '#818CF8', bg: 'rgba(99,102,241,.1)',   border: 'rgba(99,102,241,.2)' },
+  TRENDING:   { label: 'Trending',          icon: 'ti-trending-up',  color: '#FBBF24', bg: 'rgba(245,158,11,.1)',   border: 'rgba(245,158,11,.2)' },
+  MULTI:      { label: 'Multiple creators', icon: 'ti-users',        color: '#C084FC', bg: 'rgba(139,92,246,.1)',   border: 'rgba(139,92,246,.2)' },
+  HOT:        { label: 'Hot deal',          icon: 'ti-bolt',         color: '#34D399', bg: 'rgba(16,185,129,.1)',   border: 'rgba(16,185,129,.2)' },
+}
+
+function classifyCard(s: any, brandCountMap: Record<string, number>): string {
   if (s.is_organic) return 'ORGANIC'
-  if (count >= 3) return 'MULTI_CREATOR'
-  if (s.promo_code && s.offer_text) return 'HOT_DEAL'
-  const daysSince = s.first_seen
+  const count = brandCountMap[s.brands?.name] || 1
+  if (count >= 3) return 'MULTI'
+  if (s.promo_code && s.offer_text) return 'HOT'
+  const days = s.first_seen
     ? Math.floor((Date.now() - new Date(s.first_seen).getTime()) / 86400000)
     : 999
-  if (daysSince <= 7) return 'NEW_SPONSOR'
+  if (days <= 14) return 'NEW_DEAL'
   return 'TRENDING'
 }
+
+function timeAgo(date: string) {
+  if (!date) return ''
+  const d = Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
+  if (d === 0) return 'Today'
+  if (d === 1) return 'Yesterday'
+  if (d < 7) return `${d}d ago`
+  if (d < 30) return `${Math.floor(d / 7)}w ago`
+  return `${Math.floor(d / 30)}mo ago`
+}
+
+function formatSubs(n: number) {
+  if (!n) return ''
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
+  if (n >= 1000) return `${Math.round(n / 1000)}k`
+  return `${n}`
+}
+
+const FILTERS = ['All', 'Trending', 'Deals', 'Organic', 'New']
 
 export default function FeedPage() {
   const [feed, setFeed] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [copied, setCopied] = useState<string | null>(null)
-  const [filter, setFilter] = useState<string>('All')
+  const [filter, setFilter] = useState('All')
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
+  const [totalToday, setTotalToday] = useState(0)
+  const loaderRef = useRef<HTMLDivElement>(null)
 
-  const filters = ['All', 'New', 'Trending', 'Hot deals', 'Organic']
+  useEffect(() => { loadFeed(0, true) }, [filter])
 
   useEffect(() => {
-    loadFeed(0, true)
-  }, [filter])
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loading) {
+        const next = page + 1
+        setPage(next)
+        loadFeed(next)
+      }
+    }, { threshold: 0.1 })
+    if (loaderRef.current) obs.observe(loaderRef.current)
+    return () => obs.disconnect()
+  }, [hasMore, loading, page, filter])
+
+  useEffect(() => {
+    supabase.from('sponsorships')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', new Date(Date.now() - 86400000).toISOString())
+      .then(({ count }) => setTotalToday(count || 0))
+  }, [])
 
   async function loadFeed(pageNum: number, reset = false) {
     setLoading(true)
     const from = pageNum * 20
     const to = from + 19
 
-    let query = supabase
+    let q = supabase
       .from('sponsorships')
       .select(`
         id, promo_code, offer_text, exact_quote,
         sponsorship_type, is_active, is_organic,
         first_seen, last_seen, video_title, video_id,
+        dar_score, dar_source,
         brands ( name, slug ),
         creators ( name, slug, subscriber_count, category, avatar_url )
       `)
+      .order('dar_score', { ascending: false })
       .order('last_seen', { ascending: false })
       .range(from, to)
 
-    if (filter === 'Hot deals') query = query.not('promo_code', 'is', null)
-    if (filter === 'Organic') query = query.eq('is_organic', true)
-    if (filter === 'New') {
-      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
-      query = query.gte('first_seen', weekAgo)
-    }
+    if (filter === 'Deals') q = q.not('promo_code', 'is', null)
+    if (filter === 'Organic') q = q.eq('is_organic', true)
+    if (filter === 'New') q = q.gte('first_seen', new Date(Date.now() - 14 * 86400000).toISOString())
+    if (filter === 'Trending') q = q.gte('dar_score', 70)
 
-    const { data } = await query
-    const raw = (data || []).filter((s: any) => s.brands && s.creators)
-const seenPairs = new Set<string>()
-const items = raw.filter((s: any) => {
-  const key = `${s.brands.slug}-${s.creators.slug}`
-  if (seenPairs.has(key)) return false
-  seenPairs.add(key)
-  return true
-})
+    const { data } = await q
+    const items = (data || []).filter((s: any) => s.brands && s.creators)
 
-    const brandCounts: Record<string, number> = {}
+    const brandMap: Record<string, number> = {}
     items.forEach((s: any) => {
       const n = s.brands?.name || ''
-      brandCounts[n] = (brandCounts[n] || 0) + 1
+      brandMap[n] = (brandMap[n] || 0) + 1
     })
 
     const classified = items.map((s: any) => ({
       ...s,
-      cardType: classifyCard(s, brandCounts),
+      cardType: classifyCard(s, brandMap),
     }))
 
-    if (reset) {
-      setFeed(classified)
-    } else {
-      setFeed(prev => [...prev, ...classified])
-    }
+    if (reset) setFeed(classified)
+    else setFeed(prev => [...prev, ...classified])
+
     setHasMore(items.length === 20)
     setLoading(false)
   }
 
-  const loadMore = () => {
-    const next = page + 1
-    setPage(next)
-    loadFeed(next)
-  }
-
-  const copyCode = async (code: string) => {
+  const copyCode = async (code: string, id: string) => {
     await navigator.clipboard.writeText(code)
-    setCopied(code)
-    const session = getSession()
-    if (session) await supabase.from('user_signals').insert({ session_id: session, signal_type: 'copy', value: code })
+    setCopied(id)
+    track('copy', code)
     setTimeout(() => setCopied(null), 2000)
-  }
-
-  const formatTimeAgo = (date: string) => {
-    if (!date) return ''
-    const diff = Date.now() - new Date(date).getTime()
-    const days = Math.floor(diff / 86400000)
-    const weeks = Math.floor(days / 7)
-    const months = Math.floor(days / 30)
-    if (days === 0) return 'Today'
-    if (days === 1) return 'Yesterday'
-    if (days < 7) return `${days}d ago`
-    if (weeks < 5) return `${weeks}w ago`
-    return `${months}mo ago`
-  }
-
-  const formatSubs = (n: number) => {
-    if (!n) return ''
-    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
-    if (n >= 1000) return `${Math.round(n / 1000)}k`
-    return n.toString()
   }
 
   return (
     <Layout>
       <style>{`
-        @keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
-        .feed-card { animation: fadeUp .4s ease forwards }
-        .feed-card:hover { border-color: rgba(99,102,241,.3) !important }
-        .filter-btn:hover { background: rgba(255,255,255,.08) !important }
-        .load-more:hover { background: rgba(99,102,241,.2) !important }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
+        .fc { animation: fadeUp .35s ease forwards }
+        .fc:hover { border-color: rgba(255,255,255,.12) !important }
+        .deal-btn:hover { opacity: .85 }
       `}</style>
 
-      <div style={{ maxWidth: 680, margin: '0 auto', padding: '20px 16px 40px' }}>
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: '16px 14px 40px' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-.02em', margin: '0 0 4px', color: '#fff' }}>
-            Creator intelligence feed
+        <div style={{ marginBottom: 14 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-.02em', color: '#fff', margin: '0 0 3px' }}>
+            Pulse
           </h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,.35)', margin: 0 }}>
-            What creators are promoting, obsessing over and getting paid to talk about
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,.3)', margin: 0 }}>
+            {totalToday > 0 ? `${totalToday} new sponsorships today · ` : ''}What creators are talking about right now
           </p>
         </div>
 
         {/* Filters */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
-          {filters.map(f => (
-            <button key={f} className="filter-btn"
-              onClick={() => { setFilter(f); setPage(0) }}
-              style={{ fontSize: 12, padding: '6px 14px', borderRadius: 20, border: '1px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .15s', borderColor: filter === f ? '#6366F1' : 'rgba(255,255,255,.08)', background: filter === f ? 'rgba(99,102,241,.15)' : 'transparent', color: filter === f ? '#818CF8' : 'rgba(255,255,255,.4)' }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
+          {FILTERS.map(f => (
+            <button key={f} onClick={() => { setFilter(f); setPage(0) }}
+              style={{ fontSize: 11, padding: '5px 13px', borderRadius: 20, border: '0.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .15s', borderColor: filter === f ? '#6366F1' : 'rgba(255,255,255,.08)', background: filter === f ? 'rgba(99,102,241,.15)' : 'transparent', color: filter === f ? '#818CF8' : 'rgba(255,255,255,.4)' }}>
               {f}
             </button>
           ))}
@@ -169,132 +174,177 @@ const items = raw.filter((s: any) => {
 
         {/* Feed */}
         {loading && page === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,.25)' }}>
-            <div style={{ fontSize: 24, marginBottom: 12, display: 'inline-block', animation: 'spin 1s linear infinite' }}>◌</div>
-            <p style={{ fontSize: 13 }}>Loading feed...</p>
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,.2)' }}>
+            <p style={{ fontSize: 13 }}>Loading pulse...</p>
           </div>
         ) : feed.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <p style={{ fontSize: 32, marginBottom: 12 }}>◎</p>
-            <p style={{ fontSize: 15, color: 'rgba(255,255,255,.4)' }}>Nothing here yet</p>
+            <p style={{ fontSize: 28, marginBottom: 10 }}>◎</p>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,.3)' }}>Nothing here yet</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {feed.map((s: any, i: number) => {
-              const type = CARD_TYPES[s.cardType as keyof typeof CARD_TYPES] || CARD_TYPES.TRENDING
+              const cfg = CARD_CONFIGS[s.cardType] || CARD_CONFIGS.TRENDING
+              const isOpen = expanded === s.id
+              const hasDeal = s.promo_code || s.offer_text || s.promo_url
+
               return (
-                <div key={s.id} className="feed-card"
-                  style={{ animationDelay: `${Math.min(i, 10) * 0.05}s`, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 16, padding: 18, transition: 'border-color .2s', position: 'relative', overflow: 'hidden' }}>
+                <div key={s.id} className="fc"
+                  style={{ animationDelay: `${Math.min(i, 8) * 0.04}s`, background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 18, padding: 16, cursor: 'pointer', transition: 'border-color .2s', position: 'relative', overflow: 'hidden' }}
+                  onClick={() => { setExpanded(isOpen ? null : s.id); track('click', s.brands?.name || '') }}>
 
                   {/* Glow */}
-                  <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: type.color, opacity: .06, filter: 'blur(20px)', pointerEvents: 'none' }} />
+                  <div style={{ position: 'absolute', top: -24, right: -24, width: 80, height: 80, borderRadius: '50%', background: cfg.color, opacity: .07, filter: 'blur(18px)', pointerEvents: 'none' }} />
 
-                  {/* Card type badge */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, padding: '3px 10px', borderRadius: 20, background: type.bg, color: type.color, fontWeight: 500 }}>
-                      <span>{type.icon}</span>
-                      <span>{type.label}</span>
+                  {/* Top row — tag + time */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 500, padding: '3px 9px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `0.5px solid ${cfg.border}` }}>
+                      <i className={`ti ${cfg.icon}`} style={{ fontSize: 11 }} aria-hidden="true" />
+                      {cfg.label}
                     </div>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,.25)' }}>
-                      {formatTimeAgo(s.last_seen || s.first_seen)}
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,.22)' }}>
+                      {timeAgo(s.last_seen || s.first_seen)}
                     </span>
                   </div>
 
-                  {/* Brand + Creator */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: type.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 700, color: type.color, flexShrink: 0 }}>
+                  {/* Brand + Creator row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: cfg.color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: cfg.color, flexShrink: 0 }}>
                       {s.brands?.name?.[0]?.toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: '#fff' }}>{s.brands?.name}</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: 0 }}>via {s.creators?.name}</p>
-                        {s.creators?.subscriber_count && (
-                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.06)', padding: '1px 6px', borderRadius: 10 }}>
+                      <p style={{ fontSize: 14, fontWeight: 600, margin: '0 0 3px', color: '#fff' }}>
+                        {s.brands?.name}
+                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,.35)' }}>
+                          via {s.creators?.name}
+                        </span>
+                        {s.creators?.subscriber_count > 0 && (
+                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.05)', padding: '1px 6px', borderRadius: 8 }}>
                             {formatSubs(s.creators.subscriber_count)}
                           </span>
                         )}
                         {s.creators?.category && (
-                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 10 }}>
+                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 8 }}>
                             {s.creators.category}
                           </span>
                         )}
                       </div>
                     </div>
+                    {s.dar_score >= 75 && (
+                      <div style={{ flexShrink: 0 }}>
+                        <i className="ti ti-shield-check" style={{ fontSize: 14, color: '#34D399', opacity: .7 }} aria-hidden="true" />
+                      </div>
+                    )}
                   </div>
 
-                  {/* Exact quote — the killer feature */}
+                  {/* Quote — always visible */}
                   {s.exact_quote && (
-                    <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '10px 12px', marginBottom: 12, borderLeft: `3px solid ${type.color}` }}>
+                    <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '9px 11px', marginBottom: 10, borderLeft: `2px solid ${cfg.color}` }}>
                       <p style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
-                        "{s.exact_quote.slice(0, 150)}{s.exact_quote.length > 150 ? '...' : ''}"
+                        "{s.exact_quote.slice(0, isOpen ? 300 : 120)}{!isOpen && s.exact_quote.length > 120 ? '...' : ''}"
                       </p>
                     </div>
                   )}
 
-                  {/* Offer text */}
-                  {s.offer_text && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                      <span style={{ fontSize: 11, color: '#4ADE80', background: 'rgba(34,197,94,.1)', padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(34,197,94,.2)' }}>
-                        {s.offer_text}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Video */}
+                  {/* Video title */}
                   {s.video_title && (
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      📺 {s.video_title}
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <i className="ti ti-brand-youtube" style={{ fontSize: 12, marginRight: 4 }} aria-hidden="true" />
+                      {s.video_title}
                     </p>
                   )}
 
                   {/* Bottom row */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,.06)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {s.promo_code ? (
-                        <span style={{ fontFamily: 'monospace', fontSize: 13, background: 'rgba(255,255,255,.07)', padding: '4px 10px', borderRadius: 6, letterSpacing: '.05em', color: '#fff' }}>
-                          {s.promo_code}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {s.is_active ? (
+                        <span style={{ fontSize: 10, color: '#34D399', display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#34D399', display: 'inline-block' }} />
+                          Active
                         </span>
                       ) : (
-                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', fontStyle: 'italic' }}>
-                          {s.sponsorship_type === 'url' ? 'Custom link' : s.sponsorship_type === 'mention' ? 'Organic mention' : 'No code'}
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)' }}>Unverified</span>
+                      )}
+                      {s.sponsorship_type && (
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 7px', borderRadius: 8 }}>
+                          {s.sponsorship_type}
                         </span>
                       )}
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 5, background: s.is_active ? 'rgba(34,197,94,.1)' : 'rgba(255,255,255,.05)', color: s.is_active ? '#4ADE80' : 'rgba(255,255,255,.25)', border: `1px solid ${s.is_active ? 'rgba(34,197,94,.2)' : 'rgba(255,255,255,.06)'}` }}>
-                        {s.is_active ? 'Active' : 'Unverified'}
-                      </span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
                       {s.video_id && (
-                        <a href={`https://youtube.com/watch?v=${s.video_id}`} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 11, padding: '5px 12px', borderRadius: 7, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.4)', border: '1px solid rgba(255,255,255,.08)', textDecoration: 'none' }}>
-                          Watch ↗
+                        <a href={`https://youtube.com/watch?v=${s.video_id}`}
+                          target="_blank" rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          style={{ fontSize: 11, padding: '5px 11px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.4)', border: '0.5px solid rgba(255,255,255,.08)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <i className="ti ti-player-play" style={{ fontSize: 11 }} aria-hidden="true" />
+                          Watch
                         </a>
                       )}
-                      {s.promo_code && (
-                        <button onClick={() => copyCode(s.promo_code)}
-                          style={{ fontSize: 11, padding: '5px 12px', borderRadius: 7, background: copied === s.promo_code ? 'rgba(34,197,94,.15)' : 'rgba(99,102,241,.15)', color: copied === s.promo_code ? '#4ADE80' : '#818CF8', border: `1px solid ${copied === s.promo_code ? 'rgba(34,197,94,.3)' : 'rgba(99,102,241,.25)'}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 500 }}>
-                          {copied === s.promo_code ? '✓ Copied!' : 'Copy code'}
+                      {hasDeal && (
+                        <button className="deal-btn"
+                          onClick={e => {
+                            e.stopPropagation()
+                            if (s.promo_code) copyCode(s.promo_code, s.id)
+                            else setExpanded(s.id)
+                          }}
+                          style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: copied === s.id ? 'rgba(34,197,94,.15)' : cfg.bg, color: copied === s.id ? '#34D399' : cfg.color, border: `0.5px solid ${copied === s.id ? 'rgba(34,197,94,.3)' : cfg.border}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 500 }}>
+                          {copied === s.id ? '✓ Copied' : s.promo_code ? 'Get code' : 'See deal'}
                         </button>
                       )}
                     </div>
                   </div>
+
+                  {/* Expanded deal panel */}
+                  {isOpen && hasDeal && (
+                    <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,.04)', borderRadius: 12, border: `0.5px solid ${cfg.border}` }}
+                      onClick={e => e.stopPropagation()}>
+                      {s.offer_text && (
+                        <p style={{ fontSize: 12, color: '#34D399', marginBottom: s.promo_code ? 10 : 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <i className="ti ti-gift" style={{ fontSize: 14 }} aria-hidden="true" />
+                          {s.offer_text}
+                        </p>
+                      )}
+                      {s.promo_code && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,.06)', borderRadius: 9, padding: '9px 12px' }}>
+                          <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 600, color: '#fff', letterSpacing: '.08em' }}>
+                            {s.promo_code}
+                          </span>
+                          <button onClick={() => copyCode(s.promo_code, s.id)}
+                            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 7, background: copied === s.id ? 'rgba(34,197,94,.2)' : cfg.bg, color: copied === s.id ? '#34D399' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 600 }}>
+                            {copied === s.id ? '✓ Copied!' : 'Copy code'}
+                          </button>
+                        </div>
+                      )}
+                      {s.promo_url && !s.promo_code && (
+                        <a href={s.promo_url} target="_blank" rel="noopener noreferrer"
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: cfg.color, textDecoration: 'none', marginTop: 6 }}>
+                          <i className="ti ti-external-link" style={{ fontSize: 13 }} aria-hidden="true" />
+                          Go to deal
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
 
-            {hasMore && (
-              <button className="load-more" onClick={loadMore}
-                style={{ width: '100%', padding: '14px', borderRadius: 12, background: 'rgba(99,102,241,.1)', border: '1px solid rgba(99,102,241,.2)', color: '#818CF8', fontSize: 13, cursor: 'pointer', transition: 'all .15s', marginTop: 4 }}>
-                {loading ? 'Loading...' : 'Load more'}
-              </button>
-            )}
+            {/* Infinite scroll trigger */}
+            <div ref={loaderRef} style={{ padding: '20px 0', textAlign: 'center' }}>
+              {loading && page > 0 && (
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,.2)' }}>Loading more...</p>
+              )}
+              {!hasMore && feed.length > 0 && (
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,.15)' }}>You're all caught up</p>
+              )}
+            </div>
           </div>
         )}
       </div>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </Layout>
   )
 }
