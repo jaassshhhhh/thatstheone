@@ -3,11 +3,11 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 const tabs = [
-  { href: '/feed', label: 'Feed', icon: '◈' },
-  { href: '/search', label: 'Search', icon: '⌕' },
-  { href: '/trending', label: 'Trending', icon: '↑' },
-  { href: '/profile', label: 'Profile', icon: '◎' },
-]
+    { href: '/feed', label: 'Feed', icon: '◈' },
+    { href: '/search', label: 'Search', icon: '⌕' },
+    { href: '/trending', label: 'Trending', icon: '↑' },
+    { href: '/creators', label: 'Creators', icon: '◎' },
+  ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

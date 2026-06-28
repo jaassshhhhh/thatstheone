@@ -1,0 +1,113 @@
+'use client'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import Layout from '../components/Layout'
+import Link from 'next/link'
+
+const PLATFORM_ICONS: Record<string, string> = {
+  youtube: '▶', podcast: '🎙', twitch: '🎮', reddit: '🔴', newsletter: '📰',
+}
+
+function formatSubs(n: number) {
+  if (!n) return ''
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
+  if (n >= 1000) return `${Math.round(n / 1000)}k`
+  return `${n}`
+}
+
+export default function CreatorsPage() {
+  const [creators, setCreators] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('All')
+  const [categories, setCategories] = useState<string[]>(['All'])
+  const [platform, setPlatform] = useState('All')
+
+  useEffect(() => { loadCreators() }, [])
+
+  async function loadCreators() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('creators')
+      .select('id, name, slug, category, platform, subscriber_count, avatar_url, total_sponsorships')
+      .order('subscriber_count', { ascending: false, nullsFirst: false })
+      .limit(200)
+    const items = data || []
+    setCreators(items)
+    const cats = ['All', ...new Set(items.map((c: any) => c.category).filter(Boolean))]
+    setCategories(cats)
+    setLoading(false)
+  }
+
+  const filtered = creators.filter(c => {
+    const matchSearch = !search || c.name?.toLowerCase().includes(search.toLowerCase())
+    const matchCat = category === 'All' || c.category === category
+    const matchPlat = platform === 'All' || c.platform === platform
+    return matchSearch && matchCat && matchPlat
+  })
+
+  return (
+    <Layout>
+      <style>{`.cc{transition:border-color .2s,transform .2s}.cc:hover{border-color:rgba(255,255,255,.14)!important;transform:translateY(-1px)}`}</style>
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '16px 14px 40px' }}>
+        <div style={{ marginBottom: 16 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: '0 0 3px' }}>Creators</h1>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,.3)', margin: 0 }}>{creators.length} creators tracked</p>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, background: 'rgba(255,255,255,.05)', border: '0.5px solid rgba(255,255,255,.1)', borderRadius: 12, padding: '5px 5px 5px 14px', marginBottom: 12 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search creators..."
+            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 14, color: '#fff', padding: '7px 0' }} />
+          {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.3)', cursor: 'pointer', padding: '0 8px', fontSize: 16 }}>×</button>}
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto' }}>
+          {['All', 'youtube', 'podcast', 'twitch'].map(p => (
+            <button key={p} onClick={() => setPlatform(p)}
+              style={{ fontSize: 11, padding: '5px 12px', borderRadius: 20, border: '0.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .15s', borderColor: platform === p ? '#6366F1' : 'rgba(255,255,255,.08)', background: platform === p ? 'rgba(99,102,241,.15)' : 'transparent', color: platform === p ? '#818CF8' : 'rgba(255,255,255,.4)' }}>
+              {p === 'All' ? 'All platforms' : `${PLATFORM_ICONS[p]} ${p.charAt(0).toUpperCase() + p.slice(1)}`}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto' }}>
+          {categories.slice(0, 8).map(c => (
+            <button key={c} onClick={() => setCategory(c)}
+              style={{ fontSize: 11, padding: '5px 12px', borderRadius: 20, border: '0.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', borderColor: category === c ? '#6366F1' : 'rgba(255,255,255,.06)', background: category === c ? 'rgba(99,102,241,.12)' : 'transparent', color: category === c ? '#818CF8' : 'rgba(255,255,255,.3)' }}>
+              {c}
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,.2)' }}><p>Loading...</p></div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {filtered.map((c, i) => (
+              <Link key={c.id} href={`/creators/${c.slug}`} style={{ textDecoration: 'none' }}>
+                <div className="cc" style={{ background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 11, background: 'rgba(99,102,241,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#818CF8', flexShrink: 0, overflow: 'hidden' }}>
+                    {c.avatar_url ? <img src={c.avatar_url} alt={c.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 11 }} /> : c.name?.[0]?.toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#fff', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {c.subscriber_count > 0 && <span style={{ fontSize: 11, color: 'rgba(255,255,255,.3)' }}>{formatSubs(c.subscriber_count)}</span>}
+                      {c.category && <><span style={{ fontSize: 10, color: 'rgba(255,255,255,.15)' }}>·</span><span style={{ fontSize: 11, color: 'rgba(255,255,255,.25)' }}>{c.category}</span></>}
+                      {c.platform && <><span style={{ fontSize: 10, color: 'rgba(255,255,255,.15)' }}>·</span><span style={{ fontSize: 11, color: 'rgba(255,255,255,.2)' }}>{PLATFORM_ICONS[c.platform]} {c.platform}</span></>}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    {c.total_sponsorships > 0 && <p style={{ fontSize: 13, fontWeight: 600, color: '#818CF8', margin: '0 0 2px' }}>{c.total_sponsorships}</p>}
+                    <p style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', margin: 0 }}>deals</p>
+                  </div>
+                  <span style={{ fontSize: 14, color: 'rgba(255,255,255,.2)' }}>›</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </Layout>
+  )
+}
