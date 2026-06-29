@@ -187,25 +187,26 @@ export default function FeedPage() {
     setLoading(false)
   }
 
-  async function toggleReaction(e: React.MouseEvent, targetId: string, reactionType: string) {
+  async function toggleReaction(e: React.MouseEvent, stateKey: string, reactionType: string, dbId?: string) {
     e.stopPropagation()
     const session = getSession()
     if (!session) return
-    const isActive = myReactions[targetId]?.includes(reactionType)
-    setMyReactions(prev => ({ ...prev, [targetId]: isActive ? (prev[targetId] || []).filter(r => r !== reactionType) : [...(prev[targetId] || []), reactionType] }))
+    const isActive = myReactions[stateKey]?.includes(reactionType)
+    setMyReactions(prev => ({ ...prev, [stateKey]: isActive ? (prev[stateKey] || []).filter(r => r !== reactionType) : [...(prev[stateKey] || []), reactionType] }))
     setReactionCounts(prev => {
-      const cur = prev[targetId] || {}
-      return { ...prev, [targetId]: { ...cur, [reactionType]: Math.max(0, (cur[reactionType] || 0) + (isActive ? -1 : 1)) } }
+      const cur = prev[stateKey] || {}
+      return { ...prev, [stateKey]: { ...cur, [reactionType]: Math.max(0, (cur[reactionType] || 0) + (isActive ? -1 : 1)) } }
     })
+    if (!dbId) return
     if (isActive) {
-      await supabase.from('user_reactions').delete().eq('session_id', session).eq('target_id', targetId).eq('reaction_type', reactionType)
+      await supabase.from('user_reactions').delete().eq('session_id', session).eq('target_id', dbId).eq('reaction_type', reactionType)
     } else {
-      await supabase.from('user_reactions').insert({ session_id: session, target_id: targetId, reaction_type: reactionType })
+      await supabase.from('user_reactions').insert({ session_id: session, target_id: dbId, reaction_type: reactionType })
       if (reactionType === 'code_expired') {
-        const newCount = (reactionCounts[targetId]?.code_expired || 0) + 1
+        const newCount = (reactionCounts[stateKey]?.code_expired || 0) + 1
         if (newCount >= 5) {
-          await supabase.from('sponsorships').update({ is_active: false }).eq('id', targetId)
-          setFeed(prev => prev.map((s: any) => s.id === targetId ? { ...s, is_active: false } : s))
+          await supabase.from('sponsorships').update({ is_active: false }).eq('id', dbId)
+          setFeed(prev => prev.map((s: any) => s.id === dbId ? { ...s, is_active: false } : s))
         }
       }
     }
@@ -406,21 +407,19 @@ export default function FeedPage() {
                     </div>
                   </div>
 
-                  {s.id && (
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingTop: 10, marginTop: 10, borderTop: '0.5px solid rgba(255,255,255,.04)' }}
-                      onClick={e => e.stopPropagation()}>
-                      {REACTIONS.map(r => {
-                        const count = reactionCounts[s.id]?.[r.type] || 0
-                        const active = myReactions[s.id]?.includes(r.type)
-                        return (
-                          <button key={r.type} onClick={e => toggleReaction(e, s.id, r.type)}
-                            style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, border: '0.5px solid', cursor: 'pointer', transition: 'all .15s', background: active ? r.activeBg : 'transparent', color: active ? r.activeColor : 'rgba(255,255,255,.25)', borderColor: active ? r.activeBorder : 'rgba(255,255,255,.08)' }}>
-                            {r.emoji} {r.label}{count > 0 ? ` · ${count}` : ''}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingTop: 10, marginTop: 10, borderTop: '0.5px solid rgba(255,255,255,.04)' }}
+                    onClick={e => e.stopPropagation()}>
+                    {REACTIONS.map(r => {
+                      const count = reactionCounts[cardId]?.[r.type] || 0
+                      const active = myReactions[cardId]?.includes(r.type)
+                      return (
+                        <button key={r.type} onClick={e => toggleReaction(e, cardId, r.type, s.id)}
+                          style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, border: '0.5px solid', cursor: 'pointer', transition: 'all .15s', background: active ? r.activeBg : 'transparent', color: active ? r.activeColor : 'rgba(255,255,255,.25)', borderColor: active ? r.activeBorder : 'rgba(255,255,255,.08)' }}>
+                          {r.emoji} {r.label}{count > 0 ? ` · ${count}` : ''}
+                        </button>
+                      )
+                    })}
+                  </div>
 
                   {isOpen && hasDeal && (
                     <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,.04)', borderRadius: 12, border: `0.5px solid ${cfg.border}` }}
@@ -449,6 +448,12 @@ export default function FeedPage() {
                           Go to deal
                         </a>
                       )}
+                      <a
+                        href={s.promo_url || `https://www.google.com/search?q=${encodeURIComponent((s.brand_name || s.brands?.name || '') + ' official site')}`}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'rgba(255,255,255,.28)', textDecoration: 'none', marginTop: 10 }}>
+                        Visit brand →
+                      </a>
                     </div>
                   )}
                 </div>
