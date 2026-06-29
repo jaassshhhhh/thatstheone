@@ -78,6 +78,13 @@ function formatSubs(n: number) {
 
 const FILTERS = ['All', 'For you', 'Trending', 'Deals', 'Organic', 'New']
 
+const REACTIONS = [
+  { type: 'upvote',       emoji: '👍', label: 'Helpful',    activeBg: 'rgba(99,102,241,.15)', activeColor: '#818CF8', activeBorder: 'rgba(99,102,241,.3)' },
+  { type: 'code_worked',  emoji: '✓',  label: 'Worked',     activeBg: 'rgba(52,211,153,.1)',  activeColor: '#34D399', activeBorder: 'rgba(52,211,153,.3)' },
+  { type: 'code_expired', emoji: '✗',  label: 'Expired',    activeBg: 'rgba(239,68,68,.1)',   activeColor: '#F87171', activeBorder: 'rgba(239,68,68,.3)' },
+  { type: 'use_this',     emoji: '♥',  label: 'I use this', activeBg: 'rgba(236,72,153,.1)',  activeColor: '#F472B6', activeBorder: 'rgba(236,72,153,.3)' },
+]
+
 export default function FeedPage() {
   const [feed, setFeed] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -88,6 +95,8 @@ export default function FeedPage() {
   const [copied, setCopied] = useState<string | null>(null)
   const [totalCount, setTotalCount] = useState(0)
   const [userSearches, setUserSearches] = useState<string[]>([])
+  const [reactionCounts, setReactionCounts] = useState<Record<string, Record<string, number>>>({})
+  const [myReactions, setMyReactions] = useState<Record<string, string[]>>({})
   const loaderRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -151,10 +160,55 @@ export default function FeedPage() {
     let filtered = classified
     if (filter === 'For you') filtered = classified.filter(s => s.cardType === 'PERSONAL')
 
+    const ids = classified.filter((s: any) => s.id).map((s: any) => s.id)
+    if (ids.length) {
+      const session = getSession()
+      const [{ data: allRx }, { data: myRx }] = await Promise.all([
+        supabase.from('user_reactions').select('target_id,reaction_type').in('target_id', ids),
+        supabase.from('user_reactions').select('target_id,reaction_type').in('target_id', ids).eq('session_id', session!),
+      ])
+      const counts: Record<string, Record<string, number>> = {}
+      for (const row of allRx || []) {
+        if (!counts[row.target_id]) counts[row.target_id] = {}
+        counts[row.target_id][row.reaction_type] = (counts[row.target_id][row.reaction_type] || 0) + 1
+      }
+      const mine: Record<string, string[]> = {}
+      for (const row of myRx || []) {
+        if (!mine[row.target_id]) mine[row.target_id] = []
+        mine[row.target_id].push(row.reaction_type)
+      }
+      if (reset) { setReactionCounts(counts); setMyReactions(mine) }
+      else { setReactionCounts(prev => ({ ...prev, ...counts })); setMyReactions(prev => ({ ...prev, ...mine })) }
+    }
+
     if (reset) setFeed(filtered)
     else setFeed(prev => [...prev, ...filtered])
     setHasMore(items.length === 20)
     setLoading(false)
+  }
+
+  async function toggleReaction(e: React.MouseEvent, targetId: string, reactionType: string) {
+    e.stopPropagation()
+    const session = getSession()
+    if (!session) return
+    const isActive = myReactions[targetId]?.includes(reactionType)
+    setMyReactions(prev => ({ ...prev, [targetId]: isActive ? (prev[targetId] || []).filter(r => r !== reactionType) : [...(prev[targetId] || []), reactionType] }))
+    setReactionCounts(prev => {
+      const cur = prev[targetId] || {}
+      return { ...prev, [targetId]: { ...cur, [reactionType]: Math.max(0, (cur[reactionType] || 0) + (isActive ? -1 : 1)) } }
+    })
+    if (isActive) {
+      await supabase.from('user_reactions').delete().eq('session_id', session).eq('target_id', targetId).eq('reaction_type', reactionType)
+    } else {
+      await supabase.from('user_reactions').insert({ session_id: session, target_id: targetId, reaction_type: reactionType })
+      if (reactionType === 'code_expired') {
+        const newCount = (reactionCounts[targetId]?.code_expired || 0) + 1
+        if (newCount >= 5) {
+          await supabase.from('sponsorships').update({ is_active: false }).eq('id', targetId)
+          setFeed(prev => prev.map((s: any) => s.id === targetId ? { ...s, is_active: false } : s))
+        }
+      }
+    }
   }
 
   const copyCode = async (code: string, id: string, brand: string) => {
@@ -351,6 +405,22 @@ export default function FeedPage() {
                       )}
                     </div>
                   </div>
+
+                  {s.id && (
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingTop: 10, marginTop: 10, borderTop: '0.5px solid rgba(255,255,255,.04)' }}
+                      onClick={e => e.stopPropagation()}>
+                      {REACTIONS.map(r => {
+                        const count = reactionCounts[s.id]?.[r.type] || 0
+                        const active = myReactions[s.id]?.includes(r.type)
+                        return (
+                          <button key={r.type} onClick={e => toggleReaction(e, s.id, r.type)}
+                            style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, border: '0.5px solid', cursor: 'pointer', transition: 'all .15s', background: active ? r.activeBg : 'transparent', color: active ? r.activeColor : 'rgba(255,255,255,.25)', borderColor: active ? r.activeBorder : 'rgba(255,255,255,.08)' }}>
+                            {r.emoji} {r.label}{count > 0 ? ` · ${count}` : ''}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
 
                   {isOpen && hasDeal && (
                     <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,.04)', borderRadius: 12, border: `0.5px solid ${cfg.border}` }}
