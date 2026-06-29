@@ -1,30 +1,37 @@
-import { supabase } from './lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 export default async function sitemap() {
   const baseUrl = 'https://thatsthe.one'
 
-  // Static pages
   const static_pages = [
-    { url: baseUrl, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
-    { url: `${baseUrl}/feed`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
-    { url: `${baseUrl}/search`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
-    { url: `${baseUrl}/trending`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
-    { url: `${baseUrl}/creators`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+    { url: baseUrl, lastModified: new Date(), changeFrequency: 'daily' as const, priority: 1 },
+    { url: `${baseUrl}/feed`, lastModified: new Date(), changeFrequency: 'daily' as const, priority: 0.9 },
+    { url: `${baseUrl}/search`, lastModified: new Date(), changeFrequency: 'daily' as const, priority: 0.8 },
+    { url: `${baseUrl}/trending`, lastModified: new Date(), changeFrequency: 'daily' as const, priority: 0.8 },
+    { url: `${baseUrl}/creators`, lastModified: new Date(), changeFrequency: 'daily' as const, priority: 0.8 },
   ]
 
-  // Creator pages — one URL per creator
-  const { data: creators } = await supabase
-    .from('creators')
-    .select('slug, updated_at')
-    .not('slug', 'is', null)
-    .limit(500)
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
-  const creatorPages = (creators || []).map(c => ({
-    url: `${baseUrl}/creators/${c.slug}`,
-    lastModified: new Date(c.updated_at || new Date()),
-    changeFrequency: 'weekly' as const,
-    priority: 0.7,
-  }))
+    const { data: creators } = await supabase
+      .from('creators')
+      .select('slug')
+      .not('slug', 'is', null)
+      .limit(1000)
 
-  return [...static_pages, ...creatorPages]
+    const creatorPages = (creators || []).map(c => ({
+      url: `${baseUrl}/creators/${c.slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+    }))
+
+    return [...static_pages, ...creatorPages]
+  } catch (e) {
+    return static_pages
+  }
 }
