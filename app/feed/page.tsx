@@ -400,10 +400,10 @@ export default function FeedPage() {
                         {s.is_active ? 'Active' : 'Unverified'}
                       </span>
                       {s.platform && (
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 6 }}>
-                          {s.platform}
-                        </span>
-                      )}
+  <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 6 }}>
+    {s.platform === 'linktree' ? '🌳 linktree' : s.platform === 'amazon' ? '🛒 amazon' : s.platform}
+  </span>
+)}
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       {videoId && (
