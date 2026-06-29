@@ -30,7 +30,9 @@ async function trackSearch(query: string) {
   await trackSignal('search', query)
 }
 
-export default function SearchPage() {
+import { Suspense } from 'react'
+
+function SearchContent() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -161,6 +163,7 @@ export default function SearchPage() {
     if (!date) return ''
     return new Date(date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
   }
+  
 
   return (
     <Layout>
@@ -348,3 +351,10 @@ export default function SearchPage() {
     </Layout>
   )
 }
+export default function SearchPage() {
+    return (
+      <Suspense fallback={<div style={{ background: '#060810', minHeight: '100vh' }} />}>
+        <SearchContent />
+      </Suspense>
+    )
+  }
