@@ -16,12 +16,14 @@ const YT_KEY = process.env.YOUTUBE_API_KEY
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID
 const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET
 
-// ─── Normalised content format ────────────────────────────
+const MIN_SUBSCRIBERS = 50000
+const MAX_CREATORS_PER_RUN = 60
+const VIDEOS_PER_CREATOR = 30
+
 function makeContent(platform, externalId, creatorName, title, rawText, mediaUrl, publishedAt, contentType = 'video') {
   return { platform, externalId, creatorName, title, rawText, mediaUrl, publishedAt, contentType }
 }
 
-// ─── Shared utilities ─────────────────────────────────────
 function isValidCode(code) {
   if (!code) return false
   if (code.length < 2 || code.length > 12) return false
@@ -67,7 +69,49 @@ function timeAgo(ms) {
   return `${Math.floor(s / 86400)}d`
 }
 
-// ─── AI extraction (shared by all sources) ────────────────
+async function generateHeadline(brand, creatorName, sponsorshipType, offerText, promoCode, exactQuote, platform) {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You write punchy editorial headlines for a creator deal intelligence feed.
+
+Rules:
+- Max 12 words
+- Write like a journalist, not an advertiser
+- Third person — describe what is happening, never say "sign up", "get", "unlock", "grab"
+- Be specific — mention numbers, names, actual offers when available
+- No exclamation marks ever
+- No quotes around the headline
+
+Good examples:
+Thomas Frank has been pushing Skillshare for 3 years straight
+Audible giving away free audiobooks through creator codes right now
+Brilliant cutting 20% for the next 200 signups via Veritasium
+Trading 212 offering £100 in free shares through UK creators
+
+Return ONLY the headline text. No quotes. No exclamation marks.`
+        },
+        {
+          role: 'user',
+          content: `Brand: ${brand}
+Creator: ${creatorName}
+Platform: ${platform}
+Type: ${sponsorshipType}
+Offer: ${offerText || 'none'}
+Code: ${promoCode || 'none'}
+Quote: ${exactQuote?.slice(0, 150) || 'none'}`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 50,
+    })
+    return completion.choices[0].message.content?.trim().replace(/^["']|["']$/g, '').replace(/!+/g, '') || null
+  } catch { return null }
+}
+
 async function extractFromContent(content) {
   if (!content.rawText || content.rawText.length < 40) return []
   try {
@@ -91,19 +135,9 @@ Return ONLY a JSON array. Each item:
 }
 
 promo_code: 2-12 chars, letters+numbers only. NOT: video IDs, generic words (FREE/WATCH/CLICK/CODE/LINK/GET), URLs, brand names.
-is_organic: true if creator genuinely recommends this without payment language.
-
-NEVER include as brands:
-- Video games (Fortnite, Minecraft, Valorant, GTA, etc)
-- Social platforms (YouTube, TikTok, Instagram, Twitter, Reddit)
-- Streaming services (Netflix, Spotify, Apple Music)
-- Other creators or YouTubers
-- Generic words (Item Shop, Battle Pass)
-- The creator's own name or channel
-
-For Reddit and community posts: focus on organic product recommendations where someone says "I use X and love it" or "X changed my life" — these are valuable even without a deal.
-
-Only confidence 0.85+. Return [] if nothing found. ONLY valid JSON array.`
+is_organic: true if creator mentions this without any deal/code/payment language.
+Only confidence 0.85+. Ignore YouTube, Google, social platforms, streaming services, video games.
+Return [] if nothing found. ONLY valid JSON array.`
         },
         {
           role: 'user',
@@ -134,119 +168,61 @@ ${content.rawText.slice(0, 3000)}`
       }))
   } catch { return [] }
 }
-async function generateHeadline(brand, creatorName, sponsorshipType, offerText, promoCode, exactQuote, platform) {
-    try {
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You write punchy, specific, scroll-stopping headlines for a creator sponsorship feed.
-  
-  Rules:
-  - Max 12 words
-  - Be specific about the actual deal — mention the discount, offer, or product benefit
-  - Sound like a journalist or newsletter writer, not a robot
-  - Make people curious enough to tap
-  - Never use "just", "amazing", "incredible", "exclusive"
-  - Reference actual numbers or specifics when available
-  - Examples of good headlines:
-    "NordVPN is giving Huberman fans 68% off — here's the code"
-    "MrBeast's chocolate brand just hired a 57M subscriber creator"
-    "Free fractional shares worth £100 — Mitch Shoesmith has the link"
-    "AG1 crossed into finance YouTube this week — 5 new deals"
-    "Shopify's $1/month deal is being pushed hard right now"
-  
-  Return ONLY the headline text, nothing else.`
-          },
-          {
-            role: 'user',
-            content: `Brand: ${brand}
-  Creator: ${creatorName}
-  Platform: ${platform}
-  Type: ${sponsorshipType}
-  Offer: ${offerText || 'none'}
-  Code: ${promoCode || 'none'}
-  Quote: ${exactQuote || 'none'}`
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 50,
-      })
-      return completion.choices[0].message.content?.trim() || null
-    } catch { return null }
-  }
 
-// ─── Database write (shared by all sources) ───────────────
 async function saveToDatabase(content, sponsors, creatorId) {
-    let saved = 0
-    for (const s of sponsors) {
-      const { data: brandData } = await supabase
-        .from('brands')
-        .upsert({ name: s.brand, slug: makeSlug(s.brand) }, { onConflict: 'slug' })
-        .select()
-        .single()
-      if (!brandData) continue
-  
-      const headline = await generateHeadline(
-        s.brand,
-        content.creatorName,
-        s.sponsorship_type,
-        s.offer_text,
-        s.promo_code,
-        s.exact_quote,
-        content.platform
-      )
-  
-      const { error } = await supabase
-        .from('sponsorships')
-        .upsert({
-          creator_id: creatorId,
-          brand_id: brandData.id,
-          promo_code: s.promo_code,
-          promo_url: s.promo_url,
-          offer_text: s.offer_text,
-          exact_quote: s.exact_quote,
-          sponsorship_type: s.sponsorship_type,
-          is_organic: s.is_organic || false,
-          platform: content.platform,
-          video_id: content.externalId,
-          video_title: content.title,
-          first_seen: content.publishedAt,
-          last_seen: content.publishedAt,
-          is_active: true,
-          dar_score: s.dar_score,
-          dar_source: s.dar_source,
-          headline,
-        }, { onConflict: 'video_id,brand_id' })
-  
-      if (!error) {
-        saved++
-        const dar = s.dar_score >= 70 ? '🟢' : '🟡'
-        const detail = s.promo_code || s.offer_text || s.sponsorship_type
-        console.log(`    ${dar} [${content.platform}] ${s.brand} → ${detail}`)
-        if (headline) console.log(`       📰 "${headline}"`)
-      }
+  let saved = 0
+  for (const s of sponsors) {
+    const { data: brandData } = await supabase
+      .from('brands')
+      .upsert({ name: s.brand, slug: makeSlug(s.brand) }, { onConflict: 'slug' })
+      .select().single()
+    if (!brandData) continue
+
+    const headline = await generateHeadline(
+      s.brand, content.creatorName, s.sponsorship_type,
+      s.offer_text, s.promo_code, s.exact_quote, content.platform
+    )
+
+    const { error } = await supabase
+      .from('sponsorships')
+      .upsert({
+        creator_id: creatorId,
+        brand_id: brandData.id,
+        promo_code: s.promo_code,
+        promo_url: s.promo_url,
+        offer_text: s.offer_text,
+        exact_quote: s.exact_quote,
+        sponsorship_type: s.sponsorship_type,
+        is_organic: s.is_organic || false,
+        platform: content.platform,
+        video_id: content.externalId,
+        video_title: content.title,
+        first_seen: content.publishedAt,
+        last_seen: content.publishedAt,
+        is_active: true,
+        dar_score: s.dar_score,
+        dar_source: s.dar_source,
+        headline,
+      }, { onConflict: 'video_id,brand_id' })
+
+    if (!error) {
+      saved++
+      const dar = s.dar_score >= 70 ? '🟢' : '🟡'
+      const detail = s.promo_code || s.offer_text || s.sponsorship_type
+      console.log(`    ${dar} [${content.platform}] ${s.brand} → ${detail}`)
+      if (headline) console.log(`       📰 ${headline}`)
     }
-    return saved
   }
+  return saved
+}
 
 // ═══════════════════════════════════════════════════════════
-// CONNECTOR 1 — YouTube (dynamic discovery)
+// CONNECTOR 1 — YouTube
 // ═══════════════════════════════════════════════════════════
+
 async function getKnownChannelIds() {
   const { data } = await supabase.from('creators').select('channel_id').not('channel_id', 'is', null)
   return new Set((data || []).map(c => c.channel_id))
-}
-
-async function searchYouTubeCreators(query, max = 8) {
-  try {
-    const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&q=${encodeURIComponent(query)}&type=channel&part=snippet&maxResults=${max}&order=relevance`
-    const res = await fetch(url)
-    const data = await res.json()
-    if (data.error) return []
-    return (data.items || []).map(i => ({ channelId: i.id?.channelId, name: i.snippet?.channelTitle })).filter(c => c.channelId)
-  } catch { return [] }
 }
 
 async function getYouTubeChannelStats(channelId) {
@@ -259,114 +235,226 @@ async function getYouTubeChannelStats(channelId) {
     return {
       name: ch.snippet.title,
       subscribers: parseInt(ch.statistics?.subscriberCount || '0'),
+      viewCount: parseInt(ch.statistics?.viewCount || '0'),
+      videoCount: parseInt(ch.statistics?.videoCount || '0'),
       thumbnail: ch.snippet.thumbnails?.default?.url,
     }
   } catch { return null }
 }
 
-async function getYouTubeVideos(channelId, max = 20) {
-  const videos = []
-  let pageToken = null
-  while (videos.length < max) {
-    const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&channelId=${channelId}&part=snippet&order=date&maxResults=50&type=video${pageToken ? `&pageToken=${pageToken}` : ''}`
+async function searchYouTubeChannels(query, max = 10) {
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&q=${encodeURIComponent(query)}&type=channel&part=snippet&maxResults=${max}&order=relevance`
     const res = await fetch(url)
     const data = await res.json()
-    if (data.error || !data.items?.length) break
-    const ids = data.items.map(v => v.id?.videoId).filter(Boolean)
-    if (!ids.length) break
-    const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&id=${ids.join(',')}&part=snippet`)
-    const detData = await det.json()
-    videos.push(...(detData.items || []))
-    pageToken = data.nextPageToken || null
-    if (!pageToken || videos.length >= max) break
-    await new Promise(r => setTimeout(r, 200))
+    if (data.error) return []
+    return (data.items || []).map(i => ({ channelId: i.id?.channelId, name: i.snippet?.channelTitle })).filter(c => c.channelId)
+  } catch { return [] }
+}
+
+async function discoverByCategory() {
+  const categories = [
+    'personal finance', 'stock investing', 'crypto trading', 'real estate investing',
+    'tech review', 'software tools', 'AI productivity', 'coding tutorial',
+    'health wellness', 'fitness workout', 'nutrition diet', 'mental health',
+    'productivity', 'self improvement', 'entrepreneurship', 'business strategy',
+    'lifestyle vlog', 'travel', 'food recipe', 'fashion style', 'beauty makeup',
+    'science education', 'history documentary', 'philosophy',
+    'gaming review', 'game walkthrough', 'car review', 'watch review', 'photography',
+    'parenting', 'home improvement', 'language learning', 'book review',
+  ]
+  const channels = []
+  for (const cat of categories) {
+    const results = await searchYouTubeChannels(`${cat} channel`, 5)
+    channels.push(...results)
+    await new Promise(r => setTimeout(r, 150))
   }
+  return channels
+}
+
+async function discoverByPopularity() {
+  const queries = [
+    'top youtube creators million subscribers',
+    'viral youtube channel 2024',
+    'fastest growing youtube channel',
+    'most subscribed youtube creator',
+    'popular youtube creator sponsorship',
+    'youtube influencer brand deal',
+    'top creator brand partnership youtube',
+    'youtube creator sponsor ad read',
+    'best youtube channel sponsorship',
+    'youtube creator product recommendation',
+  ]
+  const channels = []
+  for (const q of queries) {
+    const results = await searchYouTubeChannels(q, 8)
+    channels.push(...results)
+    await new Promise(r => setTimeout(r, 150))
+  }
+  return channels
+}
+
+async function discoverByBrand() {
+  const { data: brands } = await supabase
+    .from('brands')
+    .select('name')
+    .limit(20)
+  const channels = []
+  for (const brand of (brands || [])) {
+    const results = await searchYouTubeChannels(`${brand.name} review sponsor`, 4)
+    channels.push(...results)
+    await new Promise(r => setTimeout(r, 150))
+  }
+  return channels
+}
+
+async function discoverByRelated(knownIds) {
+  const { data: existingCreators } = await supabase
+    .from('creators')
+    .select('channel_id, name, category')
+    .eq('platform', 'youtube')
+    .not('channel_id', 'is', null)
+    .limit(20)
+  const channels = []
+  for (const creator of (existingCreators || [])) {
+    const results = await searchYouTubeChannels(`${creator.name} similar creator`, 3)
+    channels.push(...results.filter(c => !knownIds.has(c.channelId)))
+    await new Promise(r => setTimeout(r, 150))
+  }
+  return channels
+}
+
+async function getYouTubeVideos(channelId, max = VIDEOS_PER_CREATOR) {
+  const half = Math.floor(max / 2)
+  const videos = []
+  const seen = new Set()
+
+  // Most recent — catches new deals and trends
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&channelId=${channelId}&part=snippet&order=date&maxResults=50&type=video`
+    const res = await fetch(url)
+    const data = await res.json()
+    if (!data.error && data.items?.length) {
+      const ids = data.items.map(v => v.id?.videoId).filter(Boolean).slice(0, half)
+      if (ids.length) {
+        const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&id=${ids.join(',')}&part=snippet,statistics`)
+        const detData = await det.json()
+        for (const v of (detData.items || [])) {
+          if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
+        }
+      }
+    }
+  } catch {}
+
+  await new Promise(r => setTimeout(r, 200))
+
+  // Most viewed — catches high-reach sponsorships
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&channelId=${channelId}&part=snippet&order=viewCount&maxResults=50&type=video`
+    const res = await fetch(url)
+    const data = await res.json()
+    if (!data.error && data.items?.length) {
+      const ids = data.items.map(v => v.id?.videoId).filter(Boolean)
+      const newIds = ids.filter(id => !seen.has(id)).slice(0, max - videos.length)
+      if (newIds.length) {
+        const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&id=${newIds.join(',')}&part=snippet,statistics`)
+        const detData = await det.json()
+        for (const v of (detData.items || [])) {
+          if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
+        }
+      }
+    }
+  } catch {}
+
   return videos.slice(0, max)
 }
 
-async function getDynamicYouTubeSeeds() {
-  const base = [
-    'tech review', 'personal finance', 'productivity', 'health wellness',
-    'fitness', 'self improvement', 'entrepreneurship', 'investing',
-    'education science', 'gaming', 'AI technology', 'crypto',
-    'career advice', 'mental health', 'real estate', 'cooking food',
-    'travel vlog', 'fashion style', 'beauty', 'sports',
-  ]
-  const { data: trends } = await supabase
-    .from('search_trends')
-    .select('query')
-    .order('count', { ascending: false })
-    .limit(10)
-  const { data: topBrands } = await supabase
-    .from('brands')
-    .select('name')
-    .limit(10)
-  const brandSeeds = (topBrands || []).map(b => `${b.name} sponsor youtube`)
-  const trendSeeds = (trends || []).map(t => t.query)
-  return [...base, ...trendSeeds, ...brandSeeds]
-}
-
-async function runYouTube(knownIds, maxCreators = 40) {
+async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN) {
   console.log('\n▶ YouTube connector starting...')
-  const seeds = await getDynamicYouTubeSeeds()
-  console.log(`  📋 ${seeds.length} seeds (base + user trends + brand discovery)`)
+  console.log('  🔍 Running 4 discovery strategies in parallel...')
+
+  const [byCategory, byPopularity, byBrand, byRelated] = await Promise.all([
+    discoverByCategory(),
+    discoverByPopularity(),
+    discoverByBrand(),
+    discoverByRelated(knownIds),
+  ])
+
+  const seen = new Set()
+  const allCandidates = [...byCategory, ...byPopularity, ...byBrand, ...byRelated]
+    .filter(c => {
+      if (!c.channelId || seen.has(c.channelId) || knownIds.has(c.channelId)) return false
+      seen.add(c.channelId)
+      return true
+    })
+
+  console.log(`  📋 ${allCandidates.length} unique candidates:`)
+  console.log(`     ${byCategory.length} from categories`)
+  console.log(`     ${byPopularity.length} from popularity`)
+  console.log(`     ${byBrand.length} from brands`)
+  console.log(`     ${byRelated.length} from related channels`)
+
   let creators = 0
   let sponsorships = 0
 
-  for (const seed of seeds) {
+  for (const candidate of allCandidates) {
     if (creators >= maxCreators) break
-    const candidates = await searchYouTubeCreators(seed, 6)
-    for (const c of candidates) {
-      if (creators >= maxCreators || !c.channelId || knownIds.has(c.channelId)) continue
-      const stats = await getYouTubeChannelStats(c.channelId)
-      if (!stats || stats.subscribers < 50000) continue
-      knownIds.add(c.channelId)
-      creators++
+    if (!candidate.channelId || knownIds.has(candidate.channelId)) continue
 
-      const { data: creatorData } = await supabase
-        .from('creators')
-        .upsert({
-          name: stats.name,
-          slug: makeSlug(stats.name),
-          channel_id: c.channelId,
-          subscriber_count: stats.subscribers,
-          avatar_url: stats.thumbnail,
-          platform: 'youtube',
-        }, { onConflict: 'channel_id' })
-        .select().single()
+    const stats = await getYouTubeChannelStats(candidate.channelId)
+    if (!stats || stats.subscribers < MIN_SUBSCRIBERS) continue
 
-      if (!creatorData) continue
-      console.log(`  👤 ${stats.name} (${(stats.subscribers / 1000000).toFixed(1)}M)`)
+    const viewsPerSub = stats.viewCount / Math.max(stats.subscribers, 1)
+    const isHighEngagement = viewsPerSub > 50
 
-      const videos = await getYouTubeVideos(c.channelId, 20)
-      for (const video of videos) {
-        const content = makeContent(
-          'youtube', video.id, stats.name,
-          video.snippet?.title || '',
-          video.snippet?.description || '',
-          `https://youtube.com/watch?v=${video.id}`,
-          video.snippet?.publishedAt || new Date().toISOString()
-        )
-        const sponsors = await extractFromContent(content)
-        sponsorships += await saveToDatabase(content, sponsors, creatorData.id)
-        await new Promise(r => setTimeout(r, 150))
-      }
-      await new Promise(r => setTimeout(r, 400))
+    knownIds.add(candidate.channelId)
+    creators++
+
+    const { data: creatorData } = await supabase
+      .from('creators')
+      .upsert({
+        name: stats.name,
+        slug: makeSlug(stats.name),
+        channel_id: candidate.channelId,
+        subscriber_count: stats.subscribers,
+        avatar_url: stats.thumbnail,
+        platform: 'youtube',
+      }, { onConflict: 'channel_id' })
+      .select().single()
+
+    if (!creatorData) continue
+    console.log(`  👤 ${stats.name} (${(stats.subscribers / 1000000).toFixed(1)}M)${isHighEngagement ? ' ⚡' : ''}`)
+
+    const videos = await getYouTubeVideos(candidate.channelId, VIDEOS_PER_CREATOR)
+    for (const video of videos) {
+      const content = makeContent(
+        'youtube', video.id, stats.name,
+        video.snippet?.title || '',
+        video.snippet?.description || '',
+        `https://youtube.com/watch?v=${video.id}`,
+        video.snippet?.publishedAt || new Date().toISOString()
+      )
+      const sponsors = await extractFromContent(content)
+      sponsorships += await saveToDatabase(content, sponsors, creatorData.id)
+      await new Promise(r => setTimeout(r, 150))
     }
-    await new Promise(r => setTimeout(r, 300))
+    await new Promise(r => setTimeout(r, 400))
   }
+
   console.log(`  ✓ YouTube: ${creators} creators, ${sponsorships} sponsorships`)
   return sponsorships
 }
 
 // ═══════════════════════════════════════════════════════════
-// CONNECTOR 2 — Podcasts (dynamic via iTunes Search API)
+// CONNECTOR 2 — Podcasts
 // ═══════════════════════════════════════════════════════════
+
 const PODCAST_SEEDS = [
   'entrepreneurship', 'personal finance', 'productivity', 'health wellness',
   'technology', 'investing', 'education', 'comedy', 'true crime', 'fitness',
   'mental health', 'marketing', 'leadership', 'crypto', 'real estate',
   'self improvement', 'science', 'history', 'sports', 'food',
+  'business', 'interview', 'news', 'storytelling', 'philosophy',
 ]
 
 const BOOTSTRAP_PODCASTS = [
@@ -385,56 +473,44 @@ const BOOTSTRAP_PODCASTS = [
   { name: 'Founders Podcast', rss: 'https://feeds.transistor.fm/founders', category: 'Entrepreneurship' },
   { name: 'Planet Money', rss: 'https://feeds.npr.org/510289/podcast.xml', category: 'Finance' },
   { name: 'Freakonomics Radio', rss: 'https://feeds.simplecast.com/Y8lFbOT4', category: 'Education' },
+  { name: 'SmartLess', rss: 'https://feeds.simplecast.com/yGFBCHId', category: 'Comedy' },
+  { name: 'Armchair Expert', rss: 'https://feeds.simplecast.com/e9Mnieb5', category: 'Lifestyle' },
+  { name: 'The Daily', rss: 'https://feeds.simplecast.com/54nAGcIl', category: 'News' },
+  { name: 'Call Her Daddy', rss: 'https://feeds.simplecast.com/6tNI0K9k', category: 'Lifestyle' },
+  { name: 'The Joe Rogan Experience', rss: 'https://feeds.simplecast.com/4T39_jAj', category: 'Lifestyle' },
 ]
 
-async function discoverPodcasts(maxNew = 40) {
+async function discoverPodcasts(maxNew = 50) {
   const { data: existing } = await supabase
-    .from('creators')
-    .select('name')
-    .eq('platform', 'podcast')
+    .from('creators').select('name').eq('platform', 'podcast')
   const known = new Set((existing || []).map(c => c.name.toLowerCase()))
-
   const discovered = [...BOOTSTRAP_PODCASTS.filter(p => !known.has(p.name.toLowerCase()))]
 
-  const { data: trends } = await supabase
-    .from('search_trends')
-    .select('query')
-    .order('count', { ascending: false })
-    .limit(10)
-
-  const searchTerms = [...PODCAST_SEEDS, ...(trends || []).map(t => t.query)]
-
-  for (const term of searchTerms) {
+  for (const term of PODCAST_SEEDS) {
     if (discovered.length >= maxNew) break
     try {
-      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=podcast&limit=5&country=us`
+      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=podcast&limit=8&country=us`
       const res = await fetch(url, { headers: { 'User-Agent': 'ThatsTheOne/1.0' } })
       const data = await res.json()
       for (const pod of (data.results || [])) {
         if (!pod.feedUrl) continue
         if (known.has(pod.trackName?.toLowerCase())) continue
         if (discovered.find(d => d.name === pod.trackName)) continue
-        discovered.push({
-          name: pod.trackName,
-          rss: pod.feedUrl,
-          category: pod.primaryGenreName || 'General',
-        })
+        if ((pod.trackCount || 0) < 5) continue
+        discovered.push({ name: pod.trackName, rss: pod.feedUrl, category: pod.primaryGenreName || 'General' })
         known.add(pod.trackName?.toLowerCase())
       }
       await new Promise(r => setTimeout(r, 200))
     } catch {}
   }
 
-  const bootstrapNew = BOOTSTRAP_PODCASTS.filter(p => !known.has(p.name.toLowerCase())).length
-  console.log(`  📋 ${discovered.length} podcasts (${bootstrapNew} bootstrap + ${discovered.length - bootstrapNew} via iTunes)`)
+  console.log(`  📋 ${discovered.length} podcasts to process`)
   return discovered
 }
 
 async function parsePodcastRSS(podcast) {
   try {
-    const res = await fetch(podcast.rss, {
-      headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' },
-    })
+    const res = await fetch(podcast.rss, { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } })
     if (!res.ok) return []
     const xml = await res.text()
     const items = []
@@ -450,45 +526,32 @@ async function parsePodcastRSS(podcast) {
         const cleanDesc = desc.replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
         items.push({ title, description: cleanDesc, pubDate, link, guid })
       }
-      if (items.length >= 15) break
+      if (items.length >= 20) break
     }
     return items
-  } catch (err) {
-    console.log(`    ✗ RSS error: ${err.message}`)
-    return []
-  }
+  } catch { return [] }
 }
 
 async function runPodcasts() {
   console.log('\n🎙 Podcast connector starting...')
-  const podcasts = await discoverPodcasts(40)
+  const podcasts = await discoverPodcasts(50)
   let total = 0
 
   for (const podcast of podcasts) {
     const { data: creatorData } = await supabase
       .from('creators')
-      .upsert({
-        name: podcast.name,
-        slug: makeSlug(podcast.name),
-        category: podcast.category,
-        platform: 'podcast',
-      }, { onConflict: 'slug' })
+      .upsert({ name: podcast.name, slug: makeSlug(podcast.name), category: podcast.category, platform: 'podcast' }, { onConflict: 'slug' })
       .select().single()
-
     if (!creatorData) continue
-    console.log(`  🎙 ${podcast.name}`)
 
+    console.log(`  🎙 ${podcast.name}`)
     const episodes = await parsePodcastRSS(podcast)
+
     for (const ep of episodes) {
       const content = makeContent(
-        'podcast',
-        ep.guid.slice(0, 200),
-        podcast.name,
-        ep.title,
-        `${ep.title}\n\n${ep.description}`,
-        ep.link,
-        ep.pubDate ? new Date(ep.pubDate).toISOString() : new Date().toISOString(),
-        'audio'
+        'podcast', ep.guid.slice(0, 200), podcast.name,
+        ep.title, `${ep.title}\n\n${ep.description}`, ep.link,
+        ep.pubDate ? new Date(ep.pubDate).toISOString() : new Date().toISOString(), 'audio'
       )
       const sponsors = await extractFromContent(content)
       total += await saveToDatabase(content, sponsors, creatorData.id)
@@ -502,8 +565,9 @@ async function runPodcasts() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// CONNECTOR 3 — Reddit (dynamic subreddit discovery)
+// CONNECTOR 3 — Reddit
 // ═══════════════════════════════════════════════════════════
+
 const REDDIT_BOOTSTRAP = [
   { sub: 'personalfinance', category: 'Finance' },
   { sub: 'Entrepreneur', category: 'Entrepreneurship' },
@@ -526,30 +590,52 @@ async function discoverSubreddits() {
   const known = new Set(REDDIT_BOOTSTRAP.map(s => s.sub.toLowerCase()))
   const discovered = [...REDDIT_BOOTSTRAP]
 
-  const { data: trends } = await supabase
-    .from('search_trends')
-    .select('query')
-    .order('count', { ascending: false })
-    .limit(10)
+  const categorySearches = [
+    'finance investing', 'technology software', 'health fitness',
+    'entrepreneurship business', 'productivity self improvement',
+    'food cooking', 'travel lifestyle', 'fashion beauty',
+    'gaming esports', 'science education', 'crypto blockchain',
+    'real estate', 'career jobs', 'sports fitness',
+    'music', 'art design', 'photography',
+  ]
 
-  for (const trend of (trends || [])) {
+  for (const category of categorySearches) {
+    if (discovered.length >= 40) break
     try {
       const res = await fetch(
-        `https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(trend.query)}&limit=3`,
+        `https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(category)}&sort=relevance&limit=5`,
         { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } }
       )
       if (!res.ok) continue
       const data = await res.json()
       for (const sub of (data?.data?.children || [])) {
         const name = sub.data?.display_name
+        const subscribers = sub.data?.subscribers || 0
         if (!name || known.has(name.toLowerCase())) continue
-        if ((sub.data?.subscribers || 0) < 10000) continue
+        if (subscribers < 50000) continue
+        discovered.push({ sub: name, category: category.split(' ')[0] })
+        known.add(name.toLowerCase())
+      }
+      await new Promise(r => setTimeout(r, 400))
+    } catch {}
+  }
+
+  try {
+    const res = await fetch(
+      'https://www.reddit.com/subreddits/popular.json?limit=25',
+      { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } }
+    )
+    if (res.ok) {
+      const data = await res.json()
+      for (const sub of (data?.data?.children || [])) {
+        const name = sub.data?.display_name
+        if (!name || known.has(name.toLowerCase())) continue
+        if ((sub.data?.subscribers || 0) < 100000) continue
         discovered.push({ sub: name, category: 'General' })
         known.add(name.toLowerCase())
       }
-      await new Promise(r => setTimeout(r, 300))
-    } catch {}
-  }
+    }
+  } catch {}
 
   console.log(`  📋 ${discovered.length} subreddits to process`)
   return discovered
@@ -572,28 +658,20 @@ async function runReddit() {
 
       const { data: creatorData } = await supabase
         .from('creators')
-        .upsert({
-          name: `r/${sub}`,
-          slug: `reddit-${sub}`,
-          category,
-          platform: 'reddit',
-        }, { onConflict: 'slug' })
+        .upsert({ name: `r/${sub}`, slug: `reddit-${sub}`, category, platform: 'reddit' }, { onConflict: 'slug' })
         .select().single()
-
       if (!creatorData) continue
-      console.log(`  🔴 r/${sub}`)
 
+      console.log(`  🔴 r/${sub}`)
       for (const post of posts) {
         const p = post.data
         if (!p.selftext || p.selftext.length < 200) continue
         if (p.score < 100) continue
         const content = makeContent(
           'reddit', p.id, `r/${sub}`,
-          p.title,
-          `${p.title}\n\n${p.selftext}`,
+          p.title, `${p.title}\n\n${p.selftext}`,
           `https://reddit.com${p.permalink}`,
-          new Date(p.created_utc * 1000).toISOString(),
-          'post'
+          new Date(p.created_utc * 1000).toISOString(), 'post'
         )
         const sponsors = await extractFromContent(content)
         total += await saveToDatabase(content, sponsors, creatorData.id)
@@ -610,8 +688,9 @@ async function runReddit() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// CONNECTOR 4 — Newsletters (dynamic via RSS)
+// CONNECTOR 4 — Newsletters
 // ═══════════════════════════════════════════════════════════
+
 const NEWSLETTER_BOOTSTRAP = [
   { name: 'Lenny\'s Newsletter', url: 'https://www.lennysnewsletter.com/feed', category: 'Productivity' },
   { name: 'Not Boring', url: 'https://www.notboring.co/feed', category: 'Tech' },
@@ -620,21 +699,17 @@ const NEWSLETTER_BOOTSTRAP = [
   { name: 'Morning Brew', url: 'https://www.morningbrew.com/daily/feed', category: 'Finance' },
   { name: 'The Profile', url: 'https://theprofile.substack.com/feed', category: 'Lifestyle' },
   { name: 'Dense Discovery', url: 'https://densediscovery.com/feed', category: 'Lifestyle' },
-  { name: 'Stratechery', url: 'https://stratechery.com/feed', category: 'Tech' },
   { name: 'Every Newsletter', url: 'https://every.to/feed', category: 'Tech' },
   { name: 'CB Insights Newsletter', url: 'https://www.cbinsights.com/research/feed/', category: 'Finance' },
+  { name: 'Milk Road', url: 'https://milkroad.com/feed', category: 'Crypto' },
 ]
 
 async function discoverNewsletters() {
   const { data: existing } = await supabase
-    .from('creators')
-    .select('name')
-    .eq('platform', 'newsletter')
+    .from('creators').select('name').eq('platform', 'newsletter')
   const known = new Set((existing || []).map(c => c.name.toLowerCase()))
-
   const discovered = [...NEWSLETTER_BOOTSTRAP.filter(n => !known.has(n.name.toLowerCase()))]
 
-  // Search Substack discover for more newsletters
   try {
     const res = await fetch(
       'https://substack.com/api/v1/publication/best?page=0&limit=25',
@@ -647,11 +722,7 @@ async function discoverNewsletters() {
         const name = pub.name || pub.title
         const subdomain = pub.subdomain
         if (!name || !subdomain || known.has(name.toLowerCase())) continue
-        discovered.push({
-          name,
-          url: `https://${subdomain}.substack.com/feed`,
-          category: pub.category_name || 'General',
-        })
+        discovered.push({ name, url: `https://${subdomain}.substack.com/feed`, category: pub.category_name || 'General' })
         known.add(name.toLowerCase())
       }
     }
@@ -668,26 +739,19 @@ async function runNewsletters() {
 
   for (const nl of newsletters) {
     try {
-      const res = await fetch(nl.url, {
-        headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' }
-      })
+      const res = await fetch(nl.url, { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } })
       if (!res.ok) continue
       const xml = await res.text()
 
       const { data: creatorData } = await supabase
         .from('creators')
-        .upsert({
-          name: nl.name,
-          slug: makeSlug(nl.name),
-          category: nl.category,
-          platform: 'newsletter',
-        }, { onConflict: 'slug' })
+        .upsert({ name: nl.name, slug: makeSlug(nl.name), category: nl.category, platform: 'newsletter' }, { onConflict: 'slug' })
         .select().single()
-
       if (!creatorData) continue
-      console.log(`  📰 ${nl.name}`)
 
+      console.log(`  📰 ${nl.name}`)
       const itemMatches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 10)
+
       for (const match of itemMatches) {
         const item = match[1]
         const title = item.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/)?.[1] || ''
@@ -697,14 +761,9 @@ async function runNewsletters() {
         if (!title || desc.length < 100) continue
 
         const content = makeContent(
-          'newsletter',
-          guid.slice(0, 200),
-          nl.name,
-          title,
-          `${title}\n\n${desc}`,
-          '',
-          pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
-          'article'
+          'newsletter', guid.slice(0, 200), nl.name,
+          title, `${title}\n\n${desc}`, '',
+          pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(), 'article'
         )
         const sponsors = await extractFromContent(content)
         total += await saveToDatabase(content, sponsors, creatorData.id)
@@ -723,6 +782,7 @@ async function runNewsletters() {
 // ═══════════════════════════════════════════════════════════
 // CONNECTOR 5 — Twitch
 // ═══════════════════════════════════════════════════════════
+
 async function getTwitchToken() {
   try {
     const res = await fetch(
@@ -744,49 +804,32 @@ async function runTwitch() {
   const token = await getTwitchToken()
   if (!token) { console.log('  ✗ Could not get Twitch token'); return 0 }
 
-  const headers = {
-    'Client-ID': TWITCH_CLIENT_ID,
-    'Authorization': `Bearer ${token}`,
-  }
+  const headers = { 'Client-ID': TWITCH_CLIENT_ID, 'Authorization': `Bearer ${token}` }
   let total = 0
 
   try {
-    // Get top games/categories first dynamically
-    const gamesRes = await fetch('https://api.twitch.tv/helix/games/top?first=10', { headers })
+    const gamesRes = await fetch('https://api.twitch.tv/helix/games/top?first=15', { headers })
     const gamesData = await gamesRes.json()
     const games = gamesData.data || []
 
     for (const game of games) {
       const streamsRes = await fetch(
-        `https://api.twitch.tv/helix/streams?game_id=${game.id}&first=5`,
-        { headers }
+        `https://api.twitch.tv/helix/streams?game_id=${game.id}&first=8`, { headers }
       )
       const streamsData = await streamsRes.json()
       const streams = streamsData.data || []
 
       for (const stream of streams) {
-        const userRes = await fetch(
-          `https://api.twitch.tv/helix/users?id=${stream.user_id}`,
-          { headers }
-        )
+        const userRes = await fetch(`https://api.twitch.tv/helix/users?id=${stream.user_id}`, { headers })
         const userData = await userRes.json()
         const user = userData.data?.[0]
         if (!user) continue
 
-        const channelRes = await fetch(
-          `https://api.twitch.tv/helix/channels?broadcaster_id=${stream.user_id}`,
-          { headers }
-        )
+        const channelRes = await fetch(`https://api.twitch.tv/helix/channels?broadcaster_id=${stream.user_id}`, { headers })
         const channelData = await channelRes.json()
         const channel = channelData.data?.[0]
 
-        const text = [
-          stream.title,
-          channel?.title || '',
-          user.description || '',
-          game.name,
-        ].join('\n').trim()
-
+        const text = [stream.title, channel?.title || '', user.description || '', game.name].join('\n').trim()
         if (text.length < 30) continue
 
         const { data: creatorData } = await supabase
@@ -799,18 +842,12 @@ async function runTwitch() {
             platform: 'twitch',
           }, { onConflict: 'channel_id' })
           .select().single()
-
         if (!creatorData) continue
 
         const content = makeContent(
-          'twitch',
-          `twitch_${stream.id}`,
-          stream.user_name,
-          stream.title,
-          text,
-          `https://twitch.tv/${stream.user_login}`,
-          new Date().toISOString(),
-          'stream'
+          'twitch', `twitch_${stream.id}`, stream.user_name,
+          stream.title, text, `https://twitch.tv/${stream.user_login}`,
+          new Date().toISOString(), 'stream'
         )
 
         console.log(`  🎮 ${stream.user_name} (${game.name})`)
@@ -831,18 +868,20 @@ async function runTwitch() {
 // ═══════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════
+
 async function run() {
   const start = Date.now()
   console.log(`\n${'═'.repeat(55)}`)
   console.log(`🚀 Unified pipeline — ${new Date().toISOString()}`)
   console.log(`   Sources: YouTube · Podcasts · Reddit · Newsletters · Twitch`)
+  console.log(`   YouTube strategies: Category · Popularity · Brand · Related`)
   console.log(`${'═'.repeat(55)}`)
 
   const knownIds = await getKnownChannelIds()
   console.log(`📚 ${knownIds.size} creators already in database\n`)
 
   const results = {
-    youtube: await runYouTube(knownIds, 40),
+    youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN),
     podcasts: await runPodcasts(),
     reddit: await runReddit(),
     newsletters: await runNewsletters(),
