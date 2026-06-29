@@ -406,8 +406,8 @@ export default function FeedPage() {
 )}
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      {videoId && (
-                        <a href={`https://youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer"
+                      {videoId && !videoId.startsWith('linktree_') && !videoId.startsWith('amazon_') && (
+  <a href={`https://youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}
                           style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.35)', border: '0.5px solid rgba(255,255,255,.08)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
                           <i className="ti ti-player-play" style={{ fontSize: 10 }} aria-hidden="true" />
