@@ -38,7 +38,16 @@ const SKIP_DOMAINS = new Set([
 'publishing.andrewsmcmeel.com',
 'cbsn.lvstreamhd.com',
 'theplug.co', 'kingoftheclicks.com',
-'raidcoins.com',
+'raidcoins.com', 'posh.mk', 'poshmark.com',
+'whenweallvote.org',
+'discoveryplus.com',
+'beatstars.com',
+'deezer.com', 'link.deezer.com',
+'music.amazon.com', 'music.heardwell.com',
+'tr.ee',
+'target.com',
+'walmart.com',
+'udemy.com',
 ])
 
 function getDomainFromUrl(url) {
