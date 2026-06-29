@@ -32,7 +32,13 @@ const SKIP_DOMAINS = new Set([
   'streamlabs.com', 'streamelements.com',
   'fonts.googleapis.com', 'fonts.gstatic.com',
 'yahoo.com',
+'cbsn.lvstreamhd.com','fonts.googleapis.com', 'fonts.gstatic.com',
+'geni.us', 'ntck.co', 'ban.ggood.vip',
+'eventbrite.com', 'eventbrite.co.uk',
+'publishing.andrewsmcmeel.com',
 'cbsn.lvstreamhd.com',
+'theplug.co', 'kingoftheclicks.com',
+'raidcoins.com',
 ])
 
 function getDomainFromUrl(url) {
@@ -179,6 +185,9 @@ async function saveLinktreeData(creator, links, linktreeUrl) {
     // Dynamically derive brand name from domain
     const brandName = domainToBrandName(domain)
     if (!brandName || brandName.length < 2) continue
+    // Skip creator's own domain
+const creatorSlugClean = creator.slug.replace(/-/g, '')
+if (domain.includes(creatorSlugClean) || domain.includes(creator.name.toLowerCase().replace(/\s+/g, ''))) continue
 
     brandLinks.push({ url, title, brandName, domain })
   }
