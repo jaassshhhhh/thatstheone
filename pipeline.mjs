@@ -60,6 +60,21 @@ function makeSlug(name) {
     .replace(/-+/g, '-')
     .slice(0, 60)
 }
+function extractBrandUrl(description, brandName) {
+    if (!description || !brandName) return null
+    const brandLower = brandName.toLowerCase().replace(/\s+/g, '')
+    const urlPattern = /https?:\/\/(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})(?:\/[a-zA-Z0-9\-_./]*)?/g
+    const skip = new Set(['youtube.com', 'instagram.com', 'twitter.com', 'x.com', 'tiktok.com', 'facebook.com', 'linkedin.com', 'spotify.com', 'apple.com', 'google.com', 'bit.ly', 'linktr.ee', 'amzn.to'])
+    let match
+    while ((match = urlPattern.exec(description)) !== null) {
+      const domain = match[1].toLowerCase()
+      if (skip.has(domain)) continue
+      if (domain.includes(brandLower.slice(0, 5))) {
+        return `https://${domain}`
+      }
+    }
+    return null
+  }
 
 function timeAgo(ms) {
   const s = Math.floor(ms / 1000)
@@ -173,10 +188,18 @@ async function saveToDatabase(content, sponsors, creatorId) {
   let saved = 0
   for (const s of sponsors) {
     const { data: brandData } = await supabase
-      .from('brands')
-      .upsert({ name: s.brand, slug: makeSlug(s.brand) }, { onConflict: 'slug' })
-      .select().single()
-    if (!brandData) continue
+  .from('brands')
+  .upsert({ name: s.brand, slug: makeSlug(s.brand) }, { onConflict: 'slug' })
+  .select().single()
+if (!brandData) continue
+
+const brandUrl = extractBrandUrl(content.rawText, s.brand)
+if (brandUrl) {
+  await supabase.from('brands')
+    .update({ website_url: brandUrl })
+    .eq('id', brandData.id)
+    .is('website_url', null)
+}
 
     const headline = await generateHeadline(
       s.brand, content.creatorName, s.sponsorship_type,
