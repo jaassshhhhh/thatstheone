@@ -303,7 +303,7 @@ export default function FeedPage() {
               const code = s.best_code || s.promo_code
               const offer = s.best_offer || s.offer_text
               const videoId = s.best_video_id || s.video_id
-              const promoUrl = s.promo_url
+              const promoUrl = s.best_promo_url || s.promo_url || s.brand_url
 
               return (
                 <div key={cardId} className="fc"
