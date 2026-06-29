@@ -13,9 +13,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "that's the one — find any creator deal",
-  description: 'Search the memory layer of the creator economy. Find every sponsorship, promo code and creator deal in one place.',
+  title: {
+    default: "That's The One — Creator Commerce Intelligence",
+    template: "%s — That's The One",
+  },
+  description: "The search engine for creator deals. Find every sponsorship, promo code and brand deal across YouTube, podcasts and more. Updated daily.",
   manifest: '/manifest.json',
+  keywords: ['creator deals', 'influencer sponsorships', 'promo codes', 'creator commerce', 'brand deals', 'YouTube sponsorships'],
+  openGraph: {
+    type: 'website',
+    siteName: "That's The One",
+    title: "That's The One — Creator Commerce Intelligence",
+    description: "Find every sponsorship, promo code and brand deal across YouTube, podcasts and more.",
+    url: 'https://thatsthe.one',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "That's The One",
+    description: "The search engine for creator deals.",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent' as const,
