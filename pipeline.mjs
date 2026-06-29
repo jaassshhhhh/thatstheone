@@ -20,10 +20,44 @@ const MIN_SUBSCRIBERS = 50000
 const MAX_CREATORS_PER_RUN = 60
 const VIDEOS_PER_CREATOR = 30
 
+// ─── YouTube quota tracker ─────────────────────────────────
+// Free tier: 10,000 units/day. Resets midnight Pacific (8am UK).
+// search = 100 units, videos/channels = 5 units
+const quota = { used: 0, limit: 8000 }
+function useQuota(units) {
+  quota.used += units
+  if (quota.used > quota.limit) {
+    console.log(`  ⚠️  YouTube quota limit reached (~${quota.used} units used)`)
+    return false
+  }
+  return true
+}
+
+// ─── Brand blocklist ───────────────────────────────────────
+const BRAND_BLOCKLIST = new Set([
+  'fortnite', 'minecraft', 'roblox', 'valorant', 'league of legends',
+  'call of duty', 'apex legends', 'overwatch', 'counter-strike',
+  'grand theft auto', 'gta', 'dead by daylight', 'dota', 'warzone',
+  'youtube', 'google', 'twitter', 'instagram', 'facebook', 'tiktok',
+  'twitch', 'discord', 'reddit', 'spotify', 'apple', 'netflix',
+  'amazon', 'meta', 'whatsapp', 'snapchat', 'linkedin',
+  'muscleworks gym', 'the lady change', 'autumn elle nutrition',
+])
+
+function isBlockedBrand(name) {
+  if (!name) return true
+  const lower = name.toLowerCase().trim()
+  if (BRAND_BLOCKLIST.has(lower)) return true
+  if (lower.length < 2) return true
+  return false
+}
+
+// ─── Normalised content format ─────────────────────────────
 function makeContent(platform, externalId, creatorName, title, rawText, mediaUrl, publishedAt, contentType = 'video') {
   return { platform, externalId, creatorName, title, rawText, mediaUrl, publishedAt, contentType }
 }
 
+// ─── Utilities ─────────────────────────────────────────────
 function isValidCode(code) {
   if (!code) return false
   if (code.length < 2 || code.length > 12) return false
@@ -35,6 +69,7 @@ function isValidCode(code) {
     'MORE', 'HERE', 'NOW', 'SHOP', 'CODE', 'WAN', 'GET', 'USE',
     'NEW', 'OFF', 'THE', 'AND', 'FOR', 'YOU', 'ALL', 'SUBSCRIBE',
     'REVIEWS', 'PROMO', 'DEAL', 'SAVE', 'LTT', 'HTTP', 'WWW',
+    'BONUS', 'NON', 'STICKY', 'FIRST', 'BEST', 'TOP',
   ])
   if (junk.has(code.toUpperCase())) return false
   return true
@@ -50,6 +85,7 @@ function computeDAR(s) {
   if (s.offer_text) score += 5
   if (s.promo_url) score += 5
   if (s.sponsorship_type === 'mention') score -= 10
+  if (s.is_organic) score += 5
   return Math.min(Math.max(score, 30), 80)
 }
 
@@ -60,21 +96,29 @@ function makeSlug(name) {
     .replace(/-+/g, '-')
     .slice(0, 60)
 }
+
 function extractBrandUrl(description, brandName) {
-    if (!description || !brandName) return null
-    const brandLower = brandName.toLowerCase().replace(/\s+/g, '')
-    const urlPattern = /https?:\/\/(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})(?:\/[a-zA-Z0-9\-_./]*)?/g
-    const skip = new Set(['youtube.com', 'instagram.com', 'twitter.com', 'x.com', 'tiktok.com', 'facebook.com', 'linkedin.com', 'spotify.com', 'apple.com', 'google.com', 'bit.ly', 'linktr.ee', 'amzn.to'])
-    let match
-    while ((match = urlPattern.exec(description)) !== null) {
-      const domain = match[1].toLowerCase()
-      if (skip.has(domain)) continue
-      if (domain.includes(brandLower.slice(0, 5))) {
-        return `https://${domain}`
-      }
-    }
-    return null
+  if (!description || !brandName) return null
+  const brandLower = brandName.toLowerCase().replace(/\s+/g, '')
+  const urlPattern = /https?:\/\/(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})(?:\/[a-zA-Z0-9\-_./]*)?/g
+  const skip = new Set([
+    'youtube.com', 'instagram.com', 'twitter.com', 'x.com', 'tiktok.com',
+    'facebook.com', 'linkedin.com', 'spotify.com', 'apple.com', 'google.com',
+    'bit.ly', 'linktr.ee', 'amzn.to', 'patreon.com', 'discord.gg', 'twitch.tv',
+  ])
+  let match
+  while ((match = urlPattern.exec(description)) !== null) {
+    const domain = match[1].toLowerCase()
+    if (skip.has(domain)) continue
+    if (domain.includes(brandLower.slice(0, 5))) return `https://${domain}`
   }
+  return null
+}
+
+function cleanQuote(quote) {
+  if (!quote) return null
+  return quote.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, 200) || null
+}
 
 function timeAgo(ms) {
   const s = Math.floor(ms / 1000)
@@ -84,6 +128,7 @@ function timeAgo(ms) {
   return `${Math.floor(s / 86400)}d`
 }
 
+// ─── Headline generation ───────────────────────────────────
 async function generateHeadline(brand, creatorName, sponsorshipType, offerText, promoCode, exactQuote, platform) {
   try {
     const completion = await openai.chat.completions.create({
@@ -100,6 +145,7 @@ Rules:
 - Be specific — mention numbers, names, actual offers when available
 - No exclamation marks ever
 - No quotes around the headline
+- Never start with "Discover" or "Unlock"
 
 Good examples:
 Thomas Frank has been pushing Skillshare for 3 years straight
@@ -127,6 +173,7 @@ Quote: ${exactQuote?.slice(0, 150) || 'none'}`
   } catch { return null }
 }
 
+// ─── AI extraction ─────────────────────────────────────────
 async function extractFromContent(content) {
   if (!content.rawText || content.rawText.length < 40) return []
   try {
@@ -135,7 +182,7 @@ async function extractFromContent(content) {
       messages: [
         {
           role: 'system',
-          content: `Extract genuine brand sponsorships and product recommendations from creator content.
+          content: `Extract brand sponsorships AND genuine organic product recommendations from creator content.
 
 Return ONLY a JSON array. Each item:
 {
@@ -144,14 +191,24 @@ Return ONLY a JSON array. Each item:
   "promo_code": "2-12 char alphanumeric OR null",
   "promo_url": "custom tracking URL OR null",
   "offer_text": "deal like '3 months free' OR null",
-  "exact_quote": "exact sentence mentioning this brand, max 200 chars OR null",
+  "exact_quote": "exact sentence mentioning brand, max 200 chars, NO URLs OR null",
   "confidence": 0.85-1.0,
   "is_organic": true|false
 }
 
-promo_code: 2-12 chars, letters+numbers only. NOT: video IDs, generic words (FREE/WATCH/CLICK/CODE/LINK/GET), URLs, brand names.
-is_organic: true if creator mentions this without any deal/code/payment language.
-Only confidence 0.85+. Ignore YouTube, Google, social platforms, streaming services, video games.
+is_organic = true when creator says: "I personally use", "I've been using for months",
+"genuinely love", "changed my life", "obsessed with", "been wearing this", "my go-to",
+"I actually use", "been loving", "can't recommend enough", "use every day"
+WITHOUT any promo code or payment language.
+
+is_organic = false when there is a code, affiliate link, or "sponsored by" language.
+
+promo_code: 2-12 chars only. NOT: video IDs, generic words (FREE/WATCH/CLICK/CODE/BONUS/NON/STICKY), URLs.
+exact_quote: Remove any URLs. Keep it clean and readable.
+
+IGNORE completely: YouTube, Google, Instagram, Twitter, TikTok, Facebook, Spotify, Netflix, Amazon.
+IGNORE video games as brands: Fortnite, Minecraft, Valorant, Roblox, GTA, Apex Legends, Overwatch, Counter-Strike, Dead by Daylight, Dota, Warzone.
+
 Return [] if nothing found. ONLY valid JSON array.`
         },
         {
@@ -166,17 +223,17 @@ ${content.rawText.slice(0, 3000)}`
         }
       ],
       temperature: 0.05,
-      max_tokens: 600,
+      max_tokens: 800,
     })
     const raw = completion.choices[0].message.content?.trim() || '[]'
     const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
     if (!Array.isArray(parsed)) return []
     return parsed
-      .filter(s => s.confidence >= 0.85 && s.brand?.length > 1)
+      .filter(s => s.confidence >= 0.85 && s.brand?.length > 1 && !isBlockedBrand(s.brand))
       .map(s => ({
         ...s,
         promo_code: isValidCode(s.promo_code) ? s.promo_code.toUpperCase() : null,
-        exact_quote: s.exact_quote?.slice(0, 200) || null,
+        exact_quote: cleanQuote(s.exact_quote),
         offer_text: s.offer_text?.slice(0, 100) || null,
         dar_score: computeDAR(s),
         dar_source: 'ai_extracted',
@@ -184,22 +241,25 @@ ${content.rawText.slice(0, 3000)}`
   } catch { return [] }
 }
 
+// ─── Database write ────────────────────────────────────────
 async function saveToDatabase(content, sponsors, creatorId) {
   let saved = 0
   for (const s of sponsors) {
-    const { data: brandData } = await supabase
-  .from('brands')
-  .upsert({ name: s.brand, slug: makeSlug(s.brand) }, { onConflict: 'slug' })
-  .select().single()
-if (!brandData) continue
+    if (isBlockedBrand(s.brand)) continue
 
-const brandUrl = extractBrandUrl(content.rawText, s.brand)
-if (brandUrl) {
-  await supabase.from('brands')
-    .update({ website_url: brandUrl })
-    .eq('id', brandData.id)
-    .is('website_url', null)
-}
+    const { data: brandData } = await supabase
+      .from('brands')
+      .upsert({ name: s.brand, slug: makeSlug(s.brand) }, { onConflict: 'slug' })
+      .select().single()
+    if (!brandData) continue
+
+    const brandUrl = extractBrandUrl(content.rawText, s.brand)
+    if (brandUrl) {
+      await supabase.from('brands')
+        .update({ website_url: brandUrl })
+        .eq('id', brandData.id)
+        .is('website_url', null)
+    }
 
     const headline = await generateHeadline(
       s.brand, content.creatorName, s.sponsorship_type,
@@ -231,8 +291,9 @@ if (brandUrl) {
     if (!error) {
       saved++
       const dar = s.dar_score >= 70 ? '🟢' : '🟡'
+      const organic = s.is_organic ? ' 🌱' : ''
       const detail = s.promo_code || s.offer_text || s.sponsorship_type
-      console.log(`    ${dar} [${content.platform}] ${s.brand} → ${detail}`)
+      console.log(`    ${dar} [${content.platform}] ${s.brand} → ${detail}${organic}`)
       if (headline) console.log(`       📰 ${headline}`)
     }
   }
@@ -240,7 +301,104 @@ if (brandUrl) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// CONNECTOR 1 — YouTube
+// TREND SEEDS — Layer 2
+// ═══════════════════════════════════════════════════════════
+
+async function getTrendingYouTubeTopics() {
+  const topics = []
+  try {
+    const regions = ['GB', 'US']
+    for (const region of regions) {
+      if (!useQuota(5)) break
+      const url = `https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&chart=mostPopular&regionCode=${region}&part=snippet&maxResults=50&videoCategoryId=0`
+      const res = await fetch(url)
+      const data = await res.json()
+      if (data.error || !data.items?.length) continue
+      for (const video of data.items) {
+        const title = video.snippet?.title || ''
+        const cleaned = title
+          .replace(/[^\w\s]/g, ' ')
+          .replace(/\b(the|a|an|and|or|but|in|on|at|to|for|of|with|by|from|vs|ft|feat|official|video|full|new|how|why|what|when|where|who|this|that|my|your|our|we|i|it|is|are|was|were|be|been|being|have|has|had|do|does|did|will|would|could|should|may|might|can|must)\b/gi, ' ')
+          .replace(/\s+/g, ' ').trim()
+        const words = cleaned.split(' ').filter(w => w.length > 3).slice(0, 3)
+        if (words.length >= 1) topics.push(words.join(' '))
+      }
+      await new Promise(r => setTimeout(r, 200))
+    }
+    const unique = [...new Set(topics)].slice(0, 20)
+    console.log(`  📈 YouTube trending: ${unique.length} topic seeds`)
+    return unique
+  } catch (err) {
+    console.log(`  ✗ YouTube trending: ${err.message}`)
+    return []
+  }
+}
+
+async function getTrendingRedditTopics() {
+  const topics = []
+  const subs = ['popular', 'personalfinance', 'technology', 'fitness', 'productivity', 'investing']
+  try {
+    for (const sub of subs) {
+      const res = await fetch(
+        `https://www.reddit.com/r/${sub}/hot.json?limit=25`,
+        { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } }
+      )
+      if (!res.ok) continue
+      const data = await res.json()
+      for (const post of (data?.data?.children || [])) {
+        const title = post.data?.title || ''
+        if (title.length < 10 || post.data?.score < 150) continue
+        const cleaned = title
+          .replace(/[^\w\s]/g, ' ')
+          .replace(/\b(the|a|an|and|or|but|in|on|at|to|for|of|with|by|from|this|that|my|your|i|it|is|are|was|were)\b/gi, ' ')
+          .replace(/\s+/g, ' ').trim()
+        const words = cleaned.split(' ').filter(w => w.length > 4).slice(0, 3)
+        if (words.length >= 2) topics.push(words.join(' '))
+      }
+      await new Promise(r => setTimeout(r, 300))
+    }
+    const unique = [...new Set(topics)].slice(0, 15)
+    console.log(`  📈 Reddit trending: ${unique.length} topic seeds`)
+    return unique
+  } catch (err) {
+    console.log(`  ✗ Reddit trending: ${err.message}`)
+    return []
+  }
+}
+
+async function getUserTrendSeeds() {
+  try {
+    const { data } = await supabase
+      .from('search_trends')
+      .select('query, count')
+      .order('count', { ascending: false })
+      .limit(20)
+    const seeds = (data || []).filter(t => t.query?.length > 2 && t.count >= 2).map(t => t.query)
+    if (seeds.length > 0) console.log(`  📈 User trends: ${seeds.length} seeds`)
+    return seeds
+  } catch { return [] }
+}
+
+async function getAllTrendSeeds() {
+  console.log('\n🌊 Fetching trend seeds...')
+  const [ytTopics, redditTopics, userTopics] = await Promise.all([
+    getTrendingYouTubeTopics(),
+    getTrendingRedditTopics(),
+    getUserTrendSeeds(),
+  ])
+  // Save new trends to search_trends for personalisation layer
+  for (const topic of [...ytTopics, ...redditTopics]) {
+    await supabase.from('search_trends')
+      .upsert({ query: topic.toLowerCase(), count: 1 }, { onConflict: 'query' })
+      .then(() => {})
+  }
+  const all = [...new Set([...ytTopics, ...redditTopics, ...userTopics])]
+  console.log(`  ✅ Total: ${all.length} trend seeds (YT:${ytTopics.length} Reddit:${redditTopics.length} Users:${userTopics.length})`)
+  return all
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONNECTOR 1 — YouTube (6 strategies + re-processing)
 // ═══════════════════════════════════════════════════════════
 
 async function getKnownChannelIds() {
@@ -249,6 +407,7 @@ async function getKnownChannelIds() {
 }
 
 async function getYouTubeChannelStats(channelId) {
+  if (!useQuota(5)) return null
   try {
     const url = `https://www.googleapis.com/youtube/v3/channels?key=${YT_KEY}&id=${channelId}&part=snippet,statistics`
     const res = await fetch(url)
@@ -259,13 +418,13 @@ async function getYouTubeChannelStats(channelId) {
       name: ch.snippet.title,
       subscribers: parseInt(ch.statistics?.subscriberCount || '0'),
       viewCount: parseInt(ch.statistics?.viewCount || '0'),
-      videoCount: parseInt(ch.statistics?.videoCount || '0'),
       thumbnail: ch.snippet.thumbnails?.default?.url,
     }
   } catch { return null }
 }
 
-async function searchYouTubeChannels(query, max = 10) {
+async function searchYouTubeChannels(query, max = 5) {
+  if (!useQuota(100)) return []
   try {
     const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&q=${encodeURIComponent(query)}&type=channel&part=snippet&maxResults=${max}&order=relevance`
     const res = await fetch(url)
@@ -275,6 +434,7 @@ async function searchYouTubeChannels(query, max = 10) {
   } catch { return [] }
 }
 
+// Strategy 1: Fixed category seeds
 async function discoverByCategory() {
   const categories = [
     'personal finance', 'stock investing', 'crypto trading', 'real estate investing',
@@ -283,63 +443,66 @@ async function discoverByCategory() {
     'productivity', 'self improvement', 'entrepreneurship', 'business strategy',
     'lifestyle vlog', 'travel', 'food recipe', 'fashion style', 'beauty makeup',
     'science education', 'history documentary', 'philosophy',
-    'gaming review', 'game walkthrough', 'car review', 'watch review', 'photography',
+    'gaming review', 'car review', 'watch review', 'photography',
     'parenting', 'home improvement', 'language learning', 'book review',
   ]
   const channels = []
   for (const cat of categories) {
-    const results = await searchYouTubeChannels(`${cat} channel`, 5)
+    if (quota.used > quota.limit * 0.4) break // stop at 40% quota used
+    const results = await searchYouTubeChannels(`${cat} channel`, 3)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
   }
   return channels
 }
 
+// Strategy 2: Popularity signals
 async function discoverByPopularity() {
   const queries = [
     'top youtube creators million subscribers',
-    'viral youtube channel 2024',
-    'fastest growing youtube channel',
+    'viral youtube channel sponsorship',
     'most subscribed youtube creator',
-    'popular youtube creator sponsorship',
-    'youtube influencer brand deal',
-    'top creator brand partnership youtube',
-    'youtube creator sponsor ad read',
-    'best youtube channel sponsorship',
-    'youtube creator product recommendation',
+    'popular youtube creator brand deal',
+    'youtube influencer product recommendation',
   ]
   const channels = []
   for (const q of queries) {
-    const results = await searchYouTubeChannels(q, 8)
+    if (quota.used > quota.limit * 0.5) break
+    const results = await searchYouTubeChannels(q, 4)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
   }
   return channels
 }
 
+// Strategy 3: Brand association
 async function discoverByBrand() {
   const { data: brands } = await supabase
     .from('brands')
-    .select('name')
-    .limit(20)
+    .select('name, velocity_score')
+    .order('velocity_score', { ascending: false, nullsFirst: false })
+    .limit(15)
   const channels = []
   for (const brand of (brands || [])) {
-    const results = await searchYouTubeChannels(`${brand.name} review sponsor`, 4)
+    if (quota.used > quota.limit * 0.6) break
+    const results = await searchYouTubeChannels(`${brand.name} review sponsor`, 3)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
   }
   return channels
 }
 
+// Strategy 4: Related channel expansion
 async function discoverByRelated(knownIds) {
   const { data: existingCreators } = await supabase
     .from('creators')
-    .select('channel_id, name, category')
+    .select('channel_id, name')
     .eq('platform', 'youtube')
     .not('channel_id', 'is', null)
-    .limit(20)
+    .limit(15)
   const channels = []
   for (const creator of (existingCreators || [])) {
+    if (quota.used > quota.limit * 0.65) break
     const results = await searchYouTubeChannels(`${creator.name} similar creator`, 3)
     channels.push(...results.filter(c => !knownIds.has(c.channelId)))
     await new Promise(r => setTimeout(r, 150))
@@ -347,23 +510,61 @@ async function discoverByRelated(knownIds) {
   return channels
 }
 
+// Strategy 5: Trend-based seeds
+async function discoverByTrends(trendSeeds) {
+  if (!trendSeeds.length) return []
+  const channels = []
+  for (const topic of trendSeeds.slice(0, 15)) {
+    if (quota.used > quota.limit * 0.7) break
+    const results = await searchYouTubeChannels(`${topic} youtube creator`, 3)
+    channels.push(...results)
+    await new Promise(r => setTimeout(r, 150))
+  }
+  return channels
+}
+
+// Strategy 6: Gap fill for underserved categories
+async function discoverByGapFill(knownIds) {
+  try {
+    const { data } = await supabase.from('creators').select('category').not('category', 'is', null)
+    const counts = {}
+    ;(data || []).forEach(c => { counts[c.category] = (counts[c.category] || 0) + 1 })
+    const underserved = Object.entries(counts)
+      .filter(([_, n]) => n < 8)
+      .sort(([, a], [, b]) => a - b)
+      .slice(0, 4)
+      .map(([cat]) => cat)
+    const channels = []
+    for (const cat of underserved) {
+      if (quota.used > quota.limit * 0.75) break
+      const results = await searchYouTubeChannels(`${cat} youtube creator`, 3)
+      channels.push(...results.filter(c => !knownIds.has(c.channelId)))
+      await new Promise(r => setTimeout(r, 150))
+    }
+    if (channels.length) console.log(`     ${channels.length} from gap fill (${underserved.join(', ')})`)
+    return channels
+  } catch { return [] }
+}
+
 async function getYouTubeVideos(channelId, max = VIDEOS_PER_CREATOR) {
   const half = Math.floor(max / 2)
   const videos = []
   const seen = new Set()
 
-  // Most recent — catches new deals and trends
+  // Half by recency — new deals and trends
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&channelId=${channelId}&part=snippet&order=date&maxResults=50&type=video`
-    const res = await fetch(url)
-    const data = await res.json()
-    if (!data.error && data.items?.length) {
-      const ids = data.items.map(v => v.id?.videoId).filter(Boolean).slice(0, half)
-      if (ids.length) {
-        const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&id=${ids.join(',')}&part=snippet,statistics`)
-        const detData = await det.json()
-        for (const v of (detData.items || [])) {
-          if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
+    if (useQuota(100)) {
+      const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&channelId=${channelId}&part=snippet&order=date&maxResults=50&type=video`
+      const res = await fetch(url)
+      const data = await res.json()
+      if (!data.error && data.items?.length) {
+        const ids = data.items.map(v => v.id?.videoId).filter(Boolean).slice(0, half)
+        if (ids.length && useQuota(ids.length)) {
+          const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&id=${ids.join(',')}&part=snippet,statistics`)
+          const detData = await det.json()
+          for (const v of (detData.items || [])) {
+            if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
+          }
         }
       }
     }
@@ -371,19 +572,21 @@ async function getYouTubeVideos(channelId, max = VIDEOS_PER_CREATOR) {
 
   await new Promise(r => setTimeout(r, 200))
 
-  // Most viewed — catches high-reach sponsorships
+  // Half by view count — high-reach sponsorships
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&channelId=${channelId}&part=snippet&order=viewCount&maxResults=50&type=video`
-    const res = await fetch(url)
-    const data = await res.json()
-    if (!data.error && data.items?.length) {
-      const ids = data.items.map(v => v.id?.videoId).filter(Boolean)
-      const newIds = ids.filter(id => !seen.has(id)).slice(0, max - videos.length)
-      if (newIds.length) {
-        const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&id=${newIds.join(',')}&part=snippet,statistics`)
-        const detData = await det.json()
-        for (const v of (detData.items || [])) {
-          if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
+    if (useQuota(100)) {
+      const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&channelId=${channelId}&part=snippet&order=viewCount&maxResults=50&type=video`
+      const res = await fetch(url)
+      const data = await res.json()
+      if (!data.error && data.items?.length) {
+        const ids = data.items.map(v => v.id?.videoId).filter(Boolean)
+        const newIds = ids.filter(id => !seen.has(id)).slice(0, max - videos.length)
+        if (newIds.length && useQuota(newIds.length)) {
+          const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&id=${newIds.join(',')}&part=snippet,statistics`)
+          const detData = await det.json()
+          for (const v of (detData.items || [])) {
+            if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
+          }
         }
       }
     }
@@ -392,19 +595,48 @@ async function getYouTubeVideos(channelId, max = VIDEOS_PER_CREATOR) {
   return videos.slice(0, max)
 }
 
-async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN) {
-  console.log('\n▶ YouTube connector starting...')
-  console.log('  🔍 Running 4 discovery strategies in parallel...')
+async function refreshSubscriberCounts() {
+  console.log('  🔄 Refreshing subscriber counts (weekly)...')
+  try {
+    const { data: creators } = await supabase
+      .from('creators')
+      .select('id, channel_id, name')
+      .eq('platform', 'youtube')
+      .not('channel_id', 'is', null)
+      .limit(30)
+    let updated = 0
+    for (const creator of (creators || [])) {
+      if (creator.channel_id?.startsWith('twitch_')) continue
+      if (quota.used > quota.limit * 0.9) break
+      const stats = await getYouTubeChannelStats(creator.channel_id)
+      if (!stats) continue
+      await supabase.from('creators')
+        .update({ subscriber_count: stats.subscribers, avatar_url: stats.thumbnail })
+        .eq('id', creator.id)
+      updated++
+      await new Promise(r => setTimeout(r, 200))
+    }
+    console.log(`  ✓ Updated ${updated} creator subscriber counts`)
+  } catch (err) {
+    console.log(`  ✗ Subscriber refresh failed: ${err.message}`)
+  }
+}
 
-  const [byCategory, byPopularity, byBrand, byRelated] = await Promise.all([
+async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSeeds = []) {
+  console.log('\n▶ YouTube connector starting...')
+  console.log('  🔍 Running 6 discovery strategies...')
+
+  const [byCategory, byPopularity, byBrand, byRelated, byTrends, byGapFill] = await Promise.all([
     discoverByCategory(),
     discoverByPopularity(),
     discoverByBrand(),
     discoverByRelated(knownIds),
+    discoverByTrends(trendSeeds),
+    discoverByGapFill(knownIds),
   ])
 
   const seen = new Set()
-  const allCandidates = [...byCategory, ...byPopularity, ...byBrand, ...byRelated]
+  const allCandidates = [...byCategory, ...byPopularity, ...byBrand, ...byRelated, ...byTrends, ...byGapFill]
     .filter(c => {
       if (!c.channelId || seen.has(c.channelId) || knownIds.has(c.channelId)) return false
       seen.add(c.channelId)
@@ -416,13 +648,21 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN) {
   console.log(`     ${byPopularity.length} from popularity`)
   console.log(`     ${byBrand.length} from brands`)
   console.log(`     ${byRelated.length} from related channels`)
+  console.log(`     ${byTrends.length} from trend seeds`)
+  console.log(`     ${byGapFill.length} from gap fill`)
+  console.log(`  📊 Quota used so far: ~${quota.used} / ${quota.limit} units`)
 
   let creators = 0
   let sponsorships = 0
 
+  // Process new creators
   for (const candidate of allCandidates) {
     if (creators >= maxCreators) break
     if (!candidate.channelId || knownIds.has(candidate.channelId)) continue
+    if (quota.used > quota.limit * 0.8) {
+      console.log(`  ⚠️  Quota limit approaching — stopping new creator discovery`)
+      break
+    }
 
     const stats = await getYouTubeChannelStats(candidate.channelId)
     if (!stats || stats.subscribers < MIN_SUBSCRIBERS) continue
@@ -442,6 +682,7 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN) {
         subscriber_count: stats.subscribers,
         avatar_url: stats.thumbnail,
         platform: 'youtube',
+        last_scraped_at: new Date().toISOString(),
       }, { onConflict: 'channel_id' })
       .select().single()
 
@@ -464,7 +705,48 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN) {
     await new Promise(r => setTimeout(r, 400))
   }
 
-  console.log(`  ✓ YouTube: ${creators} creators, ${sponsorships} sponsorships`)
+  // Re-process existing creators to catch new videos
+  // Ordered by least recently scraped — null first
+  const { data: existingToRefresh } = await supabase
+    .from('creators')
+    .select('id, channel_id, name')
+    .eq('platform', 'youtube')
+    .not('channel_id', 'is', null)
+    .order('last_scraped_at', { ascending: true, nullsFirst: true })
+    .limit(20)
+
+  console.log(`  🔄 Re-processing ${(existingToRefresh || []).length} existing creators for new content...`)
+  for (const creator of (existingToRefresh || [])) {
+    if (creator.channel_id?.startsWith('twitch_')) continue
+    if (quota.used > quota.limit * 0.92) {
+      console.log(`  ⚠️  Quota limit approaching — stopping re-processing`)
+      break
+    }
+    const videos = await getYouTubeVideos(creator.channel_id, 15)
+    for (const video of videos) {
+      const content = makeContent(
+        'youtube', video.id, creator.name,
+        video.snippet?.title || '',
+        video.snippet?.description || '',
+        `https://youtube.com/watch?v=${video.id}`,
+        video.snippet?.publishedAt || new Date().toISOString()
+      )
+      const sponsors = await extractFromContent(content)
+      sponsorships += await saveToDatabase(content, sponsors, creator.id)
+      await new Promise(r => setTimeout(r, 150))
+    }
+    await supabase.from('creators')
+      .update({ last_scraped_at: new Date().toISOString() })
+      .eq('id', creator.id)
+    await new Promise(r => setTimeout(r, 300))
+  }
+
+  // Refresh subscriber counts on Mondays
+  if (new Date().getDay() === 1) {
+    await refreshSubscriberCounts()
+  }
+
+  console.log(`  ✓ YouTube: ${creators} new creators, ${sponsorships} sponsorships`)
   return sponsorships
 }
 
@@ -504,8 +786,7 @@ const BOOTSTRAP_PODCASTS = [
 ]
 
 async function discoverPodcasts(maxNew = 50) {
-  const { data: existing } = await supabase
-    .from('creators').select('name').eq('platform', 'podcast')
+  const { data: existing } = await supabase.from('creators').select('name').eq('platform', 'podcast')
   const known = new Set((existing || []).map(c => c.name.toLowerCase()))
   const discovered = [...BOOTSTRAP_PODCASTS.filter(p => !known.has(p.name.toLowerCase()))]
 
@@ -546,7 +827,10 @@ async function parsePodcastRSS(podcast) {
       const link = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
       const guid = item.match(/<guid[^>]*>(.*?)<\/guid>/)?.[1] || link || title
       if (title && desc) {
-        const cleanDesc = desc.replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+        const cleanDesc = desc
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+          .replace(/\s+/g, ' ').trim()
         items.push({ title, description: cleanDesc, pubDate, link, guid })
       }
       if (items.length >= 20) break
@@ -618,8 +902,7 @@ async function discoverSubreddits() {
     'entrepreneurship business', 'productivity self improvement',
     'food cooking', 'travel lifestyle', 'fashion beauty',
     'gaming esports', 'science education', 'crypto blockchain',
-    'real estate', 'career jobs', 'sports fitness',
-    'music', 'art design', 'photography',
+    'real estate', 'career jobs', 'sports fitness', 'photography',
   ]
 
   for (const category of categorySearches) {
@@ -633,9 +916,8 @@ async function discoverSubreddits() {
       const data = await res.json()
       for (const sub of (data?.data?.children || [])) {
         const name = sub.data?.display_name
-        const subscribers = sub.data?.subscribers || 0
         if (!name || known.has(name.toLowerCase())) continue
-        if (subscribers < 50000) continue
+        if ((sub.data?.subscribers || 0) < 50000) continue
         discovered.push({ sub: name, category: category.split(' ')[0] })
         known.add(name.toLowerCase())
       }
@@ -689,7 +971,7 @@ async function runReddit() {
       for (const post of posts) {
         const p = post.data
         if (!p.selftext || p.selftext.length < 200) continue
-        if (p.score < 100) continue
+        if (p.score < 150) continue
         const content = makeContent(
           'reddit', p.id, `r/${sub}`,
           p.title, `${p.title}\n\n${p.selftext}`,
@@ -715,7 +997,7 @@ async function runReddit() {
 // ═══════════════════════════════════════════════════════════
 
 const NEWSLETTER_BOOTSTRAP = [
-  { name: 'Lenny\'s Newsletter', url: 'https://www.lennysnewsletter.com/feed', category: 'Productivity' },
+  { name: "Lenny's Newsletter", url: 'https://www.lennysnewsletter.com/feed', category: 'Productivity' },
   { name: 'Not Boring', url: 'https://www.notboring.co/feed', category: 'Tech' },
   { name: 'TLDR Newsletter', url: 'https://tldr.tech/rss', category: 'Tech' },
   { name: 'The Hustle', url: 'https://thehustle.co/feed/', category: 'Entrepreneurship' },
@@ -728,16 +1010,12 @@ const NEWSLETTER_BOOTSTRAP = [
 ]
 
 async function discoverNewsletters() {
-  const { data: existing } = await supabase
-    .from('creators').select('name').eq('platform', 'newsletter')
+  const { data: existing } = await supabase.from('creators').select('name').eq('platform', 'newsletter')
   const known = new Set((existing || []).map(c => c.name.toLowerCase()))
   const discovered = [...NEWSLETTER_BOOTSTRAP.filter(n => !known.has(n.name.toLowerCase()))]
 
   try {
-    const res = await fetch(
-      'https://substack.com/api/v1/publication/best?page=0&limit=25',
-      { headers: { 'User-Agent': 'ThatsTheOne/1.0' } }
-    )
+    const res = await fetch('https://substack.com/api/v1/publication/best?page=0&limit=25', { headers: { 'User-Agent': 'ThatsTheOne/1.0' } })
     if (res.ok) {
       const data = await res.json()
       const pubs = data?.publications || data || []
@@ -778,7 +1056,8 @@ async function runNewsletters() {
       for (const match of itemMatches) {
         const item = match[1]
         const title = item.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/)?.[1] || ''
-        const desc = (item.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+        const desc = (item.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] || '')
+          .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
         const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
         const guid = item.match(/<guid[^>]*>(.*?)<\/guid>/)?.[1] || title
         if (!title || desc.length < 100) continue
@@ -836,9 +1115,7 @@ async function runTwitch() {
     const games = gamesData.data || []
 
     for (const game of games) {
-      const streamsRes = await fetch(
-        `https://api.twitch.tv/helix/streams?game_id=${game.id}&first=8`, { headers }
-      )
+      const streamsRes = await fetch(`https://api.twitch.tv/helix/streams?game_id=${game.id}&first=8`, { headers })
       const streamsData = await streamsRes.json()
       const streams = streamsData.data || []
 
@@ -897,19 +1174,27 @@ async function run() {
   console.log(`\n${'═'.repeat(55)}`)
   console.log(`🚀 Unified pipeline — ${new Date().toISOString()}`)
   console.log(`   Sources: YouTube · Podcasts · Reddit · Newsletters · Twitch`)
-  console.log(`   YouTube strategies: Category · Popularity · Brand · Related`)
+  console.log(`   YouTube strategies: Category · Popularity · Brand · Related · Trends · Gap`)
   console.log(`${'═'.repeat(55)}`)
 
   const knownIds = await getKnownChannelIds()
   console.log(`📚 ${knownIds.size} creators already in database\n`)
 
+  // Fetch trend seeds first
+  const trendSeeds = await getAllTrendSeeds()
+
   const results = {
-    youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN),
+    youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
     podcasts: await runPodcasts(),
     reddit: await runReddit(),
     newsletters: await runNewsletters(),
     twitch: await runTwitch(),
   }
+
+  // Update brand velocity scores
+  await supabase.rpc('compute_brand_velocity').then(() => {
+    console.log('\n📊 Brand velocity scores updated')
+  }).catch(() => {})
 
   const total = Object.values(results).reduce((a, b) => a + b, 0)
 
@@ -921,6 +1206,8 @@ async function run() {
   console.log(`   Newsletters: ${results.newsletters} sponsorships`)
   console.log(`   Twitch:      ${results.twitch} sponsorships`)
   console.log(`   Total:       ${total} sponsorships`)
+  console.log(`   YT Quota:    ~${quota.used} / ${quota.limit} units used`)
+  console.log(`   Trend seeds: ${trendSeeds.length} active this run`)
   console.log(`${'═'.repeat(55)}`)
 }
 
