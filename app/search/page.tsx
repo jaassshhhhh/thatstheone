@@ -334,7 +334,7 @@ function SearchContent() {
       Visit brand →
     </a>
   ) : r.is_organic && (
-    <a href={`https://www.google.com/search?q=${encodeURIComponent((r.brands?.name || '') + ' official site')}`} target="_blank" rel="noopener noreferrer"
+    <a  href={`https://www.google.com/search?q=${encodeURIComponent('"' + (r.brands?.name || '') + '" official website')}&btnI=1`}target="_blank" rel="noopener noreferrer"
       style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(52,211,153,.1)', color: '#34D399', border: '1px solid rgba(52,211,153,.2)', textDecoration: 'none' }}>
       Find this product →
     </a>
