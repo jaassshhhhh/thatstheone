@@ -673,7 +673,7 @@ export default function FeedPage() {
                 {copied === cardId ? '✓ Copied' : code ? 'Get code' : 'See deal'}
               </button>
             ) : s.is_organic ? (
-              
+              <a
                 href={promoUrl || fallbackUrl || '#'}
                 target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
