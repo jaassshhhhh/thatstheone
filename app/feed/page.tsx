@@ -296,11 +296,10 @@ export default function FeedPage() {
       supabase.from('creator_brand_relationships').select('brand_name, mention_count, brand_slug').gte('last_seen', twoWeeksAgo).order('mention_count', { ascending: false }).limit(1),
       supabase.from('creator_brand_relationships').select('brand_name, creator_name, first_seen, brand_slug').gte('first_seen', twoWeeksAgo).order('first_seen', { ascending: false }).limit(1),
       supabase.from('creator_brand_relationships').select('brand_name, mention_count, brand_slug').eq('is_organic', true).order('mention_count', { ascending: false }).limit(1),
-      // Hidden gem: has a code, low mention count (under the radar), active
-      supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, brand_slug').not('best_code', 'is', null).lt('mention_count', 4).order('best_dar_score', { ascending: false }).limit(1),
-      // Best verified deal: highest DAR score with an active code
-      supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, best_dar_score, brand_slug').not('best_code', 'is', null).eq('is_active', true).order('best_dar_score', { ascending: false }).limit(1),
-    ])
+     // Hidden gem: has a code, low mention count (under the radar), active
+     supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, brand_slug, best_promo_url').not('best_code', 'is', null).lt('mention_count', 4).order('best_dar_score', { ascending: false }).limit(1),
+     // Best verified deal: highest DAR score with an active code, excluding crypto/finance categories
+     supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, best_dar_score, brand_slug, best_promo_url').not('best_code', 'is', null).eq('is_active', true).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('best_dar_score', { ascending: false }).limit(1),])
     setWeeklyInsights({
       blowingUp: velocityData?.[0] || null,
       justStarted: earlyData?.[0] || null,
@@ -631,12 +630,17 @@ export default function FeedPage() {
                             {copied === 'insight-gem' ? '✓ Copied!' : weeklyInsights.hiddenGem.best_code}
                           </button>
                         )}
-                        {weeklyInsights.hiddenGem.brand_slug && (
+                        {weeklyInsights.hiddenGem.brand_slug ? (
                           <a href={`/brands/${weeklyInsights.hiddenGem.brand_slug}`}
                             style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(255,255,255,.08)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             View {weeklyInsights.hiddenGem.brand_name} →
                           </a>
-                        )}
+                        ) : weeklyInsights.hiddenGem.best_promo_url ? (
+                          <a href={weeklyInsights.hiddenGem.best_promo_url} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(255,255,255,.08)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            Visit {weeklyInsights.hiddenGem.brand_name} →
+                          </a>
+                        ) : null}
                       </div>
                     </div>
                   )}
@@ -688,12 +692,17 @@ export default function FeedPage() {
                             {copied === 'insight-best' ? '✓ Copied!' : weeklyInsights.bestDeal.best_code}
                           </button>
                         )}
-                        {weeklyInsights.bestDeal.brand_slug && (
+                        {weeklyInsights.bestDeal.brand_slug ? (
                           <a href={`/brands/${weeklyInsights.bestDeal.brand_slug}`}
                             style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(255,255,255,.08)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             View {weeklyInsights.bestDeal.brand_name} →
                           </a>
-                        )}
+                        ) : weeklyInsights.bestDeal.best_promo_url ? (
+                          <a href={weeklyInsights.bestDeal.best_promo_url} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(255,255,255,.08)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            Visit {weeklyInsights.bestDeal.brand_name} →
+                          </a>
+                        ) : null}
                       </div>
                     </div>
                   )}
