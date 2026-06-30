@@ -41,6 +41,33 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 }
 
-export default function CreatorLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
-}
+export default async function CreatorLayout({ children, params }: { children: React.ReactNode, params: Promise<{ slug: string }> }) {
+    const { slug } = await params
+  
+    const { data: creator } = await supabase
+      .from('creators')
+      .select('name, category, platform, avatar_url')
+      .eq('slug', slug)
+      .single()
+  
+    const jsonLd = creator ? {
+      '@context': 'https://schema.org',
+      '@type': 'Person',
+      name: creator.name,
+      ...(creator.avatar_url && { image: creator.avatar_url }),
+      ...(creator.category && { knowsAbout: creator.category }),
+      sameAs: [`https://thatsthe.one/creators/${slug}`],
+    } : null
+  
+    return (
+      <>
+        {jsonLd && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          />
+        )}
+        {children}
+      </>
+    )
+  }

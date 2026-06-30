@@ -30,6 +30,38 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 }
 
-export default function BrandLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
-}
+export default async function BrandLayout({ children, params }: { children: React.ReactNode, params: Promise<{ slug: string }> }) {
+    const { slug } = await params
+  
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  
+    const { data: brand } = await supabase
+      .from('brands')
+      .select('name, category, website_url')
+      .eq('slug', slug)
+      .single()
+  
+    const jsonLd = brand ? {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: brand.name,
+      ...(brand.website_url && { url: brand.website_url }),
+      ...(brand.category && { knowsAbout: brand.category }),
+      sameAs: [`https://thatsthe.one/brands/${slug}`],
+    } : null
+  
+    return (
+      <>
+        {jsonLd && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          />
+        )}
+        {children}
+      </>
+    )
+  }
