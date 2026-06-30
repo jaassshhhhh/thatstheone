@@ -260,8 +260,8 @@ function SearchContent() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: '#fff' }}>{r.brands?.name}</p>
                             {r.is_organic && (
-                              <span style={{ fontSize: 10, color: '#34D399', background: 'rgba(52,211,153,.1)', padding: '1px 6px', borderRadius: 8 }}>🌱 organic</span>
-                            )}
+  <span style={{ fontSize: 10, color: '#34D399', background: 'rgba(52,211,153,.1)', padding: '2px 8px', borderRadius: 8, fontWeight: 600 }}>🌱 Genuinely uses — not sponsored</span>
+)}
                           </div>
                           <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '2px 0 0' }}>
                             via {r.creators?.name} · {formatDate(r.first_seen)} · {platformLabel}
@@ -274,11 +274,21 @@ function SearchContent() {
                     </div>
 
                     {/* Quote */}
-                    {r.exact_quote && (
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.35)', margin: '0 0 10px', lineHeight: 1.5, fontStyle: 'italic', borderLeft: '2px solid rgba(99,102,241,.3)', paddingLeft: 10 }}>
-                        "{r.exact_quote.slice(0, 140)}{r.exact_quote.length > 140 ? '...' : ''}"
-                      </p>
-                    )}
+                    {r.is_organic ? (
+  <p style={{ fontSize: 11, color: '#34D399', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 5 }}>
+    💡 {r.creators?.name} personally recommends this — no brand deal involved
+  </p>
+) : r.promo_code || r.offer_text ? (
+  <p style={{ fontSize: 11, color: '#818CF8', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 5 }}>
+    🎯 Sponsored deal — {r.offer_text || 'use code below'}
+  </p>
+) : null}
+
+{r.exact_quote && (
+  <p style={{ fontSize: 12, color: 'rgba(255,255,255,.35)', margin: '0 0 10px', lineHeight: 1.5, fontStyle: 'italic', borderLeft: '2px solid rgba(99,102,241,.3)', paddingLeft: 10 }}>
+    "{r.exact_quote.slice(0, 140)}{r.exact_quote.length > 140 ? '...' : ''}"
+  </p>
+)}
 
                     {/* Offer */}
                     {r.offer_text && (
@@ -296,15 +306,19 @@ function SearchContent() {
 
                     {/* Bottom row */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,.06)' }}>
-                      {r.promo_code ? (
-                        <span style={{ fontFamily: 'monospace', fontSize: 13, background: 'rgba(255,255,255,.07)', padding: '4px 10px', borderRadius: 6, letterSpacing: '.05em', color: '#fff' }}>
-                          {r.promo_code}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', fontStyle: 'italic' }}>
-                          {r.offer_text ? '' : 'No code'}
-                        </span>
-                      )}
+                    {r.promo_code ? (
+  <span style={{ fontFamily: 'monospace', fontSize: 13, background: 'rgba(255,255,255,.07)', padding: '4px 10px', borderRadius: 6, letterSpacing: '.05em', color: '#fff' }}>
+    {r.promo_code}
+  </span>
+) : r.is_organic ? (
+  <span style={{ fontSize: 11, color: '#34D399' }}>
+    No deal — just a genuine recommendation
+  </span>
+) : (
+  <span style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', fontStyle: 'italic' }}>
+    Mentioned, no specific offer
+  </span>
+)}
                       <div style={{ display: 'flex', gap: 8 }}>
                         {isYouTube && r.video_id && (
                           <a href={`https://youtube.com/watch?v=${r.video_id}`} target="_blank" rel="noopener noreferrer"
