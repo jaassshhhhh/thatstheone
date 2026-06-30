@@ -84,6 +84,13 @@ export default function BrandPage() {
 
   return (
     <Layout>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: brand.name,
+        url: brandUrl || undefined,
+        ...(brand.category && { knowsAbout: brand.category }),
+      }) }} />
       <style>{`
         @keyframes fadeUp { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
         .cc { animation: fadeUp .3s ease forwards; transition: border-color .15s, transform .15s }

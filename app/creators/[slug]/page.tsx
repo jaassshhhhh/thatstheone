@@ -87,6 +87,13 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
 
   return (
     <Layout>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Person',
+        name: creator.name,
+        ...(creator.avatar_url && { image: creator.avatar_url }),
+        ...(creator.category && { knowsAbout: creator.category }),
+      }) }} />
       <style>{`
         .sc { transition: border-color .2s }
         .sc:hover { border-color: rgba(255,255,255,.14) !important }
