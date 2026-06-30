@@ -341,7 +341,7 @@ async function getTrendingRedditTopics() {
     for (const sub of subs) {
       const res = await fetch(
         `https://www.reddit.com/r/${sub}/hot.json?limit=25`,
-        { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } }
+        { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }
       )
       if (!res.ok) continue
       const data = await res.json()
@@ -383,7 +383,7 @@ async function getAllTrendSeeds() {
   console.log('\n🌊 Fetching trend seeds...')
   const [ytTopics, redditTopics, userTopics] = await Promise.all([
     getTrendingYouTubeTopics(),
-    getTrendingRedditTopics(),
+    // getTrendingRedditTopics(),
     getUserTrendSeeds(),
   ])
   // Save new trends to search_trends for personalisation layer
@@ -910,7 +910,7 @@ async function discoverSubreddits() {
     try {
       const res = await fetch(
         `https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(category)}&sort=relevance&limit=5`,
-        { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } }
+        { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }
       )
       if (!res.ok) continue
       const data = await res.json()
@@ -928,7 +928,7 @@ async function discoverSubreddits() {
   try {
     const res = await fetch(
       'https://www.reddit.com/subreddits/popular.json?limit=25',
-      { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } }
+      { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }}
     )
     if (res.ok) {
       const data = await res.json()
@@ -955,7 +955,7 @@ async function runReddit() {
     try {
       const res = await fetch(
         `https://www.reddit.com/r/${sub}/hot.json?limit=25`,
-        { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } }
+        { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }
       )
       if (!res.ok) continue
       const data = await res.json()
@@ -1186,7 +1186,7 @@ async function run() {
   const results = {
     youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
     podcasts: await runPodcasts(),
-    reddit: await runReddit(),
+    reddit: 0,
     newsletters: await runNewsletters(),
     twitch: await runTwitch(),
   }
