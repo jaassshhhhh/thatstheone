@@ -25,6 +25,7 @@ const CARD_CONFIGS: Record<string, { label: string; icon: string; color: string;
   MULTI:    { label: 'Creator consensus',   icon: 'ti-users',        color: '#C084FC', bg: 'rgba(139,92,246,.1)', border: 'rgba(139,92,246,.25)' },
   HOT:      { label: 'Limited deal',        icon: 'ti-bolt',         color: '#34D399', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.25)' },
   PERSONAL: { label: 'For you',             icon: 'ti-sparkles',     color: '#60A5FA', bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.25)' },
+  EARLY:    { label: 'Just spotted',        icon: 'ti-eye',          color: '#A78BFA', bg: 'rgba(167,139,250,.1)', border: 'rgba(167,139,250,.25)' },
 }
 
 const REACTIONS = [
@@ -34,7 +35,6 @@ const REACTIONS = [
   { type: 'use_this',     emoji: '♥',  label: 'I use this', activeBg: 'rgba(236,72,153,.1)',  activeColor: '#F472B6', activeBorder: 'rgba(236,72,153,.3)' },
 ]
 
-// Varied phrasing pools — picked deterministically per card so it's stable on re-render but differs card to card
 const ORGANIC_PHRASES = [
   (creator: string) => `${creator} genuinely uses this — no brand deal involved`,
   (creator: string) => `${creator} personally recommends this, unpaid`,
@@ -69,22 +69,29 @@ function getTakeawayLine(s: any, cardId: string) {
   const creator = s.creator_name || s.creators?.name || 'This creator'
   const offer = s.best_offer || s.offer_text
   const hasDeal = s.best_code || s.promo_code || offer
-
   if (s.is_organic) {
-    const pool = ORGANIC_PHRASES
-    const idx = hashString(cardId + 'organic') % pool.length
-    return { text: pool[idx](creator), color: '#34D399', icon: '💡' }
+    const idx = hashString(cardId + 'organic') % ORGANIC_PHRASES.length
+    return { text: ORGANIC_PHRASES[idx](creator), color: '#34D399', icon: '💡' }
   }
   if (hasDeal && offer) {
-    const pool = SPONSORED_PHRASES
-    const idx = hashString(cardId + 'sponsored') % pool.length
-    return { text: pool[idx](creator, offer), color: '#818CF8', icon: '🎯' }
+    const idx = hashString(cardId + 'sponsored') % SPONSORED_PHRASES.length
+    return { text: SPONSORED_PHRASES[idx](creator, offer), color: '#818CF8', icon: '🎯' }
   }
   if (hasDeal) {
-    const pool = SPONSORED_NO_OFFER_PHRASES
-    const idx = hashString(cardId + 'sponsorednooffer') % pool.length
-    return { text: pool[idx](creator), color: '#818CF8', icon: '🎯' }
+    const idx = hashString(cardId + 'sponsorednooffer') % SPONSORED_NO_OFFER_PHRASES.length
+    return { text: SPONSORED_NO_OFFER_PHRASES[idx](creator), color: '#818CF8', icon: '🎯' }
   }
+  return null
+}
+
+function getVelocityStat(s: any): string | null {
+  const days = s.first_seen ? Math.floor((Date.now() - new Date(s.first_seen).getTime()) / 86400000) : 999
+  const mentions = s.mention_count || 1
+  if (days <= 7 && mentions === 1) return '🆕 First spotted this week'
+  if (days <= 14 && mentions === 1) return '👀 Just starting to appear'
+  if (mentions >= 10) return `🔥 ${mentions} mentions — high conviction signal`
+  if (mentions >= 5) return `📈 ${mentions} creators have mentioned this`
+  if (s.best_dar_score >= 80) return '✓ High confidence data point'
   return null
 }
 
@@ -92,11 +99,12 @@ function classifyCard(s: any, brandCountMap: Record<string, number>, userSearche
   const brand = s.brand_name || s.brands?.name || ''
   const isSearched = userSearches.some(q => brand.toLowerCase().includes(q.toLowerCase()))
   if (isSearched) return 'PERSONAL'
+  const days = s.first_seen ? Math.floor((Date.now() - new Date(s.first_seen).getTime()) / 86400000) : 999
+  if (days <= 14 && (s.mention_count || 1) <= 2) return 'EARLY'
   if (s.is_organic) return 'ORGANIC'
   const count = brandCountMap[brand] || 1
   if (count >= 3) return 'MULTI'
   if ((s.best_code || s.promo_code) && (s.best_offer || s.offer_text)) return 'HOT'
-  const days = s.first_seen ? Math.floor((Date.now() - new Date(s.first_seen).getTime()) / 86400000) : 999
   if (days <= 14) return 'NEW_DEAL'
   return 'TRENDING'
 }
@@ -108,8 +116,8 @@ function generateHeadline(s: any, cardType: string, userSearches: string[], bran
   const subStr = subs >= 1000000 ? `${(subs / 1000000).toFixed(1)}M` : subs >= 1000 ? `${Math.round(subs / 1000)}k` : ''
   const mentions = s.mention_count || 1
   const isSearched = userSearches.some(q => brand.toLowerCase().includes(q.toLowerCase()) || q.toLowerCase().includes(brand.toLowerCase()))
-
   if (isSearched) return `You searched this — ${creator} promoted ${brand} ${mentions > 1 ? `${mentions} times` : 'recently'}`
+  if (cardType === 'EARLY') return `${brand} is just starting to appear — ${creator} spotted it first`
   if (cardType === 'ORGANIC') return `${creator} genuinely loves ${brand} — no deal attached`
   if (cardType === 'MULTI') return `${brand} appearing across ${brandCountMap[brand] || mentions} creators this week`
   if (cardType === 'HOT') return `${creator} has a deal on ${brand} you won't find elsewhere`
@@ -137,7 +145,7 @@ function formatSubs(n: number) {
   return `${n}`
 }
 
-const FILTERS = ['All', 'For you', 'Trending', 'Deals', 'Organic', 'New']
+const FILTERS = ['All', 'For you', 'Trending', 'Deals', 'Organic', 'New', 'Saved']
 
 export default function FeedPage() {
   const [feed, setFeed] = useState<any[]>([])
@@ -151,12 +159,16 @@ export default function FeedPage() {
   const [userSearches, setUserSearches] = useState<string[]>([])
   const [reactionCounts, setReactionCounts] = useState<Record<string, Record<string, number>>>({})
   const [myReactions, setMyReactions] = useState<Record<string, string[]>>({})
+  const [bookmarks, setBookmarks] = useState<Set<string>>(new Set())
+  const [weeklyInsights, setWeeklyInsights] = useState<{ blowingUp: any; justStarted: any; mostGenuine: any } | null>(null)
   const loaderRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const recent = JSON.parse(localStorage.getItem('tto_recent') || '[]')
     setUserSearches(recent)
     supabase.from('sponsorships').select('*', { count: 'exact', head: true }).then(({ count }) => setTotalCount(count || 0))
+    loadBookmarks()
+    loadWeeklyInsights()
   }, [])
 
   useEffect(() => { loadFeed(0, true) }, [filter, userSearches])
@@ -173,12 +185,74 @@ export default function FeedPage() {
     return () => obs.disconnect()
   }, [hasMore, loading, page])
 
+  async function loadBookmarks() {
+    const session = getSession()
+    if (!session) return
+    const { data } = await supabase
+      .from('user_bookmarks')
+      .select('target_id')
+      .eq('session_id', session)
+    setBookmarks(new Set((data || []).map((b: any) => b.target_id)))
+  }
+
+  async function loadWeeklyInsights() {
+    const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString()
+
+    const [{ data: velocityData }, { data: earlyData }, { data: organicData }] = await Promise.all([
+      supabase
+        .from('creator_brand_relationships')
+        .select('brand_name, mention_count, best_dar_score, brand_slug')
+        .gte('last_seen', twoWeeksAgo)
+        .order('mention_count', { ascending: false })
+        .limit(1),
+      supabase
+        .from('creator_brand_relationships')
+        .select('brand_name, creator_name, first_seen, brand_slug')
+        .gte('first_seen', twoWeeksAgo)
+        .order('first_seen', { ascending: false })
+        .limit(1),
+      supabase
+        .from('creator_brand_relationships')
+        .select('brand_name, mention_count, brand_slug')
+        .eq('is_organic', true)
+        .order('mention_count', { ascending: false })
+        .limit(1),
+    ])
+
+    setWeeklyInsights({
+      blowingUp: velocityData?.[0] || null,
+      justStarted: earlyData?.[0] || null,
+      mostGenuine: organicData?.[0] || null,
+    })
+  }
+
+  async function toggleBookmark(e: React.MouseEvent, cardId: string, brandName: string, creatorName: string) {
+    e.stopPropagation()
+    const session = getSession()
+    if (!session) return
+    const isBookmarked = bookmarks.has(cardId)
+    setBookmarks(prev => {
+      const next = new Set(prev)
+      isBookmarked ? next.delete(cardId) : next.add(cardId)
+      return next
+    })
+    if (isBookmarked) {
+      await supabase.from('user_bookmarks')
+        .delete()
+        .eq('session_id', session)
+        .eq('target_id', cardId)
+    } else {
+      await supabase.from('user_bookmarks')
+        .insert({ session_id: session, target_type: 'sponsorship', target_id: cardId, brand_name: brandName, creator_name: creatorName })
+    }
+  }
+
   async function loadFeed(pageNum: number, reset = false) {
     setLoading(true)
     const from = pageNum * 20
     const to = from + 19
 
-    if (filter === 'For you' && userSearches.length === 0) {
+    if ((filter === 'For you' && userSearches.length === 0) || (filter === 'Saved' && bookmarks.size === 0)) {
       setFeed([])
       setLoading(false)
       return
@@ -195,6 +269,7 @@ export default function FeedPage() {
     if (filter === 'Organic') q = q.eq('is_organic', true)
     if (filter === 'New') q = q.gte('first_seen', new Date(Date.now() - 14 * 86400000).toISOString())
     if (filter === 'Trending') q = q.gte('best_dar_score', 70)
+    if (filter === 'Saved') q = q.in('id', [...bookmarks])
 
     const { data } = await q
     const items = (data || []).filter((s: any) => s.brand_name && s.creator_name)
@@ -214,7 +289,6 @@ export default function FeedPage() {
     let filtered = classified
     if (filter === 'For you') filtered = classified.filter(s => s.cardType === 'PERSONAL')
 
-    // Load reaction counts
     const ids = classified.filter((s: any) => s.id).map((s: any) => s.id)
     if (ids.length) {
       const session = getSession()
@@ -282,6 +356,11 @@ export default function FeedPage() {
 
   const isHero = (s: any, i: number) => i === 0 || s.cardType === 'PERSONAL' || s.cardType === 'VELOCITY'
 
+  // Split feed into breaking out vs just spotted
+  const breakingOut = feed.filter(s => !['EARLY'].includes(s.cardType))
+  const justSpotted = feed.filter(s => s.cardType === 'EARLY')
+  const showSplit = filter === 'All' && justSpotted.length > 0
+
   return (
     <Layout>
       <style>{`
@@ -291,6 +370,7 @@ export default function FeedPage() {
         .fc:hover { border-color: rgba(255,255,255,.15) !important; transform: translateY(-1px) }
         .filt:hover { background: rgba(255,255,255,.07) !important }
         .rxn:hover { opacity: .8 }
+        .bm:hover { opacity: 1 !important }
       `}</style>
 
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '16px 14px 40px' }}>
@@ -313,12 +393,49 @@ export default function FeedPage() {
           )}
         </div>
 
+        {/* Weekly insight bar — answers Q1, Q2, Q5, Q13 */}
+        {weeklyInsights && filter === 'All' && (
+          <div style={{ background: 'rgba(255,255,255,.02)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 16, padding: '14px 16px', marginBottom: 16 }}>
+            <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.3)', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 10px' }}>This week in creator commerce</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {weeklyInsights.blowingUp && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 14 }}>🔥</span>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,.7)', margin: 0, lineHeight: 1.4 }}>
+                    <span style={{ color: '#F87171', fontWeight: 600 }}>{weeklyInsights.blowingUp.brand_name}</span>
+                    {' '}is blowing up — {weeklyInsights.blowingUp.mention_count} creator mentions in the last 2 weeks
+                  </p>
+                </div>
+              )}
+              {weeklyInsights.justStarted && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 14 }}>👀</span>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,.7)', margin: 0, lineHeight: 1.4 }}>
+                    <span style={{ color: '#A78BFA', fontWeight: 600 }}>{weeklyInsights.justStarted.brand_name}</span>
+                    {' '}just appeared — first spotted by{' '}
+                    <span style={{ color: 'rgba(255,255,255,.5)' }}>{weeklyInsights.justStarted.creator_name}</span>
+                  </p>
+                </div>
+              )}
+              {weeklyInsights.mostGenuine && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 14 }}>💡</span>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,.7)', margin: 0, lineHeight: 1.4 }}>
+                    <span style={{ color: '#34D399', fontWeight: 600 }}>{weeklyInsights.mostGenuine.brand_name}</span>
+                    {' '}— {weeklyInsights.mostGenuine.mention_count} creators recommend this unpaid, no deals found
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Filters */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
           {FILTERS.map(f => (
             <button key={f} className="filt" onClick={() => { setFilter(f); setPage(0) }}
               style={{ fontSize: 11, padding: '5px 13px', borderRadius: 20, border: '0.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .15s', borderColor: filter === f ? '#6366F1' : 'rgba(255,255,255,.08)', background: filter === f ? 'rgba(99,102,241,.15)' : 'transparent', color: filter === f ? '#818CF8' : 'rgba(255,255,255,.4)' }}>
-              {f === 'For you' ? '✦ For you' : f}
+              {f === 'For you' ? '✦ For you' : f === 'Saved' ? `🔖 Saved${bookmarks.size > 0 ? ` · ${bookmarks.size}` : ''}` : f}
             </button>
           ))}
         </div>
@@ -340,6 +457,18 @@ export default function FeedPage() {
               Browse all
             </button>
           </div>
+        ) : filter === 'Saved' && feed.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', background: 'rgba(255,255,255,.02)', borderRadius: 16, border: '0.5px solid rgba(255,255,255,.07)' }}>
+            <p style={{ fontSize: 28, marginBottom: 12 }}>🔖</p>
+            <p style={{ fontSize: 15, fontWeight: 600, color: '#fff', marginBottom: 8 }}>Nothing saved yet</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,.35)', marginBottom: 20, lineHeight: 1.6 }}>
+              Tap the bookmark icon on any card<br />to save it for later
+            </p>
+            <button onClick={() => setFilter('All')}
+              style={{ fontSize: 13, padding: '8px 20px', borderRadius: 20, background: 'rgba(99,102,241,.15)', color: '#818CF8', border: '0.5px solid rgba(99,102,241,.25)', cursor: 'pointer' }}>
+              Browse all
+            </button>
+          </div>
         ) : feed.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <p style={{ fontSize: 28, marginBottom: 10 }}>◎</p>
@@ -347,222 +476,25 @@ export default function FeedPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {feed.map((s: any, i: number) => {
-              const cfg = CARD_CONFIGS[s.cardType] || CARD_CONFIGS.TRENDING
-              const isOpen = expanded === s.id || expanded === `${s.creator_id}-${s.brand_id}`
-              const cardId = s.id || `${s.creator_id}-${s.brand_id}`
-              const hasDeal = s.best_code || s.promo_code || s.best_offer || s.offer_text || s.promo_url
-              const hero = isHero(s, i)
-              const quote = s.best_quote || s.exact_quote
-              const code = s.best_code || s.promo_code
-              const offer = s.best_offer || s.offer_text
-              const videoId = s.best_video_id || s.video_id
-              const promoUrl = s.best_promo_url || s.promo_url || s.brand_url
-              const takeaway = getTakeawayLine(s, cardId)
-              const fallbackUrl = !promoUrl && s.is_organic
-                ? `https://www.google.com/search?q=${encodeURIComponent('"' + (s.brand_name || s.brands?.name || '') + '" official website')}&btnI=1`
-                : null
 
-              return (
-                <div key={cardId} className="fc"
-                  style={{
-                    animationDelay: `${Math.min(i, 8) * 0.04}s`,
-                    background: hero ? 'rgba(99,102,241,.06)' : 'rgba(255,255,255,.03)',
-                    border: `0.5px solid ${hero ? 'rgba(99,102,241,.2)' : 'rgba(255,255,255,.07)'}`,
-                    borderRadius: hero ? 20 : 16,
-                    padding: hero ? '20px' : '16px',
-                    cursor: 'pointer',
-                    position: 'relative',
-                    overflow: 'hidden',
-                  }}
-                  onClick={() => { setExpanded(isOpen ? null : cardId); track('click', s.brand_name || '') }}>
+            {/* Breaking out section */}
+            {showSplit && breakingOut.length > 0 && (
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.25)', textTransform: 'uppercase', letterSpacing: '.06em', margin: '4px 0 2px' }}>
+                Breaking out
+              </p>
+            )}
 
-                  {/* Glow */}
-                  <div style={{ position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%', background: cfg.color, opacity: hero ? .1 : .06, filter: 'blur(24px)', pointerEvents: 'none' }} />
+            {(showSplit ? breakingOut : feed).map((s: any, i: number) => renderCard(s, i))}
 
-                  {/* Badge + time */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `0.5px solid ${cfg.border}`, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                      <i className={`ti ${cfg.icon}`} style={{ fontSize: 11 }} aria-hidden="true" />
-                      {cfg.label}
-                    </div>
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)' }}>{timeAgo(s.last_seen || s.first_seen)}</span>
-                  </div>
-
-                  {/* Headline */}
-                  <p style={{ fontSize: hero ? 16 : 14, fontWeight: 700, color: '#fff', margin: '0 0 10px', lineHeight: 1.3, letterSpacing: '-.01em' }}>
-                    {s.headline}
-                  </p>
-
-                  {/* Takeaway line — dynamic phrasing */}
-                  {takeaway && (
-                    <p style={{ fontSize: 11, color: takeaway.color, margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
-                      <span>{takeaway.icon}</span> {takeaway.text}
-                    </p>
-                  )}
-
-                  {/* Brand + Creator */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: cfg.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: cfg.color, flexShrink: 0 }}>
-                      {(s.brand_name || s.brands?.name)?.[0]?.toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                        <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#fff' }}>{s.brand_name || s.brands?.name}</p>
-                        {s.mention_count > 1 && (
-                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.3)', background: 'rgba(255,255,255,.06)', padding: '1px 6px', borderRadius: 6 }}>
-                            {s.mention_count}× mentioned
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: 0 }}>via {s.creator_name || s.creators?.name}</p>
-                        {(s.subscriber_count || s.creators?.subscriber_count) > 0 && (
-                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.05)', padding: '1px 5px', borderRadius: 6 }}>
-                            {formatSubs(s.subscriber_count || s.creators?.subscriber_count)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {(s.best_dar_score || s.dar_score) >= 75 && (
-                      <i className="ti ti-shield-check" style={{ fontSize: 14, color: '#34D399', opacity: .6, flexShrink: 0 }} aria-hidden="true" />
-                    )}
-                  </div>
-
-                  {/* Quote — prominent */}
-                  {quote && (
-                    <div style={{
-                      background: s.is_organic ? 'rgba(52,211,153,.05)' : 'rgba(255,255,255,.04)',
-                      borderRadius: 10,
-                      padding: '11px 13px',
-                      marginTop: 12,
-                      borderLeft: `3px solid ${s.is_organic ? '#34D399' : cfg.color}`
-                    }}>
-                      <p style={{ fontSize: hero ? 14 : 13, color: 'rgba(255,255,255,.8)', margin: 0, lineHeight: 1.6, fontStyle: 'italic', fontWeight: 500 }}>
-                        "{quote.slice(0, isOpen ? 300 : 130)}{!isOpen && quote.length > 130 ? '...' : ''}"
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Timeline */}
-                  {s.mention_count > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 11, color: 'rgba(255,255,255,.25)' }}>
-                      <span>First seen {timeAgo(s.first_seen)}</span>
-                      <span>·</span>
-                      <span>Latest {timeAgo(s.last_seen)}</span>
-                      <span>·</span>
-                      <span style={{ color: 'rgba(255,255,255,.4)' }}>{s.mention_count} mentions</span>
-                    </div>
-                  )}
-
-                  {/* Video title when expanded */}
-                  {s.video_title && isOpen && (
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', margin: '10px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <i className="ti ti-brand-youtube" style={{ fontSize: 12, marginRight: 4 }} aria-hidden="true" />
-                      {s.video_title}
-                    </p>
-                  )}
-
-                  {/* Bottom row */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, marginTop: 12, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: s.is_active ? '#34D399' : 'rgba(255,255,255,.2)' }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.is_active ? '#34D399' : 'rgba(255,255,255,.2)', display: 'inline-block' }} />
-                        {s.is_active ? 'Active' : 'Unverified'}
-                      </span>
-                      {s.platform && (
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 6 }}>
-                          {s.platform === 'linktree' ? '🌳 linktree' : s.platform === 'amazon' ? '🛒 amazon' : s.platform}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      {videoId && !videoId.startsWith('linktree_') && !videoId.startsWith('amazon_') && (
-                        <a href={`https://youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.35)', border: '0.5px solid rgba(255,255,255,.08)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <i className="ti ti-player-play" style={{ fontSize: 10 }} aria-hidden="true" />
-                          Watch
-                        </a>
-                      )}
-                      {hasDeal ? (
-                        <button
-                          onClick={e => {
-                            e.stopPropagation()
-                            if (code) copyCode(code, cardId, s.brand_name || '')
-                            else setExpanded(cardId)
-                          }}
-                          style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: copied === cardId ? 'rgba(34,197,94,.15)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${copied === cardId ? 'rgba(34,197,94,.3)' : cfg.border}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 600 }}>
-                          {copied === cardId ? '✓ Copied' : code ? 'Get code' : 'See deal'}
-                        </button>
-                      ) : s.is_organic ? (
-                        <a
-                          href={promoUrl || fallbackUrl || '#'}
-                          target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(52,211,153,.1)', color: '#34D399', border: '0.5px solid rgba(52,211,153,.25)', cursor: 'pointer', fontWeight: 600, textDecoration: 'none' }}>
-                          Find this →
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {/* Reaction buttons — always visible */}
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingTop: 10, marginTop: 10, borderTop: '0.5px solid rgba(255,255,255,.04)' }}
-                    onClick={e => e.stopPropagation()}>
-                    {REACTIONS.map(r => {
-                      const count = reactionCounts[cardId]?.[r.type] || 0
-                      const active = myReactions[cardId]?.includes(r.type)
-                      return (
-                        <button key={r.type} className="rxn"
-                          onClick={e => toggleReaction(e, cardId, r.type, s.id)}
-                          style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, border: '0.5px solid', cursor: 'pointer', transition: 'all .15s', background: active ? r.activeBg : 'transparent', color: active ? r.activeColor : 'rgba(255,255,255,.25)', borderColor: active ? r.activeBorder : 'rgba(255,255,255,.08)' }}>
-                          {r.emoji} {r.label}{count > 0 ? ` · ${count}` : ''}
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {/* Expanded deal panel */}
-                  {isOpen && hasDeal && (
-                    <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,.04)', borderRadius: 12, border: `0.5px solid ${cfg.border}` }}
-                      onClick={e => e.stopPropagation()}>
-                      {offer && (
-                        <p style={{ fontSize: 12, color: '#34D399', marginBottom: code ? 10 : 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <i className="ti ti-gift" style={{ fontSize: 13 }} aria-hidden="true" />
-                          {offer}
-                        </p>
-                      )}
-                      {code && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,.06)', borderRadius: 9, padding: '9px 12px' }}>
-                          <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '.08em' }}>
-                            {code}
-                          </span>
-                          <button onClick={() => copyCode(code, cardId, s.brand_name || '')}
-                            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 7, background: copied === cardId ? 'rgba(34,197,94,.2)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 600 }}>
-                            {copied === cardId ? '✓ Copied!' : 'Copy code'}
-                          </button>
-                        </div>
-                      )}
-                      {promoUrl && !code && (
-                        <a href={promoUrl} target="_blank" rel="noopener noreferrer"
-                          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: cfg.color, textDecoration: 'none', marginTop: 6 }}>
-                          <i className="ti ti-external-link" style={{ fontSize: 13 }} aria-hidden="true" />
-                          Go to deal
-                        </a>
-                      )}
-                      {(promoUrl || fallbackUrl) && (
-                        <a href={promoUrl || fallbackUrl || '#'} target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'rgba(255,255,255,.28)', textDecoration: 'none', marginTop: 10 }}>
-                          Visit brand →
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+            {/* Just spotted section */}
+            {showSplit && justSpotted.length > 0 && (
+              <>
+                <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(167,139,250,.6)', textTransform: 'uppercase', letterSpacing: '.06em', margin: '8px 0 2px', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span>👀</span> Just spotted — catch it early
+                </p>
+                {justSpotted.map((s: any, i: number) => renderCard(s, i + breakingOut.length))}
+              </>
+            )}
 
             <div ref={loaderRef} style={{ padding: '20px 0', textAlign: 'center' }}>
               {loading && page > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,.2)' }}>Loading more...</p>}
@@ -573,4 +505,239 @@ export default function FeedPage() {
       </div>
     </Layout>
   )
+
+  function renderCard(s: any, i: number) {
+    const cfg = CARD_CONFIGS[s.cardType] || CARD_CONFIGS.TRENDING
+    const isOpen = expanded === s.id || expanded === `${s.creator_id}-${s.brand_id}`
+    const cardId = s.id || `${s.creator_id}-${s.brand_id}`
+    const hasDeal = s.best_code || s.promo_code || s.best_offer || s.offer_text || s.promo_url
+    const hero = isHero(s, i)
+    const quote = s.best_quote || s.exact_quote
+    const code = s.best_code || s.promo_code
+    const offer = s.best_offer || s.offer_text
+    const videoId = s.best_video_id || s.video_id
+    const promoUrl = s.best_promo_url || s.promo_url || s.brand_url
+    const takeaway = getTakeawayLine(s, cardId)
+    const velocityStat = getVelocityStat(s)
+    const fallbackUrl = !promoUrl && s.is_organic
+      ? `https://www.google.com/search?q=${encodeURIComponent('"' + (s.brand_name || s.brands?.name || '') + '" official website')}&btnI=1`
+      : null
+    const isBookmarked = bookmarks.has(cardId)
+
+    return (
+      <div key={cardId} className="fc"
+        style={{
+          animationDelay: `${Math.min(i, 8) * 0.04}s`,
+          background: hero ? 'rgba(99,102,241,.06)' : 'rgba(255,255,255,.03)',
+          border: `0.5px solid ${hero ? 'rgba(99,102,241,.2)' : 'rgba(255,255,255,.07)'}`,
+          borderRadius: hero ? 20 : 16,
+          padding: hero ? '20px' : '16px',
+          cursor: 'pointer',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+        onClick={() => { setExpanded(isOpen ? null : cardId); track('click', s.brand_name || '') }}>
+
+        {/* Glow */}
+        <div style={{ position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%', background: cfg.color, opacity: hero ? .1 : .06, filter: 'blur(24px)', pointerEvents: 'none' }} />
+
+        {/* Badge + time + bookmark */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `0.5px solid ${cfg.border}`, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+            <i className={`ti ${cfg.icon}`} style={{ fontSize: 11 }} aria-hidden="true" />
+            {cfg.label}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)' }}>{timeAgo(s.last_seen || s.first_seen)}</span>
+            <button
+              className="bm"
+              onClick={e => toggleBookmark(e, cardId, s.brand_name || '', s.creator_name || '')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: 14, opacity: isBookmarked ? 1 : 0.3, color: isBookmarked ? '#FBBF24' : 'rgba(255,255,255,.5)', transition: 'all .15s' }}
+              title={isBookmarked ? 'Remove bookmark' : 'Save for later'}>
+              {isBookmarked ? '🔖' : '🔖'}
+            </button>
+          </div>
+        </div>
+
+        {/* Headline */}
+        <p style={{ fontSize: hero ? 16 : 14, fontWeight: 700, color: '#fff', margin: '0 0 10px', lineHeight: 1.3, letterSpacing: '-.01em' }}>
+          {s.headline}
+        </p>
+
+        {/* Takeaway line */}
+        {takeaway && (
+          <p style={{ fontSize: 11, color: takeaway.color, margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
+            <span>{takeaway.icon}</span> {takeaway.text}
+          </p>
+        )}
+
+        {/* Velocity stat — answers Q1/Q2 at card level */}
+        {velocityStat && (
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
+            {velocityStat}
+          </p>
+        )}
+
+        {/* Brand + Creator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: cfg.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: cfg.color, flexShrink: 0 }}>
+            {(s.brand_name || s.brands?.name)?.[0]?.toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#fff' }}>{s.brand_name || s.brands?.name}</p>
+              {s.mention_count > 1 && (
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,.3)', background: 'rgba(255,255,255,.06)', padding: '1px 6px', borderRadius: 6 }}>
+                  {s.mention_count}× mentioned
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: 0 }}>via {s.creator_name || s.creators?.name}</p>
+              {(s.subscriber_count || s.creators?.subscriber_count) > 0 && (
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.05)', padding: '1px 5px', borderRadius: 6 }}>
+                  {formatSubs(s.subscriber_count || s.creators?.subscriber_count)}
+                </span>
+              )}
+            </div>
+          </div>
+          {(s.best_dar_score || s.dar_score) >= 75 && (
+            <i className="ti ti-shield-check" style={{ fontSize: 14, color: '#34D399', opacity: .6, flexShrink: 0 }} aria-hidden="true" />
+          )}
+        </div>
+
+        {/* Quote */}
+        {quote && (
+          <div style={{
+            background: s.is_organic ? 'rgba(52,211,153,.05)' : 'rgba(255,255,255,.04)',
+            borderRadius: 10,
+            padding: '11px 13px',
+            marginTop: 12,
+            borderLeft: `3px solid ${s.is_organic ? '#34D399' : cfg.color}`
+          }}>
+            <p style={{ fontSize: hero ? 14 : 13, color: 'rgba(255,255,255,.8)', margin: 0, lineHeight: 1.6, fontStyle: 'italic', fontWeight: 500 }}>
+              "{quote.slice(0, isOpen ? 300 : 130)}{!isOpen && quote.length > 130 ? '...' : ''}"
+            </p>
+          </div>
+        )}
+
+        {/* Timeline */}
+        {s.mention_count > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 11, color: 'rgba(255,255,255,.25)' }}>
+            <span>First seen {timeAgo(s.first_seen)}</span>
+            <span>·</span>
+            <span>Latest {timeAgo(s.last_seen)}</span>
+            <span>·</span>
+            <span style={{ color: 'rgba(255,255,255,.4)' }}>{s.mention_count} mentions</span>
+          </div>
+        )}
+
+        {/* Video title when expanded */}
+        {s.video_title && isOpen && (
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', margin: '10px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <i className="ti ti-brand-youtube" style={{ fontSize: 12, marginRight: 4 }} aria-hidden="true" />
+            {s.video_title}
+          </p>
+        )}
+
+        {/* Bottom row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, marginTop: 12, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: s.is_active ? '#34D399' : 'rgba(255,255,255,.2)' }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.is_active ? '#34D399' : 'rgba(255,255,255,.2)', display: 'inline-block' }} />
+              {s.is_active ? 'Active' : 'Unverified'}
+            </span>
+            {s.platform && (
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 6 }}>
+                {s.platform === 'linktree' ? '🌳 linktree' : s.platform === 'amazon' ? '🛒 amazon' : s.platform}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {videoId && !videoId.startsWith('linktree_') && !videoId.startsWith('amazon_') && (
+              <a href={`https://youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.35)', border: '0.5px solid rgba(255,255,255,.08)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
+                <i className="ti ti-player-play" style={{ fontSize: 10 }} aria-hidden="true" />
+                Watch
+              </a>
+            )}
+            {hasDeal ? (
+              <button
+                onClick={e => {
+                  e.stopPropagation()
+                  if (code) copyCode(code, cardId, s.brand_name || '')
+                  else setExpanded(cardId)
+                }}
+                style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: copied === cardId ? 'rgba(34,197,94,.15)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${copied === cardId ? 'rgba(34,197,94,.3)' : cfg.border}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 600 }}>
+                {copied === cardId ? '✓ Copied' : code ? 'Get code' : 'See deal'}
+              </button>
+            ) : s.is_organic ? (
+              
+                href={promoUrl || fallbackUrl || '#'}
+                target="_blank" rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(52,211,153,.1)', color: '#34D399', border: '0.5px solid rgba(52,211,153,.25)', cursor: 'pointer', fontWeight: 600, textDecoration: 'none' }}>
+                Find this →
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Reactions */}
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingTop: 10, marginTop: 10, borderTop: '0.5px solid rgba(255,255,255,.04)' }}
+          onClick={e => e.stopPropagation()}>
+          {REACTIONS.map(r => {
+            const count = reactionCounts[cardId]?.[r.type] || 0
+            const active = myReactions[cardId]?.includes(r.type)
+            return (
+              <button key={r.type} className="rxn"
+                onClick={e => toggleReaction(e, cardId, r.type, s.id)}
+                style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, border: '0.5px solid', cursor: 'pointer', transition: 'all .15s', background: active ? r.activeBg : 'transparent', color: active ? r.activeColor : 'rgba(255,255,255,.25)', borderColor: active ? r.activeBorder : 'rgba(255,255,255,.08)' }}>
+                {r.emoji} {r.label}{count > 0 ? ` · ${count}` : ''}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Expanded deal panel */}
+        {isOpen && hasDeal && (
+          <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,.04)', borderRadius: 12, border: `0.5px solid ${cfg.border}` }}
+            onClick={e => e.stopPropagation()}>
+            {offer && (
+              <p style={{ fontSize: 12, color: '#34D399', marginBottom: code ? 10 : 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <i className="ti ti-gift" style={{ fontSize: 13 }} aria-hidden="true" />
+                {offer}
+              </p>
+            )}
+            {code && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,.06)', borderRadius: 9, padding: '9px 12px' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '.08em' }}>
+                  {code}
+                </span>
+                <button onClick={() => copyCode(code, cardId, s.brand_name || '')}
+                  style={{ fontSize: 12, padding: '5px 14px', borderRadius: 7, background: copied === cardId ? 'rgba(34,197,94,.2)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 600 }}>
+                  {copied === cardId ? '✓ Copied!' : 'Copy code'}
+                </button>
+              </div>
+            )}
+            {promoUrl && !code && (
+              <a href={promoUrl} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: cfg.color, textDecoration: 'none', marginTop: 6 }}>
+                <i className="ti ti-external-link" style={{ fontSize: 13 }} aria-hidden="true" />
+                Go to deal
+              </a>
+            )}
+            {(promoUrl || fallbackUrl) && (
+              <a href={promoUrl || fallbackUrl || '#'} target="_blank" rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'rgba(255,255,255,.28)', textDecoration: 'none', marginTop: 10 }}>
+                Visit brand →
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 }
