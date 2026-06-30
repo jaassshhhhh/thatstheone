@@ -12,7 +12,43 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-const YT_KEY = process.env.YOUTUBE_API_KEY
+const YT_KEYS = [
+    process.env.YOUTUBE_API_KEY,
+    process.env.YOUTUBE_API_KEY_2,
+    process.env.YOUTUBE_API_KEY_3,
+    process.env.YOUTUBE_API_KEY_4,
+    process.env.YOUTUBE_API_KEY_5,
+    process.env.YOUTUBE_API_KEY_6,
+  ].filter(Boolean)
+  
+  // Each key gets its own quota tracker — 8000 unit safety budget per key
+  const keyQuotas = YT_KEYS.map(() => ({ used: 0, limit: 8000 }))
+  
+  // Round-robin key selector with automatic skip when a key is exhausted
+  let currentKeyIndex = 0
+  function getActiveKey() {
+    for (let i = 0; i < YT_KEYS.length; i++) {
+      const idx = (currentKeyIndex + i) % YT_KEYS.length
+      if (keyQuotas[idx].used < keyQuotas[idx].limit) {
+        currentKeyIndex = idx
+        return { key: YT_KEYS[idx], index: idx }
+      }
+    }
+    return null // all keys exhausted
+  }
+  
+  function useQuotaForKey(keyIndex, units) {
+    keyQuotas[keyIndex].used += units
+    return keyQuotas[keyIndex].used <= keyQuotas[keyIndex].limit
+  }
+  
+  function totalQuotaUsed() {
+    return keyQuotas.reduce((sum, q) => sum + q.used, 0)
+  }
+  
+  function totalQuotaLimit() {
+    return keyQuotas.reduce((sum, q) => sum + q.limit, 0)
+  }
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID
 const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET
 
@@ -23,15 +59,15 @@ const VIDEOS_PER_CREATOR = 30
 // ─── YouTube quota tracker ─────────────────────────────────
 // Free tier: 10,000 units/day. Resets midnight Pacific (8am UK).
 // search = 100 units, videos/channels = 5 units
-const quota = { used: 0, limit: 8000 }
-function useQuota(units) {
-  quota.used += units
-  if (quota.used > quota.limit) {
-    console.log(`  ⚠️  YouTube quota limit reached (~${quota.used} units used)`)
-    return false
-  }
-  return true
-}
+// const quota = { used: 0, limit: 8000 }
+// function useQuota(units) {
+//   quota.used += units
+//   if (quota.used > quota.limit) {
+//     console.log(`  ⚠️  YouTube quota limit reached (~${quota.used} units used)`)
+//     return false
+//   }
+//   return true
+// }
 
 // ─── Brand blocklist ───────────────────────────────────────
 const BRAND_BLOCKLIST = new Set([
@@ -305,12 +341,13 @@ async function saveToDatabase(content, sponsors, creatorId) {
 // ═══════════════════════════════════════════════════════════
 
 async function getTrendingYouTubeTopics() {
-  const topics = []
-  try {
-    const regions = ['GB', 'US']
-    for (const region of regions) {
-      if (!useQuota(5)) break
-      const url = `https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&chart=mostPopular&regionCode=${region}&part=snippet&maxResults=50&videoCategoryId=0`
+    const topics = []
+    try {
+      const regions = ['GB', 'US']
+      for (const region of regions) {
+        const active = getActiveKey()
+        if (!active || !useQuotaForKey(active.index, 5)) break
+        const url = `https://www.googleapis.com/youtube/v3/videos?key=${active.key}&chart=mostPopular&regionCode=${region}&part=snippet&maxResults=50&videoCategoryId=0`
       const res = await fetch(url)
       const data = await res.json()
       if (data.error || !data.items?.length) continue
@@ -381,11 +418,11 @@ async function getUserTrendSeeds() {
 
 async function getAllTrendSeeds() {
   console.log('\n🌊 Fetching trend seeds...')
-  const [ytTopics, redditTopics, userTopics] = await Promise.all([
+  const [ytTopics, userTopics] = await Promise.all([
     getTrendingYouTubeTopics(),
-    // getTrendingRedditTopics(),
     getUserTrendSeeds(),
   ])
+  const redditTopics = []
   // Save new trends to search_trends for personalisation layer
   for (const topic of [...ytTopics, ...redditTopics]) {
     await supabase.from('search_trends')
@@ -407,9 +444,10 @@ async function getKnownChannelIds() {
 }
 
 async function getYouTubeChannelStats(channelId) {
-  if (!useQuota(5)) return null
-  try {
-    const url = `https://www.googleapis.com/youtube/v3/channels?key=${YT_KEY}&id=${channelId}&part=snippet,statistics`
+    const active = getActiveKey()
+    if (!active || !useQuotaForKey(active.index, 5)) return null
+    try {
+      const url = `https://www.googleapis.com/youtube/v3/channels?key=${active.key}&id=${channelId}&part=snippet,statistics`
     const res = await fetch(url)
     const data = await res.json()
     const ch = data.items?.[0]
@@ -424,9 +462,10 @@ async function getYouTubeChannelStats(channelId) {
 }
 
 async function searchYouTubeChannels(query, max = 5) {
-  if (!useQuota(100)) return []
-  try {
-    const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&q=${encodeURIComponent(query)}&type=channel&part=snippet&maxResults=${max}&order=relevance`
+    const active = getActiveKey()
+    if (!active || !useQuotaForKey(active.index, 100)) return []
+    try {
+      const url = `https://www.googleapis.com/youtube/v3/search?key=${active.key}&q=${encodeURIComponent(query)}&type=channel&part=snippet&maxResults=${max}&order=relevance`
     const res = await fetch(url)
     const data = await res.json()
     if (data.error) return []
@@ -448,7 +487,7 @@ async function discoverByCategory() {
   ]
   const channels = []
   for (const cat of categories) {
-    if (quota.used > quota.limit * 0.4) break // stop at 40% quota used
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.4) break // stop at 40% quota used
     const results = await searchYouTubeChannels(`${cat} channel`, 3)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
@@ -467,7 +506,7 @@ async function discoverByPopularity() {
   ]
   const channels = []
   for (const q of queries) {
-    if (quota.used > quota.limit * 0.5) break
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.5) break
     const results = await searchYouTubeChannels(q, 4)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
@@ -484,7 +523,7 @@ async function discoverByBrand() {
     .limit(15)
   const channels = []
   for (const brand of (brands || [])) {
-    if (quota.used > quota.limit * 0.6) break
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.6) break
     const results = await searchYouTubeChannels(`${brand.name} review sponsor`, 3)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
@@ -502,7 +541,7 @@ async function discoverByRelated(knownIds) {
     .limit(15)
   const channels = []
   for (const creator of (existingCreators || [])) {
-    if (quota.used > quota.limit * 0.65) break
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.65) break
     const results = await searchYouTubeChannels(`${creator.name} similar creator`, 3)
     channels.push(...results.filter(c => !knownIds.has(c.channelId)))
     await new Promise(r => setTimeout(r, 150))
@@ -515,7 +554,7 @@ async function discoverByTrends(trendSeeds) {
   if (!trendSeeds.length) return []
   const channels = []
   for (const topic of trendSeeds.slice(0, 15)) {
-    if (quota.used > quota.limit * 0.7) break
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.7) break
     const results = await searchYouTubeChannels(`${topic} youtube creator`, 3)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
@@ -536,7 +575,7 @@ async function discoverByGapFill(knownIds) {
       .map(([cat]) => cat)
     const channels = []
     for (const cat of underserved) {
-      if (quota.used > quota.limit * 0.75) break
+        if (totalQuotaUsed() > totalQuotaLimit() * 0.75) break
       const results = await searchYouTubeChannels(`${cat} youtube creator`, 3)
       channels.push(...results.filter(c => !knownIds.has(c.channelId)))
       await new Promise(r => setTimeout(r, 150))
@@ -547,52 +586,56 @@ async function discoverByGapFill(knownIds) {
 }
 
 async function getYouTubeVideos(channelId, max = VIDEOS_PER_CREATOR) {
-  const half = Math.floor(max / 2)
-  const videos = []
-  const seen = new Set()
-
-  // Half by recency — new deals and trends
-  try {
-    if (useQuota(100)) {
-      const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&channelId=${channelId}&part=snippet&order=date&maxResults=50&type=video`
-      const res = await fetch(url)
-      const data = await res.json()
-      if (!data.error && data.items?.length) {
-        const ids = data.items.map(v => v.id?.videoId).filter(Boolean).slice(0, half)
-        if (ids.length && useQuota(ids.length)) {
-          const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&id=${ids.join(',')}&part=snippet,statistics`)
-          const detData = await det.json()
-          for (const v of (detData.items || [])) {
-            if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
+    const half = Math.floor(max / 2)
+    const videos = []
+    const seen = new Set()
+  
+    // Half by recency — new deals and trends
+    try {
+      const active1 = getActiveKey()
+      if (active1 && useQuotaForKey(active1.index, 100)) {
+        const url = `https://www.googleapis.com/youtube/v3/search?key=${active1.key}&channelId=${channelId}&part=snippet&order=date&maxResults=50&type=video`
+        const res = await fetch(url)
+        const data = await res.json()
+        if (!data.error && data.items?.length) {
+          const ids = data.items.map(v => v.id?.videoId).filter(Boolean).slice(0, half)
+          const active2 = getActiveKey()
+          if (ids.length && active2 && useQuotaForKey(active2.index, ids.length)) {
+            const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${active2.key}&id=${ids.join(',')}&part=snippet,statistics`)
+            const detData = await det.json()
+            for (const v of (detData.items || [])) {
+              if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
+            }
           }
         }
       }
-    }
-  } catch {}
-
-  await new Promise(r => setTimeout(r, 200))
-
-  // Half by view count — high-reach sponsorships
-  try {
-    if (useQuota(100)) {
-      const url = `https://www.googleapis.com/youtube/v3/search?key=${YT_KEY}&channelId=${channelId}&part=snippet&order=viewCount&maxResults=50&type=video`
-      const res = await fetch(url)
-      const data = await res.json()
-      if (!data.error && data.items?.length) {
-        const ids = data.items.map(v => v.id?.videoId).filter(Boolean)
-        const newIds = ids.filter(id => !seen.has(id)).slice(0, max - videos.length)
-        if (newIds.length && useQuota(newIds.length)) {
-          const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${YT_KEY}&id=${newIds.join(',')}&part=snippet,statistics`)
-          const detData = await det.json()
-          for (const v of (detData.items || [])) {
-            if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
+    } catch {}
+  
+    await new Promise(r => setTimeout(r, 200))
+  
+    // Half by view count — high-reach sponsorships
+    try {
+      const active3 = getActiveKey()
+      if (active3 && useQuotaForKey(active3.index, 100)) {
+        const url = `https://www.googleapis.com/youtube/v3/search?key=${active3.key}&channelId=${channelId}&part=snippet&order=viewCount&maxResults=50&type=video`
+        const res = await fetch(url)
+        const data = await res.json()
+        if (!data.error && data.items?.length) {
+          const ids = data.items.map(v => v.id?.videoId).filter(Boolean)
+          const newIds = ids.filter(id => !seen.has(id)).slice(0, max - videos.length)
+          const active4 = getActiveKey()
+          if (newIds.length && active4 && useQuotaForKey(active4.index, newIds.length)) {
+            const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${active4.key}&id=${newIds.join(',')}&part=snippet,statistics`)
+            const detData = await det.json()
+            for (const v of (detData.items || [])) {
+              if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
+            }
           }
         }
       }
-    }
-  } catch {}
-
-  return videos.slice(0, max)
+    } catch {}
+  
+    return videos.slice(0, max)
 }
 
 async function refreshSubscriberCounts() {
@@ -607,7 +650,7 @@ async function refreshSubscriberCounts() {
     let updated = 0
     for (const creator of (creators || [])) {
       if (creator.channel_id?.startsWith('twitch_')) continue
-      if (quota.used > quota.limit * 0.9) break
+      if (totalQuotaUsed() > totalQuotaLimit() * 0.9) break
       const stats = await getYouTubeChannelStats(creator.channel_id)
       if (!stats) continue
       await supabase.from('creators')
@@ -650,7 +693,7 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
   console.log(`     ${byRelated.length} from related channels`)
   console.log(`     ${byTrends.length} from trend seeds`)
   console.log(`     ${byGapFill.length} from gap fill`)
-  console.log(`  📊 Quota used so far: ~${quota.used} / ${quota.limit} units`)
+  console.log(`  📊 Quota used so far: ~${totalQuotaUsed()} / ${totalQuotaLimit()} units`)
 
   let creators = 0
   let sponsorships = 0
@@ -659,7 +702,7 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
   for (const candidate of allCandidates) {
     if (creators >= maxCreators) break
     if (!candidate.channelId || knownIds.has(candidate.channelId)) continue
-    if (quota.used > quota.limit * 0.8) {
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.8) {
       console.log(`  ⚠️  Quota limit approaching — stopping new creator discovery`)
       break
     }
@@ -718,7 +761,7 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
   console.log(`  🔄 Re-processing ${(existingToRefresh || []).length} existing creators for new content...`)
   for (const creator of (existingToRefresh || [])) {
     if (creator.channel_id?.startsWith('twitch_')) continue
-    if (quota.used > quota.limit * 0.92) {
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.92) {
       console.log(`  ⚠️  Quota limit approaching — stopping re-processing`)
       break
     }
@@ -1206,7 +1249,7 @@ async function run() {
   console.log(`   Newsletters: ${results.newsletters} sponsorships`)
   console.log(`   Twitch:      ${results.twitch} sponsorships`)
   console.log(`   Total:       ${total} sponsorships`)
-  console.log(`   YT Quota:    ~${quota.used} / ${quota.limit} units used`)
+  console.log(`   YT Quota:    ~${totalQuotaUsed()} / ${totalQuotaLimit()} units used across ${YT_KEYS.length} keys`)
   console.log(`   Trend seeds: ${trendSeeds.length} active this run`)
   console.log(`${'═'.repeat(55)}`)
 }
