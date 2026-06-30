@@ -34,6 +34,60 @@ const REACTIONS = [
   { type: 'use_this',     emoji: '♥',  label: 'I use this', activeBg: 'rgba(236,72,153,.1)',  activeColor: '#F472B6', activeBorder: 'rgba(236,72,153,.3)' },
 ]
 
+// Varied phrasing pools — picked deterministically per card so it's stable on re-render but differs card to card
+const ORGANIC_PHRASES = [
+  (creator: string) => `${creator} genuinely uses this — no brand deal involved`,
+  (creator: string) => `${creator} personally recommends this, unpaid`,
+  (creator: string) => `No sponsorship here — just ${creator}'s honest opinion`,
+  (creator: string) => `${creator} brought this up unprompted — real endorsement`,
+  (creator: string) => `${creator} actually uses this day to day`,
+]
+
+const SPONSORED_PHRASES = [
+  (creator: string, offer: string) => `Sponsored deal — ${offer}`,
+  (creator: string, offer: string) => `${creator}'s paid partnership — ${offer}`,
+  (creator: string, offer: string) => `Active sponsorship: ${offer}`,
+  (creator: string, offer: string) => `${creator} is running a promo — ${offer}`,
+]
+
+const SPONSORED_NO_OFFER_PHRASES = [
+  (creator: string) => `${creator}'s sponsor — check the deal below`,
+  (creator: string) => `Paid partnership with ${creator}`,
+  (creator: string) => `${creator} is sponsored by this brand`,
+]
+
+function hashString(str: string) {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash)
+}
+
+function getTakeawayLine(s: any, cardId: string) {
+  const creator = s.creator_name || s.creators?.name || 'This creator'
+  const offer = s.best_offer || s.offer_text
+  const hasDeal = s.best_code || s.promo_code || offer
+
+  if (s.is_organic) {
+    const pool = ORGANIC_PHRASES
+    const idx = hashString(cardId + 'organic') % pool.length
+    return { text: pool[idx](creator), color: '#34D399', icon: '💡' }
+  }
+  if (hasDeal && offer) {
+    const pool = SPONSORED_PHRASES
+    const idx = hashString(cardId + 'sponsored') % pool.length
+    return { text: pool[idx](creator, offer), color: '#818CF8', icon: '🎯' }
+  }
+  if (hasDeal) {
+    const pool = SPONSORED_NO_OFFER_PHRASES
+    const idx = hashString(cardId + 'sponsorednooffer') % pool.length
+    return { text: pool[idx](creator), color: '#818CF8', icon: '🎯' }
+  }
+  return null
+}
+
 function classifyCard(s: any, brandCountMap: Record<string, number>, userSearches: string[]): string {
   const brand = s.brand_name || s.brands?.name || ''
   const isSearched = userSearches.some(q => brand.toLowerCase().includes(q.toLowerCase()))
@@ -304,6 +358,10 @@ export default function FeedPage() {
               const offer = s.best_offer || s.offer_text
               const videoId = s.best_video_id || s.video_id
               const promoUrl = s.best_promo_url || s.promo_url || s.brand_url
+              const takeaway = getTakeawayLine(s, cardId)
+              const fallbackUrl = !promoUrl && s.is_organic
+                ? `https://www.google.com/search?q=${encodeURIComponent('"' + (s.brand_name || s.brands?.name || '') + '" official website')}&btnI=1`
+                : null
 
               return (
                 <div key={cardId} className="fc"
@@ -332,9 +390,16 @@ export default function FeedPage() {
                   </div>
 
                   {/* Headline */}
-                  <p style={{ fontSize: hero ? 16 : 14, fontWeight: 700, color: '#fff', margin: '0 0 12px', lineHeight: 1.3, letterSpacing: '-.01em' }}>
+                  <p style={{ fontSize: hero ? 16 : 14, fontWeight: 700, color: '#fff', margin: '0 0 10px', lineHeight: 1.3, letterSpacing: '-.01em' }}>
                     {s.headline}
                   </p>
+
+                  {/* Takeaway line — dynamic phrasing */}
+                  {takeaway && (
+                    <p style={{ fontSize: 11, color: takeaway.color, margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
+                      <span>{takeaway.icon}</span> {takeaway.text}
+                    </p>
+                  )}
 
                   {/* Brand + Creator */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -364,11 +429,17 @@ export default function FeedPage() {
                     )}
                   </div>
 
-                  {/* Quote */}
+                  {/* Quote — prominent */}
                   {quote && (
-                    <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '9px 12px', marginTop: 12, borderLeft: `2px solid ${cfg.color}` }}>
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
-                        "{quote.slice(0, isOpen ? 300 : 100)}{!isOpen && quote.length > 100 ? '...' : ''}"
+                    <div style={{
+                      background: s.is_organic ? 'rgba(52,211,153,.05)' : 'rgba(255,255,255,.04)',
+                      borderRadius: 10,
+                      padding: '11px 13px',
+                      marginTop: 12,
+                      borderLeft: `3px solid ${s.is_organic ? '#34D399' : cfg.color}`
+                    }}>
+                      <p style={{ fontSize: hero ? 14 : 13, color: 'rgba(255,255,255,.8)', margin: 0, lineHeight: 1.6, fontStyle: 'italic', fontWeight: 500 }}>
+                        "{quote.slice(0, isOpen ? 300 : 130)}{!isOpen && quote.length > 130 ? '...' : ''}"
                       </p>
                     </div>
                   )}
@@ -400,21 +471,21 @@ export default function FeedPage() {
                         {s.is_active ? 'Active' : 'Unverified'}
                       </span>
                       {s.platform && (
-  <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 6 }}>
-    {s.platform === 'linktree' ? '🌳 linktree' : s.platform === 'amazon' ? '🛒 amazon' : s.platform}
-  </span>
-)}
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 6 }}>
+                          {s.platform === 'linktree' ? '🌳 linktree' : s.platform === 'amazon' ? '🛒 amazon' : s.platform}
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       {videoId && !videoId.startsWith('linktree_') && !videoId.startsWith('amazon_') && (
-  <a href={`https://youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer"
+                        <a href={`https://youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}
                           style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.35)', border: '0.5px solid rgba(255,255,255,.08)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
                           <i className="ti ti-player-play" style={{ fontSize: 10 }} aria-hidden="true" />
                           Watch
                         </a>
                       )}
-                      {hasDeal && (
+                      {hasDeal ? (
                         <button
                           onClick={e => {
                             e.stopPropagation()
@@ -424,7 +495,15 @@ export default function FeedPage() {
                           style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: copied === cardId ? 'rgba(34,197,94,.15)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${copied === cardId ? 'rgba(34,197,94,.3)' : cfg.border}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 600 }}>
                           {copied === cardId ? '✓ Copied' : code ? 'Get code' : 'See deal'}
                         </button>
-                      )}
+                      ) : s.is_organic ? (
+                        <a
+                          href={promoUrl || fallbackUrl || '#'}
+                          target="_blank" rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(52,211,153,.1)', color: '#34D399', border: '0.5px solid rgba(52,211,153,.25)', cursor: 'pointer', fontWeight: 600, textDecoration: 'none' }}>
+                          Find this →
+                        </a>
+                      ) : null}
                     </div>
                   </div>
 
@@ -472,8 +551,8 @@ export default function FeedPage() {
                           Go to deal
                         </a>
                       )}
-                      {promoUrl && (
-                        <a href={promoUrl} target="_blank" rel="noopener noreferrer"
+                      {(promoUrl || fallbackUrl) && (
+                        <a href={promoUrl || fallbackUrl || '#'} target="_blank" rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'rgba(255,255,255,.28)', textDecoration: 'none', marginTop: 10 }}>
                           Visit brand →
