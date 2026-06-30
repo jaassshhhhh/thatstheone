@@ -217,11 +217,23 @@ export default function BrandPage() {
                 </div>
 
                 {/* Quote */}
-                {c.best_quote && (
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '10px 0 0', fontStyle: 'italic', lineHeight: 1.5, borderLeft: '2px solid rgba(255,255,255,.08)', paddingLeft: 10 }}>
-                    "{c.best_quote.slice(0, isOpen ? 300 : 120)}{!isOpen && c.best_quote.length > 120 ? '...' : ''}"
-                  </p>
-                )}
+                {/* Takeaway + Quote */}
+{c.is_organic && (
+  <p style={{ fontSize: 11, color: '#34D399', margin: '10px 0 6px', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
+    💡 {c.creator_name} genuinely uses this — no deal involved
+  </p>
+)}
+{c.best_quote && (
+  <div style={{
+    background: c.is_organic ? 'rgba(52,211,153,.05)' : 'rgba(255,255,255,.03)',
+    borderRadius: 9, padding: '9px 12px', marginTop: c.is_organic ? 0 : 10,
+    borderLeft: `2px solid ${c.is_organic ? '#34D399' : 'rgba(255,255,255,.15)'}`
+  }}>
+    <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', margin: 0, fontStyle: 'italic', lineHeight: 1.6 }}>
+      "{c.best_quote.slice(0, isOpen ? 300 : 120)}{!isOpen && c.best_quote.length > 120 ? '...' : ''}"
+    </p>
+  </div>
+)}
 
                 {/* Expanded deal panel */}
                 {isOpen && (c.best_code || c.best_offer || promoUrl) && (

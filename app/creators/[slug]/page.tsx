@@ -186,13 +186,20 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{s.brands?.name}</span>
-                      {s.is_organic && (
-                        <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: 'rgba(16,185,129,.1)', color: '#34D399', border: '0.5px solid rgba(16,185,129,.2)' }}>
-                          Organic
-                        </span>
-                      )}
+  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+    {s.brands?.slug ? (
+      <Link href={`/brands/${s.brands.slug}`} onClick={e => e.stopPropagation()}
+        style={{ fontSize: 13, fontWeight: 600, color: '#fff', textDecoration: 'none' }}>
+        {s.brands?.name}
+      </Link>
+    ) : (
+      <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{s.brands?.name}</span>
+    )}
+    {s.is_organic && (
+      <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: 'rgba(16,185,129,.1)', color: '#34D399', border: '0.5px solid rgba(16,185,129,.2)' }}>
+        Organic
+      </span>
+    )}
                       {s.dar_score >= 75 && (
                         <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: 'rgba(99,102,241,.1)', color: '#818CF8', border: '0.5px solid rgba(99,102,241,.2)' }}>
                           Verified
@@ -230,13 +237,22 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
                 {expanded === s.id && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
 
-                    {s.exact_quote && (
-                      <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 9, padding: '9px 12px', marginBottom: 10, borderLeft: '2px solid rgba(99,102,241,.4)' }}>
-                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
-                          "{s.exact_quote}"
-                        </p>
-                      </div>
-                    )}
+{s.is_organic && (
+  <p style={{ fontSize: 12, color: '#34D399', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
+    💡 Personal recommendation — no brand deal involved
+  </p>
+)}
+{s.exact_quote && (
+  <div style={{
+    background: s.is_organic ? 'rgba(52,211,153,.05)' : 'rgba(255,255,255,.04)',
+    borderRadius: 9, padding: '10px 13px', marginBottom: 10,
+    borderLeft: `3px solid ${s.is_organic ? '#34D399' : 'rgba(99,102,241,.4)'}`
+  }}>
+    <p style={{ fontSize: 13, color: 'rgba(255,255,255,.8)', margin: 0, lineHeight: 1.6, fontStyle: 'italic', fontWeight: 500 }}>
+      "{s.exact_quote}"
+    </p>
+  </div>
+)}
 
                     {s.offer_text && (
                       <p style={{ fontSize: 12, color: '#34D399', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -259,14 +275,21 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
                           Watch ↗
                         </a>
                       )}
-                      {s.promo_url && (
-                        <a href={s.promo_url}
-                          target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(16,185,129,.08)', color: '#34D399', border: '0.5px solid rgba(16,185,129,.2)', textDecoration: 'none' }}>
-                          Visit deal ↗
-                        </a>
-                      )}
+                      {s.promo_url ? (
+  <a href={s.promo_url}
+    target="_blank" rel="noopener noreferrer"
+    onClick={e => e.stopPropagation()}
+    style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(16,185,129,.08)', color: '#34D399', border: '0.5px solid rgba(16,185,129,.2)', textDecoration: 'none' }}>
+    Visit deal ↗
+  </a>
+) : s.is_organic && (
+  <a href={`https://www.google.com/search?q=${encodeURIComponent('"' + (s.brands?.name || '') + '" official website')}&btnI=1`}
+    target="_blank" rel="noopener noreferrer"
+    onClick={e => e.stopPropagation()}
+    style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(16,185,129,.08)', color: '#34D399', border: '0.5px solid rgba(16,185,129,.2)', textDecoration: 'none' }}>
+    Find this →
+  </a>
+)}
                       {s.promo_code && (
                         <button
                           onClick={e => { e.stopPropagation(); copyCode(s.promo_code, s.id) }}
