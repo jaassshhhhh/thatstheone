@@ -285,9 +285,11 @@ function SearchContent() {
 ) : null}
 
 {r.exact_quote && (
-  <p style={{ fontSize: 12, color: 'rgba(255,255,255,.35)', margin: '0 0 10px', lineHeight: 1.5, fontStyle: 'italic', borderLeft: '2px solid rgba(99,102,241,.3)', paddingLeft: 10 }}>
-    "{r.exact_quote.slice(0, 140)}{r.exact_quote.length > 140 ? '...' : ''}"
-  </p>
+  <div style={{ background: 'rgba(52,211,153,.05)', borderRadius: 10, padding: '12px 14px', margin: '0 0 10px', borderLeft: '3px solid #34D399' }}>
+    <p style={{ fontSize: 14, color: 'rgba(255,255,255,.85)', margin: 0, lineHeight: 1.6, fontStyle: 'italic', fontWeight: 500 }}>
+      "{r.exact_quote.slice(0, 200)}{r.exact_quote.length > 200 ? '...' : ''}"
+    </p>
+  </div>
 )}
 
                     {/* Offer */}
@@ -319,26 +321,31 @@ function SearchContent() {
     Mentioned, no specific offer
   </span>
 )}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {isYouTube && r.video_id && (
-                          <a href={`https://youtube.com/watch?v=${r.video_id}`} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.35)', border: '1px solid rgba(255,255,255,.08)', textDecoration: 'none' }}>
-                            Watch ▶
-                          </a>
-                        )}
-                        {promoUrl && (
-                          <a href={promoUrl} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(99,102,241,.1)', color: '#818CF8', border: '1px solid rgba(99,102,241,.2)', textDecoration: 'none' }}>
-                            Visit brand →
-                          </a>
-                        )}
-                        {r.promo_code && (
-                          <button onClick={() => copyCode(r.promo_code, r.brands?.name)}
-                            style={{ fontSize: 11, padding: '5px 14px', borderRadius: 8, background: copied === r.promo_code ? 'rgba(34,197,94,.15)' : 'rgba(99,102,241,.15)', color: copied === r.promo_code ? '#4ADE80' : '#818CF8', border: `1px solid ${copied === r.promo_code ? 'rgba(34,197,94,.3)' : 'rgba(99,102,241,.25)'}`, cursor: 'pointer', fontWeight: 500 }}>
-                            {copied === r.promo_code ? '✓ Copied!' : 'Copy code'}
-                          </button>
-                        )}
-                      </div>
+                     <div style={{ display: 'flex', gap: 8 }}>
+  {isYouTube && r.video_id && (
+    <a href={`https://youtube.com/watch?v=${r.video_id}`} target="_blank" rel="noopener noreferrer"
+      style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.35)', border: '1px solid rgba(255,255,255,.08)', textDecoration: 'none' }}>
+      Watch ▶
+    </a>
+  )}
+  {promoUrl ? (
+    <a href={promoUrl} target="_blank" rel="noopener noreferrer"
+      style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(99,102,241,.1)', color: '#818CF8', border: '1px solid rgba(99,102,241,.2)', textDecoration: 'none' }}>
+      Visit brand →
+    </a>
+  ) : r.is_organic && (
+    <a href={`https://www.google.com/search?q=${encodeURIComponent((r.brands?.name || '') + ' official site')}`} target="_blank" rel="noopener noreferrer"
+      style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(52,211,153,.1)', color: '#34D399', border: '1px solid rgba(52,211,153,.2)', textDecoration: 'none' }}>
+      Find this product →
+    </a>
+  )}
+  {r.promo_code && (
+    <button onClick={() => copyCode(r.promo_code, r.brands?.name)}
+      style={{ fontSize: 11, padding: '5px 14px', borderRadius: 8, background: copied === r.promo_code ? 'rgba(34,197,94,.15)' : 'rgba(99,102,241,.15)', color: copied === r.promo_code ? '#4ADE80' : '#818CF8', border: `1px solid ${copied === r.promo_code ? 'rgba(34,197,94,.3)' : 'rgba(99,102,241,.25)'}`, cursor: 'pointer', fontWeight: 500 }}>
+      {copied === r.promo_code ? '✓ Copied!' : 'Copy code'}
+    </button>
+  )}
+</div>
                     </div>
                   </div>
                 )
