@@ -2,7 +2,6 @@ import { supabase } from '../../lib/supabase'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-
   const { data: creator } = await supabase
     .from('creators')
     .select('name, category, platform, avatar_url, total_sponsorships')
@@ -17,17 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   const name = creator.name
-  const category = creator.category || 'creator'
   const deals = creator.total_sponsorships || 0
-
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Person',
-    name: creator.name,
-    ...(creator.avatar_url && { image: creator.avatar_url }),
-    ...(creator.category && { knowsAbout: creator.category }),
-    sameAs: [`https://thatsthe.one/creators/${slug}`],
-  }
 
   return {
     title: `${name} sponsorships and deals — That's The One`,
@@ -47,12 +36,46 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     alternates: {
       canonical: `https://thatsthe.one/creators/${slug}`,
     },
-    other: {
-      'script:ld+json': JSON.stringify(jsonLd),
-    },
   }
 }
 
-export default function CreatorLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+async function getCreator(slug: string) {
+  const { data } = await supabase
+    .from('creators')
+    .select('name, category, avatar_url')
+    .eq('slug', slug)
+    .single()
+  return data
+}
+
+export default async function CreatorLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
+  const creator = await getCreator(slug)
+
+  const jsonLd = creator ? JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: creator.name,
+    ...(creator.avatar_url && { image: creator.avatar_url }),
+    ...(creator.category && { knowsAbout: creator.category }),
+    sameAs: [`https://thatsthe.one/creators/${slug}`],
+  }) : null
+
+  return (
+    <>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLd }}
+        />
+      )}
+      {children}
+    </>
+  )
 }
