@@ -5,7 +5,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   const { data: creator } = await supabase
     .from('creators')
-    .select('name, category, platform, total_sponsorships')
+    .select('name, category, platform, avatar_url, total_sponsorships')
     .eq('slug', slug)
     .single()
 
@@ -19,6 +19,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const name = creator.name
   const category = creator.category || 'creator'
   const deals = creator.total_sponsorships || 0
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: creator.name,
+    ...(creator.avatar_url && { image: creator.avatar_url }),
+    ...(creator.category && { knowsAbout: creator.category }),
+    sameAs: [`https://thatsthe.one/creators/${slug}`],
+  }
 
   return {
     title: `${name} sponsorships and deals — That's The One`,
@@ -37,37 +46,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     },
     alternates: {
       canonical: `https://thatsthe.one/creators/${slug}`,
-    }
+    },
+    other: {
+      'script:ld+json': JSON.stringify(jsonLd),
+    },
   }
 }
 
-export default async function CreatorLayout({ children, params }: { children: React.ReactNode, params: Promise<{ slug: string }> }) {
-    const { slug } = await params
-  
-    const { data: creator } = await supabase
-      .from('creators')
-      .select('name, category, platform, avatar_url')
-      .eq('slug', slug)
-      .single()
-  
-    const jsonLd = creator ? {
-      '@context': 'https://schema.org',
-      '@type': 'Person',
-      name: creator.name,
-      ...(creator.avatar_url && { image: creator.avatar_url }),
-      ...(creator.category && { knowsAbout: creator.category }),
-      sameAs: [`https://thatsthe.one/creators/${slug}`],
-    } : null
-  
-    return (
-      <>
-        {jsonLd && (
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-          />
-        )}
-        {children}
-      </>
-    )
-  }
+export default function CreatorLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
+}
