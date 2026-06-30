@@ -224,6 +224,24 @@ const INSIGHT_CONFIG = {
     why: 'Every mention of this brand in our dataset is flagged as organic — no promo codes, no affiliate language, no sponsored markers.',
     implication: 'Organic word-of-mouth at this scale is rare. Creators are talking about this because they actually use it.',
   },
+  hiddenGem: {
+    emoji: '💎',
+    color: '#FBBF24',
+    bg: 'rgba(245,158,11,.08)',
+    border: 'rgba(245,158,11,.2)',
+    label: 'Hidden gem',
+    why: 'This brand has an active deal but very few creators are talking about it yet — it hasn\'t been widely picked up. Under the radar, but verified.',
+    implication: 'Hidden gems like this often get flooded with promotions once they break through. This is the window to use the deal before everyone knows about it.',
+  },
+  bestDeal: {
+    emoji: '🏆',
+    color: '#34D399',
+    bg: 'rgba(52,211,153,.08)',
+    border: 'rgba(52,211,153,.2)',
+    label: 'Best verified deal',
+    why: 'Highest confidence score in our dataset right now — multiple signals confirm this deal is real, active, and worth using.',
+    implication: 'Our confidence score combines creator mention frequency, code validation, and community verification. This one scores highest this week.',
+  },
 }
 
 export default function FeedPage() {
@@ -239,7 +257,7 @@ export default function FeedPage() {
   const [reactionCounts, setReactionCounts] = useState<Record<string, Record<string, number>>>({})
   const [myReactions, setMyReactions] = useState<Record<string, string[]>>({})
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set())
-  const [weeklyInsights, setWeeklyInsights] = useState<{ blowingUp: any; justStarted: any; mostGenuine: any } | null>(null)
+  const [weeklyInsights, setWeeklyInsights] = useState<{ blowingUp: any; justStarted: any; mostGenuine: any; hiddenGem: any; bestDeal: any } | null>(null)
   const [expandedInsight, setExpandedInsight] = useState<string | null>(null)
   const loaderRef = useRef<HTMLDivElement>(null)
 
@@ -274,14 +292,23 @@ export default function FeedPage() {
 
   async function loadWeeklyInsights() {
     const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString()
-    const [{ data: velocityData }, { data: earlyData }, { data: organicData }] = await Promise.all([
+    const [{ data: velocityData }, { data: earlyData }, { data: organicData }, { data: hiddenGemData }, { data: bestDealData }] = await Promise.all([
       supabase.from('creator_brand_relationships').select('brand_name, mention_count, brand_slug').gte('last_seen', twoWeeksAgo).order('mention_count', { ascending: false }).limit(1),
       supabase.from('creator_brand_relationships').select('brand_name, creator_name, first_seen, brand_slug').gte('first_seen', twoWeeksAgo).order('first_seen', { ascending: false }).limit(1),
       supabase.from('creator_brand_relationships').select('brand_name, mention_count, brand_slug').eq('is_organic', true).order('mention_count', { ascending: false }).limit(1),
+      // Hidden gem: has a code, low mention count (under the radar), active
+      supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, brand_slug').not('best_code', 'is', null).lt('mention_count', 4).order('best_dar_score', { ascending: false }).limit(1),
+      // Best verified deal: highest DAR score with an active code
+      supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, best_dar_score, brand_slug').not('best_code', 'is', null).eq('is_active', true).order('best_dar_score', { ascending: false }).limit(1),
     ])
-    setWeeklyInsights({ blowingUp: velocityData?.[0] || null, justStarted: earlyData?.[0] || null, mostGenuine: organicData?.[0] || null })
+    setWeeklyInsights({
+      blowingUp: velocityData?.[0] || null,
+      justStarted: earlyData?.[0] || null,
+      mostGenuine: organicData?.[0] || null,
+      hiddenGem: hiddenGemData?.[0] || null,
+      bestDeal: bestDealData?.[0] || null,
+    })
   }
-
   async function toggleBookmark(e: React.MouseEvent, cardId: string, brandName: string, creatorName: string) {
     e.stopPropagation()
     const session = getSession()
@@ -552,6 +579,122 @@ export default function FeedPage() {
                           View {weeklyInsights.mostGenuine.brand_name} →
                         </a>
                       )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Divider */}
+            {weeklyInsights.mostGenuine && weeklyInsights.hiddenGem && (
+              <div style={{ height: '0.5px', background: 'rgba(255,255,255,.05)', margin: '0 16px' }} />
+            )}
+
+            {/* Hidden gem */}
+            {weeklyInsights.hiddenGem && (() => {
+              const cfg = INSIGHT_CONFIG.hiddenGem
+              const isExp = expandedInsight === 'hiddenGem'
+              return (
+                <div>
+                  <div className="ins-row"
+                    onClick={() => setExpandedInsight(isExp ? null : 'hiddenGem')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', cursor: 'pointer', borderRadius: 8, transition: 'background .15s' }}>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>{cfg.emoji}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.7)', margin: 0, lineHeight: 1.4 }}>
+                        <span style={{ color: cfg.color, fontWeight: 600 }}>{weeklyInsights.hiddenGem.brand_name}</span>
+                        {' '}— active deal, barely anyone's talking about it yet
+                        {weeklyInsights.hiddenGem.best_code && (
+                          <span style={{ marginLeft: 6, fontFamily: 'monospace', fontSize: 11, color: cfg.color, background: cfg.bg, padding: '1px 6px', borderRadius: 5 }}>
+                            {weeklyInsights.hiddenGem.best_code}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 6, background: cfg.bg, color: cfg.color, border: `0.5px solid ${cfg.border}`, fontWeight: 600 }}>
+                        {cfg.label}
+                      </span>
+                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,.25)', transform: isExp ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform .2s', display: 'inline-block' }}>↓</span>
+                    </div>
+                  </div>
+                  {isExp && (
+                    <div className="ins-expanded" style={{ margin: '0 12px 10px', padding: '12px 14px', background: cfg.bg, borderRadius: 10, border: `0.5px solid ${cfg.border}` }}>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: cfg.color, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '.04em' }}>What this means</p>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', margin: '0 0 6px', lineHeight: 1.6 }}>{cfg.why}</p>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', margin: '0 0 10px', lineHeight: 1.6, fontStyle: 'italic' }}>{cfg.implication}</p>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {weeklyInsights.hiddenGem.best_code && (
+                          <button
+                            onClick={() => copyCode(weeklyInsights.hiddenGem.best_code, 'insight-gem', weeklyInsights.hiddenGem.brand_name)}
+                            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, background: copied === 'insight-gem' ? 'rgba(34,197,94,.2)' : cfg.bg, color: copied === 'insight-gem' ? '#34D399' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '.04em' }}>
+                            {copied === 'insight-gem' ? '✓ Copied!' : weeklyInsights.hiddenGem.best_code}
+                          </button>
+                        )}
+                        {weeklyInsights.hiddenGem.brand_slug && (
+                          <a href={`/brands/${weeklyInsights.hiddenGem.brand_slug}`}
+                            style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(255,255,255,.08)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            View {weeklyInsights.hiddenGem.brand_name} →
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Divider */}
+            {weeklyInsights.hiddenGem && weeklyInsights.bestDeal && (
+              <div style={{ height: '0.5px', background: 'rgba(255,255,255,.05)', margin: '0 16px' }} />
+            )}
+
+            {/* Best verified deal */}
+            {weeklyInsights.bestDeal && (() => {
+              const cfg = INSIGHT_CONFIG.bestDeal
+              const isExp = expandedInsight === 'bestDeal'
+              return (
+                <div>
+                  <div className="ins-row"
+                    onClick={() => setExpandedInsight(isExp ? null : 'bestDeal')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', cursor: 'pointer', borderRadius: 8, transition: 'background .15s' }}>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>{cfg.emoji}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.7)', margin: 0, lineHeight: 1.4 }}>
+                        <span style={{ color: cfg.color, fontWeight: 600 }}>{weeklyInsights.bestDeal.brand_name}</span>
+                        {' '}via {weeklyInsights.bestDeal.creator_name}
+                        {weeklyInsights.bestDeal.best_offer && (
+                          <span style={{ color: 'rgba(255,255,255,.4)', marginLeft: 4 }}>— {weeklyInsights.bestDeal.best_offer}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 6, background: cfg.bg, color: cfg.color, border: `0.5px solid ${cfg.border}`, fontWeight: 600 }}>
+                        {cfg.label}
+                      </span>
+                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,.25)', transform: isExp ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform .2s', display: 'inline-block' }}>↓</span>
+                    </div>
+                  </div>
+                  {isExp && (
+                    <div className="ins-expanded" style={{ margin: '0 12px 10px', padding: '12px 14px', background: cfg.bg, borderRadius: 10, border: `0.5px solid ${cfg.border}` }}>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: cfg.color, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '.04em' }}>What this means</p>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', margin: '0 0 6px', lineHeight: 1.6 }}>{cfg.why}</p>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', margin: '0 0 10px', lineHeight: 1.6, fontStyle: 'italic' }}>{cfg.implication}</p>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {weeklyInsights.bestDeal.best_code && (
+                          <button
+                            onClick={() => copyCode(weeklyInsights.bestDeal.best_code, 'insight-best', weeklyInsights.bestDeal.brand_name)}
+                            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, background: copied === 'insight-best' ? 'rgba(34,197,94,.2)' : cfg.bg, color: copied === 'insight-best' ? '#34D399' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '.04em' }}>
+                            {copied === 'insight-best' ? '✓ Copied!' : weeklyInsights.bestDeal.best_code}
+                          </button>
+                        )}
+                        {weeklyInsights.bestDeal.brand_slug && (
+                          <a href={`/brands/${weeklyInsights.bestDeal.brand_slug}`}
+                            style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(255,255,255,.08)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            View {weeklyInsights.bestDeal.brand_name} →
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
