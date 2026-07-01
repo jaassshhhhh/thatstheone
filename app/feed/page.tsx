@@ -906,10 +906,19 @@ export default function FeedPage() {
             )}
             {hasDeal ? (
               code ? (
-                <button onClick={e => { e.stopPropagation(); copyCode(code, cardId, s.brand_name || '') }}
-                  style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: copied === cardId ? 'rgba(34,197,94,.15)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${copied === cardId ? 'rgba(34,197,94,.3)' : cfg.border}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 600 }}>
-                  {copied === cardId ? '✓ Copied' : 'Get code'}
-                </button>
+                <>
+                  {promoUrl && (
+                    <a href={promoUrl} target="_blank" rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.5)', border: '0.5px solid rgba(255,255,255,.1)', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      Visit brand →
+                    </a>
+                  )}
+                  <button onClick={e => { e.stopPropagation(); copyCode(code, cardId, s.brand_name || '') }}
+                    style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: copied === cardId ? 'rgba(34,197,94,.15)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${copied === cardId ? 'rgba(34,197,94,.3)' : cfg.border}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 600 }}>
+                    {copied === cardId ? '✓ Copied' : 'Get code'}
+                  </button>
+                </>
               ) : promoUrl ? (
                 <a href={promoUrl} target="_blank" rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
