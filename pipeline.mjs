@@ -302,17 +302,33 @@ ${content.rawText.slice(0, 3000)}`
 
 // ─── Database write ────────────────────────────────────────
 async function saveToDatabase(content, sponsors, creatorId) {
-  let saved = 0
-  for (const s of sponsors) {
-    if (isBlockedBrand(s.brand)) continue
-
-    const { data: brandData } = await supabase
-      .from('brands')
-      .upsert({ name: s.brand, slug: makeSlug(s.brand) }, { onConflict: 'slug' })
-      .select().single()
-    if (!brandData) continue
-
-    const brandUrl = extractBrandUrl(content.rawText, s.brand)
+    let saved = 0
+    const { data: creatorRow } = await supabase
+      .from('creators')
+      .select('category')
+      .eq('id', creatorId)
+      .single()
+  
+    for (const s of sponsors) {
+      if (isBlockedBrand(s.brand)) continue
+  
+      const { data: brandData } = await supabase
+        .from('brands')
+        .upsert({ name: s.brand, slug: makeSlug(s.brand) }, { onConflict: 'slug' })
+        .select().single()
+      if (!brandData) continue
+  
+      // First-mention-wins category guess — the accurate majority-vote pass
+      // happens separately via the periodic backfill query, this just stops
+      // brand new brands from being born with a permanently null category
+      if (!brandData.category && creatorRow?.category) {
+        await supabase.from('brands')
+          .update({ category: creatorRow.category })
+          .eq('id', brandData.id)
+          .is('category', null)
+      }
+  
+      const brandUrl = extractBrandUrl(content.rawText, s.brand)
     if (brandUrl) {
       await supabase.from('brands')
         .update({ website_url: brandUrl })
