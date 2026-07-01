@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { YoutubeTranscript } from 'youtube-transcript'
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 import { resolve, dirname } from 'path'
@@ -70,6 +71,22 @@ const VIDEOS_PER_CREATOR = 30
 // }
 
 // ─── Brand blocklist ───────────────────────────────────────
+const PODCAST_YOUTUBE_CHANNELS = [
+    { channelId: 'UC2D2CMWXMOVWx7giW1n3LIg', name: 'Huberman Lab', category: 'Health' },
+    { channelId: 'UCGq-a57w-aPwyi3pW7XLiHw', name: 'My First Million', category: 'Finance' },
+    { channelId: 'UCnUYZLuoy1rq1aVMwx4aTzw', name: 'Diary of a CEO', category: 'Entrepreneurship' },
+    { channelId: 'UCm_OTHGeSMDJmYperpuNlog', name: 'Lex Fridman', category: 'Tech' },
+    { channelId: 'UCXv0OcGQLepRNiAQ2GHqXZA', name: 'Modern Wisdom', category: 'Lifestyle' },
+    { channelId: 'UC3-KIvmiIaZimgXaTdaor_g', name: 'Tim Ferriss', category: 'Lifestyle' },
+    { channelId: 'UCpXwMqnXfJzazKS5os6V_3Q', name: 'All-In Podcast', category: 'Tech' },
+    { channelId: 'UCWX3ygDGABMYPRo43wHFKnw', name: 'The Knowledge Project', category: 'Productivity' },
+    { channelId: 'UCGoBXTuTaL5WBDm9n79FMVQ', name: 'Codie Sanchez', category: 'Finance' },
+    { channelId: 'UCddiUEpeqJcYeBxX1IVBKvQ', name: 'Founders Podcast', category: 'Entrepreneurship' },
+    { channelId: 'HCnyfMqiRRG1u-2MsSQLbXA', name: 'Veritasium', category: 'Education' },
+    { channelId: 'UCVls1GmFKf6WlTraIb_IaJg', name: 'Pursuit of Wonder', category: 'Education' },
+    { channelId: 'UC0vBXGSyV14uvJ4hECDOl0Q', name: 'Techquickie', category: 'Tech' },
+  ]
+
 const BRAND_BLOCKLIST = new Set([
   'fortnite', 'minecraft', 'roblox', 'valorant', 'league of legends',
   'call of duty', 'apex legends', 'overwatch', 'counter-strike',
@@ -218,34 +235,38 @@ async function extractFromContent(content) {
       messages: [
         {
           role: 'system',
-          content: `Extract brand sponsorships AND genuine organic product recommendations from creator content.
+          content: `You are a multilingual sponsorship extraction engine. Extract brand sponsorships AND genuine organic product recommendations from creator content in ANY language.
 
-Return ONLY a JSON array. Each item:
-{
-  "brand": "Clean brand name",
-  "sponsorship_type": "code"|"url"|"offer"|"mention",
-  "promo_code": "2-12 char alphanumeric OR null",
-  "promo_url": "custom tracking URL OR null",
-  "offer_text": "deal like '3 months free' OR null",
-  "exact_quote": "exact sentence mentioning brand, max 200 chars, NO URLs OR null",
-  "confidence": 0.85-1.0,
-  "is_organic": true|false
-}
-
-is_organic = true when creator says: "I personally use", "I've been using for months",
-"genuinely love", "changed my life", "obsessed with", "been wearing this", "my go-to",
-"I actually use", "been loving", "can't recommend enough", "use every day"
-WITHOUT any promo code or payment language.
-
-is_organic = false when there is a code, affiliate link, or "sponsored by" language.
-
-promo_code: 2-12 chars only. NOT: video IDs, generic words (FREE/WATCH/CLICK/CODE/BONUS/NON/STICKY), URLs.
-exact_quote: Remove any URLs. Keep it clean and readable.
-
-IGNORE completely: YouTube, Google, Instagram, Twitter, TikTok, Facebook, Spotify, Netflix, Amazon.
-IGNORE video games as brands: Fortnite, Minecraft, Valorant, Roblox, GTA, Apex Legends, Overwatch, Counter-Strike, Dead by Daylight, Dota, Warzone.
-
-Return [] if nothing found. ONLY valid JSON array.`
+          First detect the language. Then extract accordingly — sponsorship patterns differ by language and culture:
+          - English: "use code X", "sponsored by", "I personally use", "link in description"
+          - Hindi: "इस्तेमाल करें" (use), "sponsored", "discount code", "link bio mein hai"
+          - Japanese: "コード" (code), "スポンサー" (sponsor), "使っています" (I use), "おすすめ" (recommend)
+          - Other languages: look for brand names + discount indicators + personal recommendation language
+          
+          Return ONLY a JSON array. Each item:
+          {
+            "brand": "Clean brand name in English where possible",
+            "sponsorship_type": "code"|"url"|"offer"|"mention",
+            "promo_code": "2-12 char alphanumeric OR null",
+            "promo_url": "custom tracking URL OR null",
+            "offer_text": "deal description in English OR null",
+            "exact_quote": "exact sentence mentioning brand max 200 chars NO URLs OR null",
+            "confidence": 0.85-1.0,
+            "is_organic": true|false,
+            "detected_language": "en"|"hi"|"ja"|"es"|"fr"|"other"
+          }
+          
+          is_organic = true when creator expresses genuine personal use WITHOUT payment language — in ANY language. Look for: personal pronouns + product name + positive sentiment + no code/affiliate language.
+          
+          is_organic = false when there is a code, affiliate link, "sponsored by" or equivalent in any language.
+          
+          promo_code: 2-12 chars only. NOT video IDs, generic words, URLs.
+          exact_quote: Remove URLs. Keep readable. Translate to English if non-English.
+          
+          IGNORE: YouTube, Google, Instagram, Twitter, TikTok, Facebook, Spotify, Netflix, Amazon, Meta.
+          IGNORE video games as brands: Fortnite, Minecraft, Valorant, Roblox, GTA, Apex, Overwatch, CS, Dead by Daylight, Dota, Warzone, Elden Ring, Marvel Rivals, Hearthstone, Diablo.
+          
+          Return [] if nothing found. ONLY valid JSON array.`
         },
         {
           role: 'user',
@@ -601,7 +622,7 @@ async function getYouTubeVideos(channelId, max = VIDEOS_PER_CREATOR) {
           const ids = data.items.map(v => v.id?.videoId).filter(Boolean).slice(0, half)
           const active2 = getActiveKey()
           if (ids.length && active2 && useQuotaForKey(active2.index, ids.length)) {
-            const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${active2.key}&id=${ids.join(',')}&part=snippet,statistics`)
+            const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${active2.key}&id=${ids.join(',')}&part=snippet,statistics,contentDetails`)
             const detData = await det.json()
             for (const v of (detData.items || [])) {
               if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
@@ -625,7 +646,7 @@ async function getYouTubeVideos(channelId, max = VIDEOS_PER_CREATOR) {
           const newIds = ids.filter(id => !seen.has(id)).slice(0, max - videos.length)
           const active4 = getActiveKey()
           if (newIds.length && active4 && useQuotaForKey(active4.index, newIds.length)) {
-            const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${active4.key}&id=${newIds.join(',')}&part=snippet,statistics`)
+            const det = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${active4.key}&id=${newIds.join(',')}&part=snippet,statistics,contentDetails`)
             const detData = await det.json()
             for (const v of (detData.items || [])) {
               if (!seen.has(v.id)) { seen.add(v.id); videos.push(v) }
@@ -637,6 +658,145 @@ async function getYouTubeVideos(channelId, max = VIDEOS_PER_CREATOR) {
   
     return videos.slice(0, max)
 }
+
+// ─── YouTube chapters ──────────────────────────────────────
+function extractChapters(video) {
+    try {
+      const desc = video.snippet?.description || ''
+      // Chapters appear as timestamps in description: "0:00 Intro\n5:30 AG1 sponsor"
+      const lines = desc.split('\n')
+      const chapterLines = lines.filter(l => /^\d+:\d+/.test(l.trim()))
+      if (chapterLines.length < 2) return null
+      return chapterLines.slice(0, 20).join('\n')
+    } catch { return null }
+  }
+  
+  // ─── YouTube comments ──────────────────────────────────────
+  async function getVideoComments(videoId) {
+    try {
+      const active = getActiveKey()
+      if (!active || !useQuotaForKey(active.index, 1)) return null
+      const url = `https://www.googleapis.com/youtube/v3/commentThreads?key=${active.key}&videoId=${videoId}&part=snippet&maxResults=30&order=relevance`
+      const res = await fetch(url)
+      const data = await res.json()
+      if (data.error || !data.items?.length) return null
+      const comments = data.items
+        .map(item => item.snippet?.topLevelComment?.snippet?.textDisplay || '')
+        .filter(c => c.length > 10 && c.length < 300)
+        .slice(0, 20)
+        .join('\n')
+      return comments || null
+    } catch { return null }
+  }
+  
+  // ─── YouTube transcript ────────────────────────────────────
+  async function getVideoTranscript(videoId) {
+    try {
+      const transcript = await YoutubeTranscript.fetchTranscript(videoId)
+      if (!transcript?.length) return null
+      // Combine into readable text, max 3000 chars
+      const text = transcript
+        .map(t => t.text)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 3000)
+      return text || null
+    } catch { return null }
+  }
+  
+  // ─── Build rich video context ──────────────────────────────
+  async function buildVideoContext(video, creatorName) {
+    const videoId = video.id
+    const description = video.snippet?.description || ''
+    const title = video.snippet?.title || ''
+    const chapters = extractChapters(video)
+  
+    // Fetch comments and transcript in parallel
+    const [comments, transcript] = await Promise.all([
+      getVideoComments(videoId),
+      getVideoTranscript(videoId),
+    ])
+  
+    const parts = []
+    parts.push(`TITLE: ${title}`)
+    parts.push(`\nDESCRIPTION:\n${description.slice(0, 1500)}`)
+    if (chapters) parts.push(`\nCHAPTERS:\n${chapters}`)
+    if (transcript) parts.push(`\nTRANSCRIPT (partial):\n${transcript}`)
+    if (comments) parts.push(`\nTOP COMMENTS:\n${comments}`)
+  
+    return parts.join('\n')
+  }
+  
+  // ─── Process trending videos directly ─────────────────────
+  async function processTrendingVideos(trendSeeds, sponsorships, knownIds) {
+    console.log('  🔥 Processing trending videos directly...')
+    let total = 0
+    try {
+      const regions = ['GB', 'US']
+      for (const region of regions) {
+        const active = getActiveKey()
+        if (!active || !useQuotaForKey(active.index, 5)) break
+        const url = `https://www.googleapis.com/youtube/v3/videos?key=${active.key}&chart=mostPopular&regionCode=${region}&part=snippet,statistics,contentDetails&maxResults=25&videoCategoryId=0`
+        const res = await fetch(url)
+        const data = await res.json()
+        if (data.error || !data.items?.length) continue
+  
+        for (const video of data.items) {
+          const channelId = video.snippet?.channelId
+          if (!channelId) continue
+  
+          // Get or create creator
+          let creatorId
+          const { data: existing } = await supabase
+            .from('creators')
+            .select('id, name')
+            .eq('channel_id', channelId)
+            .single()
+  
+          if (existing) {
+            creatorId = existing.id
+          } else {
+            const stats = await getYouTubeChannelStats(channelId)
+            if (!stats || stats.subscribers < MIN_SUBSCRIBERS) continue
+            const { data: newCreator } = await supabase
+              .from('creators')
+              .upsert({
+                name: stats.name,
+                slug: makeSlug(stats.name),
+                channel_id: channelId,
+                subscriber_count: stats.subscribers,
+                avatar_url: stats.thumbnail,
+                platform: 'youtube',
+                last_scraped_at: new Date().toISOString(),
+              }, { onConflict: 'channel_id' })
+              .select().single()
+            if (!newCreator) continue
+            creatorId = newCreator.id
+            knownIds.add(channelId)
+          }
+  
+          const creatorName = video.snippet?.channelTitle || 'Unknown'
+          const richContext = await buildVideoContext(video, creatorName)
+          const content = makeContent(
+            'youtube', video.id, creatorName,
+            video.snippet?.title || '',
+            richContext,
+            `https://youtube.com/watch?v=${video.id}`,
+            video.snippet?.publishedAt || new Date().toISOString()
+          )
+          const sponsors = await extractFromContent(content)
+          total += await saveToDatabase(content, sponsors, creatorId)
+          await new Promise(r => setTimeout(r, 200))
+        }
+        await new Promise(r => setTimeout(r, 300))
+      }
+    } catch (err) {
+      console.log(`  ✗ Trending video processing: ${err.message}`)
+    }
+    console.log(`  ✓ Trending videos: ${total} sponsorships`)
+    return total
+  }
 
 async function refreshSubscriberCounts() {
   console.log('  🔄 Refreshing subscriber counts (weekly)...')
@@ -698,6 +858,69 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
   let creators = 0
   let sponsorships = 0
 
+  // Always process high-value podcast YouTube channels first
+  console.log('  📺 Processing podcast YouTube channels...')
+  for (const channel of PODCAST_YOUTUBE_CHANNELS) {
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.5) break
+    const { data: existingCreator } = await supabase
+      .from('creators')
+      .select('id, name')
+      .eq('channel_id', channel.channelId)
+      .single()
+
+    if (existingCreator) {
+      const videos = await getYouTubeVideos(channel.channelId, 10)
+      for (const video of videos) {
+        const richContext = await buildVideoContext(video, existingCreator.name)
+        const content = makeContent(
+          'youtube', video.id, existingCreator.name,
+          video.snippet?.title || '',
+          richContext,
+          `https://youtube.com/watch?v=${video.id}`,
+          video.snippet?.publishedAt || new Date().toISOString()
+        )
+        const sponsors = await extractFromContent(content)
+        sponsorships += await saveToDatabase(content, sponsors, existingCreator.id)
+        await new Promise(r => setTimeout(r, 150))
+      }
+    } else {
+      const stats = await getYouTubeChannelStats(channel.channelId)
+      if (!stats) continue
+      knownIds.add(channel.channelId)
+      creators++
+      const { data: creatorData } = await supabase
+        .from('creators')
+        .upsert({
+          name: stats.name || channel.name,
+          slug: makeSlug(stats.name || channel.name),
+          channel_id: channel.channelId,
+          subscriber_count: stats.subscribers,
+          avatar_url: stats.thumbnail,
+          platform: 'youtube',
+          category: channel.category,
+          last_scraped_at: new Date().toISOString(),
+        }, { onConflict: 'channel_id' })
+        .select().single()
+      if (!creatorData) continue
+      console.log(`  📺 Added podcast channel: ${channel.name}`)
+      const videos = await getYouTubeVideos(channel.channelId, 20)
+      for (const video of videos) {
+        const richContext = await buildVideoContext(video, channel.name)
+        const content = makeContent(
+          'youtube', video.id, channel.name,
+          video.snippet?.title || '',
+          richContext,
+          `https://youtube.com/watch?v=${video.id}`,
+          video.snippet?.publishedAt || new Date().toISOString()
+        )
+        const sponsors = await extractFromContent(content)
+        sponsorships += await saveToDatabase(content, sponsors, creatorData.id)
+        await new Promise(r => setTimeout(r, 150))
+      }
+    }
+    await new Promise(r => setTimeout(r, 400))
+  }
+
   // Process new creators
   for (const candidate of allCandidates) {
     if (creators >= maxCreators) break
@@ -734,13 +957,14 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
 
     const videos = await getYouTubeVideos(candidate.channelId, VIDEOS_PER_CREATOR)
     for (const video of videos) {
-      const content = makeContent(
-        'youtube', video.id, stats.name,
-        video.snippet?.title || '',
-        video.snippet?.description || '',
-        `https://youtube.com/watch?v=${video.id}`,
-        video.snippet?.publishedAt || new Date().toISOString()
-      )
+        const richContext = await buildVideoContext(video, stats.name)
+        const content = makeContent(
+          'youtube', video.id, stats.name,
+          video.snippet?.title || '',
+          richContext,
+          `https://youtube.com/watch?v=${video.id}`,
+          video.snippet?.publishedAt || new Date().toISOString()
+        )
       const sponsors = await extractFromContent(content)
       sponsorships += await saveToDatabase(content, sponsors, creatorData.id)
       await new Promise(r => setTimeout(r, 150))
@@ -767,13 +991,14 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
     }
     const videos = await getYouTubeVideos(creator.channel_id, 15)
     for (const video of videos) {
-      const content = makeContent(
-        'youtube', video.id, creator.name,
-        video.snippet?.title || '',
-        video.snippet?.description || '',
-        `https://youtube.com/watch?v=${video.id}`,
-        video.snippet?.publishedAt || new Date().toISOString()
-      )
+        const richContext = await buildVideoContext(video, creator.name)
+        const content = makeContent(
+          'youtube', video.id, creator.name,
+          video.snippet?.title || '',
+          richContext,
+          `https://youtube.com/watch?v=${video.id}`,
+          video.snippet?.publishedAt || new Date().toISOString()
+        )
       const sponsors = await extractFromContent(content)
       sponsorships += await saveToDatabase(content, sponsors, creator.id)
       await new Promise(r => setTimeout(r, 150))
@@ -783,6 +1008,10 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
       .eq('id', creator.id)
     await new Promise(r => setTimeout(r, 300))
   }
+
+  // Refresh subscriber counts on Mondays
+  // Process trending videos directly for immediate signal
+  sponsorships += await processTrendingVideos(trendSeeds, sponsorships, knownIds)
 
   // Refresh subscriber counts on Mondays
   if (new Date().getDay() === 1) {
@@ -824,8 +1053,8 @@ const BOOTSTRAP_PODCASTS = [
   { name: 'SmartLess', rss: 'https://feeds.simplecast.com/yGFBCHId', category: 'Comedy' },
   { name: 'Armchair Expert', rss: 'https://feeds.simplecast.com/e9Mnieb5', category: 'Lifestyle' },
   { name: 'The Daily', rss: 'https://feeds.simplecast.com/54nAGcIl', category: 'News' },
-  { name: 'Call Her Daddy', rss: 'https://feeds.simplecast.com/6tNI0K9k', category: 'Lifestyle' },
-  { name: 'The Joe Rogan Experience', rss: 'https://feeds.simplecast.com/4T39_jAj', category: 'Lifestyle' },
+  { name: 'Contrarian Thinking', rss: 'https://feeds.megaphone.fm/contrarianthinking', category: 'Finance' },
+  { name: 'The Game w/ Alex Hormozi', rss: 'https://feeds.megaphone.fm/IMSA3959656606', category: 'Entrepreneurship' },
 ]
 
 async function discoverPodcasts(maxNew = 50) {
@@ -865,7 +1094,12 @@ async function parsePodcastRSS(podcast) {
     for (const match of itemMatches) {
       const item = match[1]
       const title = item.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/)?.[1] || ''
-      const desc = item.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>|<description[^>]*>([\s\S]*?)<\/description>/)?.[1] || ''
+      const desc = (
+        item.match(/<content:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/content:encoded>/)?.[1] ||
+        item.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] ||
+        item.match(/<description[^>]*>([\s\S]*?)<\/description>/)?.[1] ||
+        ''
+      )
       const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
       const link = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
       const guid = item.match(/<guid[^>]*>(.*?)<\/guid>/)?.[1] || link || title
@@ -878,41 +1112,87 @@ async function parsePodcastRSS(podcast) {
       }
       if (items.length >= 20) break
     }
+    console.log(`    📄 ${items.length} episodes parsed, avg desc length: ${items.length ? Math.round(items.reduce((a,i) => a + i.description.length, 0) / items.length) : 0} chars`)
     return items
   } catch { return [] }
 }
 
 async function runPodcasts() {
-  console.log('\n🎙 Podcast connector starting...')
-  const podcasts = await discoverPodcasts(50)
-  let total = 0
-
-  for (const podcast of podcasts) {
-    const { data: creatorData } = await supabase
-      .from('creators')
-      .upsert({ name: podcast.name, slug: makeSlug(podcast.name), category: podcast.category, platform: 'podcast' }, { onConflict: 'slug' })
-      .select().single()
-    if (!creatorData) continue
-
-    console.log(`  🎙 ${podcast.name}`)
-    const episodes = await parsePodcastRSS(podcast)
-
-    for (const ep of episodes) {
-      const content = makeContent(
-        'podcast', ep.guid.slice(0, 200), podcast.name,
-        ep.title, `${ep.title}\n\n${ep.description}`, ep.link,
-        ep.pubDate ? new Date(ep.pubDate).toISOString() : new Date().toISOString(), 'audio'
-      )
-      const sponsors = await extractFromContent(content)
-      total += await saveToDatabase(content, sponsors, creatorData.id)
-      await new Promise(r => setTimeout(r, 200))
+    console.log('\n🎙 Podcast connector starting...')
+    
+    // Backfill RSS URLs for bootstrap podcasts already in DB but missing rss_url
+    for (const podcast of BOOTSTRAP_PODCASTS) {
+      await supabase.from('creators')
+        .update({ rss_url: podcast.rss })
+        .eq('slug', makeSlug(podcast.name))
+        .is('rss_url', null)
     }
-    await new Promise(r => setTimeout(r, 300))
-  }
+  
+    const newPodcasts = await discoverPodcasts(50)
+    let total = 0
+  
+    // Process newly discovered podcasts
+    for (const podcast of newPodcasts) {
+        const { data: creatorData } = await supabase
+          .from('creators')
+          .upsert({ name: podcast.name, slug: makeSlug(podcast.name), category: podcast.category, platform: 'podcast', rss_url: podcast.rss || podcast.url }, { onConflict: 'slug' })
+          .select().single()
+      if (!creatorData) continue
+  
+      console.log(`  🎙 ${podcast.name}`)
+      const episodes = await parsePodcastRSS(podcast)
+  
+      for (const ep of episodes) {
+        const content = makeContent(
+          'podcast', ep.guid.slice(0, 200), podcast.name,
+          ep.title, `${ep.title}\n\n${ep.description}`, ep.link,
+          ep.pubDate ? new Date(ep.pubDate).toISOString() : new Date().toISOString(), 'audio'
+        )
+        const sponsors = await extractFromContent(content)
+        total += await saveToDatabase(content, sponsors, creatorData.id)
+        await new Promise(r => setTimeout(r, 200))
+      }
+      await new Promise(r => setTimeout(r, 300))
+    }
+  
+    // Re-process existing podcasts for new episodes — same pattern as YouTube
+    const { data: existingPodcasts } = await supabase
+    .from('creators')
+    .select('id, name, slug, rss_url')
+    .eq('platform', 'podcast')
+    .not('rss_url', 'is', null)
+    .order('last_scraped_at', { ascending: true, nullsFirst: true })
+    .limit(30)
 
-  console.log(`  ✓ Podcasts: ${total} sponsorships`)
-  return total
-}
+  console.log(`  🔄 Re-processing ${(existingPodcasts || []).length} existing podcasts for new episodes...`)
+
+  for (const creator of (existingPodcasts || [])) {
+    const rss = creator.rss_url
+    if (!rss) continue
+  
+      console.log(`  🎙 ${creator.name} (refresh)`)
+      const episodes = await parsePodcastRSS({ rss })
+  
+      for (const ep of episodes) {
+        const content = makeContent(
+          'podcast', ep.guid.slice(0, 200), creator.name,
+          ep.title, `${ep.title}\n\n${ep.description}`, ep.link,
+          ep.pubDate ? new Date(ep.pubDate).toISOString() : new Date().toISOString(), 'audio'
+        )
+        const sponsors = await extractFromContent(content)
+        total += await saveToDatabase(content, sponsors, creator.id)
+        await new Promise(r => setTimeout(r, 200))
+      }
+  
+      await supabase.from('creators')
+        .update({ last_scraped_at: new Date().toISOString() })
+        .eq('id', creator.id)
+      await new Promise(r => setTimeout(r, 300))
+    }
+  
+    console.log(`  ✓ Podcasts: ${total} sponsorships`)
+    return total
+  }
 
 // ═══════════════════════════════════════════════════════════
 // CONNECTOR 3 — Reddit
@@ -1077,52 +1357,116 @@ async function discoverNewsletters() {
 }
 
 async function runNewsletters() {
-  console.log('\n📰 Newsletter connector starting...')
-  const newsletters = await discoverNewsletters()
-  let total = 0
-
-  for (const nl of newsletters) {
-    try {
-      const res = await fetch(nl.url, { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } })
-      if (!res.ok) continue
-      const xml = await res.text()
-
-      const { data: creatorData } = await supabase
-        .from('creators')
-        .upsert({ name: nl.name, slug: makeSlug(nl.name), category: nl.category, platform: 'newsletter' }, { onConflict: 'slug' })
-        .select().single()
-      if (!creatorData) continue
-
-      console.log(`  📰 ${nl.name}`)
-      const itemMatches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 10)
-
-      for (const match of itemMatches) {
-        const item = match[1]
-        const title = item.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/)?.[1] || ''
-        const desc = (item.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] || '')
-          .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-        const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
-        const guid = item.match(/<guid[^>]*>(.*?)<\/guid>/)?.[1] || title
-        if (!title || desc.length < 100) continue
-
-        const content = makeContent(
-          'newsletter', guid.slice(0, 200), nl.name,
-          title, `${title}\n\n${desc}`, '',
-          pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(), 'article'
-        )
-        const sponsors = await extractFromContent(content)
-        total += await saveToDatabase(content, sponsors, creatorData.id)
-        await new Promise(r => setTimeout(r, 200))
-      }
-      await new Promise(r => setTimeout(r, 400))
-    } catch (err) {
-      console.log(`  ✗ ${nl.name}: ${err.message}`)
+    console.log('\n📰 Newsletter connector starting...')
+  
+    // Backfill URL for existing newsletters missing it
+    for (const nl of NEWSLETTER_BOOTSTRAP) {
+      await supabase.from('creators')
+        .update({ rss_url: nl.url })
+        .eq('slug', makeSlug(nl.name))
+        .is('rss_url', null)
     }
+  
+    const newsletters = await discoverNewsletters()
+    let total = 0
+  
+    // Process new newsletters
+    for (const nl of newsletters) {
+      try {
+        const res = await fetch(nl.url, { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } })
+        if (!res.ok) continue
+        const xml = await res.text()
+  
+        const { data: creatorData } = await supabase
+          .from('creators')
+          .upsert({ name: nl.name, slug: makeSlug(nl.name), category: nl.category, platform: 'newsletter', rss_url: nl.url }, { onConflict: 'slug' })
+          .select().single()
+        if (!creatorData) continue
+  
+        console.log(`  📰 ${nl.name}`)
+        const itemMatches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 10)
+  
+        for (const match of itemMatches) {
+          const item = match[1]
+          const title = item.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/)?.[1] || ''
+          const desc = (
+            item.match(/<content:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/content:encoded>/)?.[1] ||
+            item.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] ||
+            ''
+          ).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+          const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
+          const guid = item.match(/<guid[^>]*>(.*?)<\/guid>/)?.[1] || title
+          if (!title || desc.length < 100) continue
+  
+          const content = makeContent(
+            'newsletter', guid.slice(0, 200), nl.name,
+            title, `${title}\n\n${desc}`, '',
+            pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(), 'article'
+          )
+          const sponsors = await extractFromContent(content)
+          total += await saveToDatabase(content, sponsors, creatorData.id)
+          await new Promise(r => setTimeout(r, 200))
+        }
+        await new Promise(r => setTimeout(r, 400))
+      } catch (err) {
+        console.log(`  ✗ ${nl.name}: ${err.message}`)
+      }
+    }
+  
+    // Re-process existing newsletters for new issues
+    const { data: existingNewsletters } = await supabase
+      .from('creators')
+      .select('id, name, rss_url')
+      .eq('platform', 'newsletter')
+      .not('rss_url', 'is', null)
+      .order('last_scraped_at', { ascending: true, nullsFirst: true })
+      .limit(20)
+  
+    console.log(`  🔄 Re-processing ${(existingNewsletters || []).length} existing newsletters...`)
+  
+    for (const creator of (existingNewsletters || [])) {
+      if (!creator.rss_url) continue
+      try {
+        const res = await fetch(creator.rss_url, { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } })
+        if (!res.ok) continue
+        const xml = await res.text()
+        console.log(`  📰 ${creator.name} (refresh)`)
+  
+        const itemMatches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 10)
+        for (const match of itemMatches) {
+          const item = match[1]
+          const title = item.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/)?.[1] || ''
+          const desc = (
+            item.match(/<content:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/content:encoded>/)?.[1] ||
+            item.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] ||
+            ''
+          ).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+          const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
+          const guid = item.match(/<guid[^>]*>(.*?)<\/guid>/)?.[1] || title
+          if (!title || desc.length < 100) continue
+  
+          const content = makeContent(
+            'newsletter', guid.slice(0, 200), creator.name,
+            title, `${title}\n\n${desc}`, '',
+            pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(), 'article'
+          )
+          const sponsors = await extractFromContent(content)
+          total += await saveToDatabase(content, sponsors, creator.id)
+          await new Promise(r => setTimeout(r, 200))
+        }
+  
+        await supabase.from('creators')
+          .update({ last_scraped_at: new Date().toISOString() })
+          .eq('id', creator.id)
+        await new Promise(r => setTimeout(r, 400))
+      } catch (err) {
+        console.log(`  ✗ ${creator.name}: ${err.message}`)
+      }
+    }
+  
+    console.log(`  ✓ Newsletters: ${total} sponsorships`)
+    return total
   }
-
-  console.log(`  ✓ Newsletters: ${total} sponsorships`)
-  return total
-}
 
 // ═══════════════════════════════════════════════════════════
 // CONNECTOR 5 — Twitch
