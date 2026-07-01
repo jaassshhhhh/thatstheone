@@ -114,21 +114,33 @@ function makeContent(platform, externalId, creatorName, title, rawText, mediaUrl
 
 // ─── Utilities ─────────────────────────────────────────────
 function isValidCode(code) {
-  if (!code) return false
-  if (code.length < 2 || code.length > 12) return false
-  if (/[./\\]/.test(code)) return false
-  if (/^[0-9]+$/.test(code)) return false
-  if (code.length === 11 && /^[a-zA-Z0-9_-]+$/.test(code)) return false
-  const junk = new Set([
-    'FREE', 'CLICK', 'DOWNLOAD', 'WATCH', 'LINK', 'PBS', 'HTTPS',
-    'MORE', 'HERE', 'NOW', 'SHOP', 'CODE', 'WAN', 'GET', 'USE',
-    'NEW', 'OFF', 'THE', 'AND', 'FOR', 'YOU', 'ALL', 'SUBSCRIBE',
-    'REVIEWS', 'PROMO', 'DEAL', 'SAVE', 'LTT', 'HTTP', 'WWW',
-    'BONUS', 'NON', 'STICKY', 'FIRST', 'BEST', 'TOP',
-  ])
-  if (junk.has(code.toUpperCase())) return false
-  return true
-}
+    if (!code) return false
+    if (code.length < 2 || code.length > 12) return false
+    if (/[./\\]/.test(code)) return false
+    if (/^[0-9]+$/.test(code)) return false
+    if (code.length === 11 && /^[a-zA-Z0-9_-]+$/.test(code)) return false
+    const junk = new Set([
+      'FREE', 'CLICK', 'DOWNLOAD', 'WATCH', 'LINK', 'PBS', 'HTTPS',
+      'MORE', 'HERE', 'NOW', 'SHOP', 'CODE', 'WAN', 'GET', 'USE',
+      'NEW', 'OFF', 'THE', 'AND', 'FOR', 'YOU', 'ALL', 'SUBSCRIBE',
+      'REVIEWS', 'PROMO', 'DEAL', 'SAVE', 'LTT', 'HTTP', 'WWW',
+      'BONUS', 'NON', 'STICKY', 'FIRST', 'BEST', 'TOP',
+    ])
+    if (junk.has(code.toUpperCase())) return false
+    return true
+  }
+  
+  // The AI sometimes returns a bare domain ("lexfridman.com/s/xyz") instead of
+  // a full URL. Without a scheme, an <a href> resolves it as a relative path
+  // on the current site instead of navigating out — this guarantees a scheme
+  // or discards anything that isn't a plausible URL at all.
+  function normalizeUrl(url) {
+    if (!url) return null
+    const trimmed = url.trim()
+    if (/^https?:\/\//i.test(trimmed)) return trimmed
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(trimmed)) return `https://${trimmed}`
+    return null
+  }
 
 function computeDAR(s) {
   let score = 50
@@ -355,7 +367,7 @@ async function saveToDatabase(content, sponsors, creatorId) {
         creator_id: creatorId,
         brand_id: brandData.id,
         promo_code: s.promo_code,
-        promo_url: s.promo_url,
+        promo_url: normalizeUrl(s.promo_url),
         offer_text: s.offer_text,
         exact_quote: s.exact_quote,
         sponsorship_type: s.sponsorship_type,
