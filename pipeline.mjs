@@ -87,15 +87,17 @@ const PODCAST_YOUTUBE_CHANNELS = [
     { channelId: 'UC0vBXGSyV14uvJ4hECDOl0Q', name: 'Techquickie', category: 'Tech' },
   ]
 
-const BRAND_BLOCKLIST = new Set([
-  'fortnite', 'minecraft', 'roblox', 'valorant', 'league of legends',
-  'call of duty', 'apex legends', 'overwatch', 'counter-strike',
-  'grand theft auto', 'gta', 'dead by daylight', 'dota', 'warzone',
-  'youtube', 'google', 'twitter', 'instagram', 'facebook', 'tiktok',
-  'twitch', 'discord', 'reddit', 'spotify', 'apple', 'netflix',
-  'amazon', 'meta', 'whatsapp', 'snapchat', 'linkedin',
-  'muscleworks gym', 'the lady change', 'autumn elle nutrition',
-])
+  const BRAND_BLOCKLIST = new Set([
+    'fortnite', 'minecraft', 'roblox', 'valorant', 'league of legends',
+    'call of duty', 'apex legends', 'overwatch', 'counter-strike',
+    'grand theft auto', 'gta', 'dead by daylight', 'dota', 'warzone',
+    'youtube', 'google', 'twitter', 'instagram', 'facebook', 'tiktok',
+    'twitch', 'discord', 'reddit', 'spotify', 'apple', 'netflix',
+    'amazon', 'meta', 'whatsapp', 'snapchat', 'linkedin',
+    'muscleworks gym', 'the lady change', 'autumn elle nutrition',
+    'unknown', 'unknown brand', 'n/a', 'na', 'none', 'brand',
+    'sponsor', 'this brand', 'the brand', 'unnamed', 'unnamed brand',
+  ])
 
 function isBlockedBrand(name) {
   if (!name) return true
