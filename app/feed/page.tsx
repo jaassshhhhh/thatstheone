@@ -792,116 +792,102 @@ export default function FeedPage() {
       ? `https://www.google.com/search?q=${encodeURIComponent('"' + (s.brand_name || s.brands?.name || '') + '" official website')}&btnI=1`
       : null
     const isBookmarked = bookmarks.has(cardId)
+    const brandName = s.brand_name || s.brands?.name
+    const creatorName = s.creator_name || s.creators?.name
+    const subs = s.subscriber_count || s.creators?.subscriber_count
+    const metaBits = [
+      s.mention_count > 1 ? `${s.mention_count}× mentioned` : null,
+      subs > 0 ? formatSubs(subs) : null,
+    ].filter(Boolean).join(' · ')
 
     return (
       <div key={cardId} className="fc"
-        style={{ animationDelay: `${Math.min(i, 8) * 0.04}s`, background: hero ? 'rgba(99,102,241,.06)' : 'rgba(255,255,255,.03)', border: `0.5px solid ${hero ? 'rgba(99,102,241,.2)' : 'rgba(255,255,255,.07)'}`, borderRadius: hero ? 20 : 16, padding: hero ? '20px' : '16px', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
+        style={{ animationDelay: `${Math.min(i, 8) * 0.04}s`, background: `${cfg.color}0d`, border: `0.5px solid ${cfg.border}`, borderRadius: hero ? 20 : 16, padding: hero ? '20px' : '16px', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
         onClick={() => { setExpanded(isOpen ? null : cardId); track('click', s.brand_name || '') }}>
 
         <div style={{ position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%', background: cfg.color, opacity: hero ? .1 : .06, filter: 'blur(24px)', pointerEvents: 'none' }} />
 
         {/* Badge + time + bookmark */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color, border: `0.5px solid ${cfg.border}`, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-            <i className={`ti ${cfg.icon}`} style={{ fontSize: 11 }} aria-hidden="true" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: cfg.bg, color: cfg.color }}>
+            <i className={`ti ${cfg.icon}`} style={{ fontSize: 12 }} aria-hidden="true" />
             {cfg.label}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)' }}>{timeAgo(s.last_seen || s.first_seen)}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,.25)' }}>{timeAgo(s.last_seen || s.first_seen)}</span>
             <button className="bm" onClick={e => toggleBookmark(e, cardId, s.brand_name || '', s.creator_name || '')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: 14, opacity: isBookmarked ? 1 : 0.3, color: isBookmarked ? '#FBBF24' : 'rgba(255,255,255,.5)', transition: 'all .15s' }}>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: 14, opacity: isBookmarked ? 1 : 0.35, color: isBookmarked ? '#FBBF24' : 'rgba(255,255,255,.5)', transition: 'all .15s' }}>
               🔖
             </button>
           </div>
         </div>
 
-        {/* Headline */}
-        <p style={{ fontSize: hero ? 16 : 14, fontWeight: 700, color: '#fff', margin: '0 0 10px', lineHeight: 1.3, letterSpacing: '-.01em' }}>
+        {/* Headline — serif for warmth */}
+        <p style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", serif', fontSize: hero ? 19 : 16, fontWeight: 400, color: '#fff', margin: '0 0 10px', lineHeight: 1.35 }}>
           {s.headline}
         </p>
 
         {/* Takeaway */}
         {takeaway && (
-          <p style={{ fontSize: 11, color: takeaway.color, margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
+          <p style={{ fontSize: 12, color: takeaway.color, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
             <span>{takeaway.icon}</span> {takeaway.text}
           </p>
         )}
 
         {/* Velocity stat */}
         {velocityStat && (
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,.35)', margin: '0 0 14px' }}>
             {velocityStat}
           </p>
         )}
 
-        {/* Brand + Creator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: cfg.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: cfg.color, flexShrink: 0 }}>
-            {(s.brand_name || s.brands?.name)?.[0]?.toUpperCase()}
+        {/* Brand + Creator — bigger avatar, condensed meta line */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 13, background: cfg.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 600, color: cfg.color, flexShrink: 0 }}>
+            {brandName?.[0]?.toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#fff' }}>{s.brand_name || s.brands?.name}</p>
-              {s.mention_count > 1 && (
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,.3)', background: 'rgba(255,255,255,.06)', padding: '1px 6px', borderRadius: 6 }}>
-                  {s.mention_count}× mentioned
-                </span>
+            <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {brandName}
+              {(s.best_dar_score || s.dar_score) >= 75 && (
+                <i className="ti ti-shield-check" style={{ fontSize: 13, color: '#34D399', opacity: .7 }} aria-hidden="true" />
               )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: 0 }}>via {s.creator_name || s.creators?.name}</p>
-              {(s.subscriber_count || s.creators?.subscriber_count) > 0 && (
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.05)', padding: '1px 5px', borderRadius: 6 }}>
-                  {formatSubs(s.subscriber_count || s.creators?.subscriber_count)}
-                </span>
-              )}
-            </div>
+            </p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', margin: '2px 0 0' }}>
+              via {creatorName}{metaBits ? ` · ${metaBits}` : ''}
+            </p>
           </div>
-          {(s.best_dar_score || s.dar_score) >= 75 && (
-            <i className="ti ti-shield-check" style={{ fontSize: 14, color: '#34D399', opacity: .6, flexShrink: 0 }} aria-hidden="true" />
-          )}
         </div>
 
-        {/* Quote */}
+        {/* Quote — soft filled panel, no hard border accent */}
         {quote && (
-          <div style={{ background: s.is_organic ? 'rgba(52,211,153,.05)' : 'rgba(255,255,255,.04)', borderRadius: 10, padding: '11px 13px', marginTop: 12, borderLeft: `3px solid ${s.is_organic ? '#34D399' : cfg.color}` }}>
-            <p style={{ fontSize: hero ? 14 : 13, color: 'rgba(255,255,255,.8)', margin: 0, lineHeight: 1.6, fontStyle: 'italic', fontWeight: 500 }}>
+          <div style={{ background: 'rgba(255,255,255,.04)', borderRadius: 12, padding: '13px 15px', marginTop: 14 }}>
+            <p style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", serif', fontSize: hero ? 14 : 13, color: 'rgba(255,255,255,.75)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
               "{quote.slice(0, isOpen ? 300 : 130)}{!isOpen && quote.length > 130 ? '...' : ''}"
             </p>
           </div>
         )}
 
-        {/* Timeline */}
+        {/* Timeline — one quiet line */}
         {s.mention_count > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 11, color: 'rgba(255,255,255,.25)' }}>
-            <span>First seen {timeAgo(s.first_seen)}</span>
-            <span>·</span>
-            <span>Latest {timeAgo(s.last_seen)}</span>
-            <span>·</span>
-            <span style={{ color: 'rgba(255,255,255,.4)' }}>{s.mention_count} mentions</span>
-          </div>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,.25)', margin: '10px 0 0' }}>
+            First seen {timeAgo(s.first_seen)} · latest {timeAgo(s.last_seen)}
+          </p>
         )}
 
         {/* Bottom row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, marginTop: 12, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: s.is_active ? '#34D399' : 'rgba(255,255,255,.2)' }}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.is_active ? '#34D399' : 'rgba(255,255,255,.2)', display: 'inline-block' }} />
-              {s.is_active ? 'Active' : 'Unverified'}
-            </span>
-            {s.platform && (
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 6 }}>
-                {s.platform === 'linktree' ? '🌳 linktree' : s.platform === 'amazon' ? '🛒 amazon' : s.platform}
-              </span>
-            )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, marginTop: 14, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: s.is_active ? '#34D399' : 'rgba(255,255,255,.25)' }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.is_active ? '#34D399' : 'rgba(255,255,255,.25)', display: 'inline-block' }} />
+            {s.is_active ? 'Active' : 'Unverified'}
+            {s.platform && <span style={{ color: 'rgba(255,255,255,.2)' }}> · {s.platform}</span>}
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {videoId && !videoId.startsWith('linktree_') && !videoId.startsWith('amazon_') && (
               <a href={`https://youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
-                style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.35)', border: '0.5px solid rgba(255,255,255,.08)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <i className="ti ti-player-play" style={{ fontSize: 10 }} aria-hidden="true" />
-                Watch
+                style={{ width: 30, height: 30, borderRadius: '50%', background: 'transparent', border: '0.5px solid rgba(255,255,255,.15)', color: 'rgba(255,255,255,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, textDecoration: 'none' }}>
+                <i className="ti ti-player-play" style={{ fontSize: 13 }} aria-hidden="true" />
               </a>
             )}
             {hasDeal ? (
@@ -910,47 +896,48 @@ export default function FeedPage() {
                   {promoUrl && (
                     <a href={promoUrl} target="_blank" rel="noopener noreferrer"
                       onClick={e => e.stopPropagation()}
-                      style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.5)', border: '0.5px solid rgba(255,255,255,.1)', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      Visit brand →
+                      style={{ fontSize: 12, padding: '7px 12px', borderRadius: 9, background: 'transparent', color: 'rgba(255,255,255,.5)', border: '0.5px solid rgba(255,255,255,.12)', fontWeight: 500, textDecoration: 'none' }}>
+                      Visit brand
                     </a>
                   )}
                   <button onClick={e => { e.stopPropagation(); copyCode(code, cardId, s.brand_name || '') }}
-                    style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: copied === cardId ? 'rgba(34,197,94,.15)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${copied === cardId ? 'rgba(34,197,94,.3)' : cfg.border}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 600 }}>
+                    style={{ fontSize: 12, padding: '7px 14px', borderRadius: 9, background: copied === cardId ? '#34D399' : cfg.color, color: '#060810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                     {copied === cardId ? '✓ Copied' : 'Get code'}
                   </button>
                 </>
               ) : promoUrl ? (
                 <a href={promoUrl} target="_blank" rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
-                  style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: cfg.bg, color: cfg.color, border: `0.5px solid ${cfg.border}`, fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  Visit brand →
+                  style={{ fontSize: 12, padding: '7px 14px', borderRadius: 9, background: cfg.color, color: '#060810', fontWeight: 600, textDecoration: 'none' }}>
+                  Visit brand
                 </a>
               ) : (
                 <button onClick={e => { e.stopPropagation(); setExpanded(cardId) }}
-                  style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: cfg.bg, color: cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', transition: 'all .15s', fontWeight: 600 }}>
+                  style={{ fontSize: 12, padding: '7px 14px', borderRadius: 9, background: cfg.color, color: '#060810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                   See deal
                 </button>
               )
             ) : s.is_organic ? (
               <a href={promoUrl || fallbackUrl || '#'} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(52,211,153,.1)', color: '#34D399', border: '0.5px solid rgba(52,211,153,.25)', cursor: 'pointer', fontWeight: 600, textDecoration: 'none' }}>
-                Find this →
+                style={{ fontSize: 12, padding: '7px 14px', borderRadius: 9, background: '#34D399', color: '#052e21', fontWeight: 600, textDecoration: 'none' }}>
+                Find this
               </a>
             ) : null}
           </div>
         </div>
 
-        {/* Reactions */}
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingTop: 10, marginTop: 10, borderTop: '0.5px solid rgba(255,255,255,.04)' }}
+        {/* Reactions — icon-only row */}
+        <div style={{ display: 'flex', gap: 16, paddingTop: 12, marginTop: 12, borderTop: '0.5px solid rgba(255,255,255,.04)' }}
           onClick={e => e.stopPropagation()}>
           {REACTIONS.map(r => {
             const count = reactionCounts[cardId]?.[r.type] || 0
             const active = myReactions[cardId]?.includes(r.type)
             return (
-              <button key={r.type} className="rxn"
+              <button key={r.type} className="rxn" title={r.label}
                 onClick={e => toggleReaction(e, cardId, r.type, s.id)}
-                style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, border: '0.5px solid', cursor: 'pointer', transition: 'all .15s', background: active ? r.activeBg : 'transparent', color: active ? r.activeColor : 'rgba(255,255,255,.25)', borderColor: active ? r.activeBorder : 'rgba(255,255,255,.08)' }}>
-                {r.emoji} {r.label}{count > 0 ? ` · ${count}` : ''}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', color: active ? r.activeColor : 'rgba(255,255,255,.3)', padding: 0 }}>
+                <span style={{ fontSize: 15 }}>{r.emoji}</span>
+                {count > 0 && <span>{count}</span>}
               </button>
             )
           })}
@@ -958,12 +945,12 @@ export default function FeedPage() {
 
         {/* Expanded panel — signal breakdown + deal */}
         {isOpen && (
-          <div style={{ marginTop: 12 }} onClick={e => e.stopPropagation()}>
+          <div style={{ marginTop: 14 }} onClick={e => e.stopPropagation()}>
 
             {/* Signal breakdown — the "why this matters" */}
             {signalBreakdown && (
-              <div style={{ padding: '12px 14px', background: `${cfg.color}0d`, borderRadius: 12, border: `0.5px solid ${cfg.border}`, marginBottom: hasDeal ? 10 : 0 }}>
-                <p style={{ fontSize: 11, fontWeight: 600, color: cfg.color, margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+              <div style={{ padding: '13px 15px', background: `${cfg.color}0d`, borderRadius: 12, marginBottom: hasDeal ? 10 : 0 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: cfg.color, margin: '0 0 8px' }}>
                   {signalBreakdown.title}
                 </p>
                 {signalBreakdown.lines.map((line, idx) => (
@@ -973,7 +960,7 @@ export default function FeedPage() {
                 ))}
                 {s.brand_slug && (
                   <a href={`/brands/${s.brand_slug}`} onClick={e => e.stopPropagation()}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: cfg.color, textDecoration: 'none', marginTop: 10, opacity: .8 }}>
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: cfg.color, textDecoration: 'none', marginTop: 10, opacity: .8 }}>
                     View {s.brand_name} brand page →
                   </a>
                 )}
@@ -982,7 +969,7 @@ export default function FeedPage() {
 
             {/* Deal panel */}
             {hasDeal && (
-              <div style={{ padding: 12, background: 'rgba(255,255,255,.04)', borderRadius: 12, border: `0.5px solid ${cfg.border}` }}>
+              <div style={{ padding: 14, background: 'rgba(255,255,255,.04)', borderRadius: 12 }}>
                 {offer && (
                   <p style={{ fontSize: 12, color: '#34D399', marginBottom: code ? 10 : 0, display: 'flex', alignItems: 'center', gap: 5 }}>
                     <i className="ti ti-gift" style={{ fontSize: 13 }} aria-hidden="true" />
@@ -993,7 +980,7 @@ export default function FeedPage() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,.06)', borderRadius: 9, padding: '9px 12px' }}>
                     <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '.08em' }}>{code}</span>
                     <button onClick={() => copyCode(code, cardId, s.brand_name || '')}
-                      style={{ fontSize: 12, padding: '5px 14px', borderRadius: 7, background: copied === cardId ? 'rgba(34,197,94,.2)' : cfg.bg, color: copied === cardId ? '#34D399' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 600 }}>
+                      style={{ fontSize: 12, padding: '5px 14px', borderRadius: 7, background: copied === cardId ? '#34D399' : cfg.color, color: '#060810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                       {copied === cardId ? '✓ Copied!' : 'Copy code'}
                     </button>
                   </div>
