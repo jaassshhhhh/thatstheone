@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 import Link from 'next/link'
@@ -12,33 +12,67 @@ function formatNumber(n: number) {
 }
 
 const CATEGORIES = ['All', 'Tech', 'Finance', 'Health', 'Lifestyle', 'Education', 'Gaming', 'Beauty', 'Food']
+const PAGE_SIZE = 30
 
 export default function BrandsPage() {
   const [brands, setBrands] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [hasMore, setHasMore] = useState(true)
+  const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [category, setCategory] = useState('All')
+  const [totalCount, setTotalCount] = useState(0)
+  const loaderRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { loadBrands() }, [])
+  useEffect(() => {
+    supabase.from('brands').select('*', { count: 'exact', head: true }).then(({ count }) => setTotalCount(count || 0))
+  }, [])
 
-  async function loadBrands() {
-    const { data } = await supabase
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  useEffect(() => { setPage(0); loadBrands(0, true) }, [debouncedSearch, category])
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loading) {
+        const next = page + 1
+        setPage(next)
+        loadBrands(next)
+      }
+    }, { threshold: 0.1 })
+    if (loaderRef.current) obs.observe(loaderRef.current)
+    return () => obs.disconnect()
+  }, [hasMore, loading, page])
+
+  async function loadBrands(pageNum: number, reset = false) {
+    setLoading(true)
+    const from = pageNum * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    let q = supabase
       .from('brands')
       .select(`
         id, name, slug, category, website_url, velocity_score,
         total_creator_count, weekly_mention_count, velocity_delta
       `)
       .order('velocity_score', { ascending: false, nullsFirst: false })
-      .limit(200)
-    setBrands(data || [])
+      .range(from, to)
+
+    if (debouncedSearch) q = q.ilike('name', `%${debouncedSearch}%`)
+    if (category !== 'All') q = q.ilike('category', `%${category}%`)
+
+    const { data } = await q
+    const items = data || []
+
+    if (reset) setBrands(items)
+    else setBrands(prev => [...prev, ...items])
+    setHasMore(items.length === PAGE_SIZE)
     setLoading(false)
   }
-
-  const filtered = brands.filter(b => {
-    const matchSearch = !search || b.name?.toLowerCase().includes(search.toLowerCase())
-    const matchCat = category === 'All' || b.category?.toLowerCase().includes(category.toLowerCase())
-    return matchSearch && matchCat
-  })
 
   return (
     <Layout>
@@ -57,7 +91,7 @@ export default function BrandsPage() {
             Brands
           </h1>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,.3)', margin: 0 }}>
-            {brands.length} brands tracked across creator content
+            {totalCount.toLocaleString()} brands tracked across creator content
           </p>
         </div>
 
@@ -80,51 +114,61 @@ export default function BrandsPage() {
         </div>
 
         {/* Grid */}
-        {loading ? (
+        {loading && page === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,.2)' }}>
             <p style={{ fontSize: 13 }}>Loading brands...</p>
           </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
-            {filtered.map((b, i) => {
-              const delta = b.velocity_delta || 0
-              const isRising = delta > 0
-              return (
-                <Link key={b.id} href={`/brands/${b.slug}`} style={{ textDecoration: 'none' }}>
-                  <div className="bc" style={{
-                    animationDelay: `${Math.min(i, 12) * 0.03}s`,
-                    background: 'rgba(255,255,255,.03)',
-                    border: '0.5px solid rgba(255,255,255,.07)',
-                    borderRadius: 14,
-                    padding: '14px',
-                    cursor: 'pointer',
-                    height: '100%',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(99,102,241,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: '#818CF8' }}>
-                        {b.name?.[0]?.toUpperCase()}
-                      </div>
-                      {delta !== 0 && (
-                        <span style={{ fontSize: 10, color: isRising ? '#34D399' : '#F87171', background: isRising ? 'rgba(52,211,153,.1)' : 'rgba(239,68,68,.1)', padding: '2px 7px', borderRadius: 10 }}>
-                          {isRising ? '↑' : '↓'} {Math.abs(Math.round(delta))}%
-                        </span>
-                      )}
-                    </div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: '#fff', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</p>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '0 0 10px' }}>{b.category || 'Brand'}</p>
-                    <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'rgba(255,255,255,.25)' }}>
-                      {b.total_creator_count > 0 && (
-                        <span>{b.total_creator_count} creator{b.total_creator_count !== 1 ? 's' : ''}</span>
-                      )}
-                      {b.weekly_mention_count > 0 && (
-                        <span>· {b.weekly_mention_count} this week</span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              )
-            })}
+        ) : brands.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,.2)' }}>
+            <p style={{ fontSize: 13 }}>No brands match those filters</p>
           </div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+              {brands.map((b, i) => {
+                const delta = b.velocity_delta || 0
+                const isRising = delta > 0
+                return (
+                  <Link key={b.id} href={`/brands/${b.slug}`} style={{ textDecoration: 'none' }}>
+                    <div className="bc" style={{
+                      animationDelay: `${Math.min(i, 12) * 0.03}s`,
+                      background: 'rgba(255,255,255,.03)',
+                      border: '0.5px solid rgba(255,255,255,.07)',
+                      borderRadius: 14,
+                      padding: '14px',
+                      cursor: 'pointer',
+                      height: '100%',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(99,102,241,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: '#818CF8' }}>
+                          {b.name?.[0]?.toUpperCase()}
+                        </div>
+                        {delta !== 0 && (
+                          <span style={{ fontSize: 10, color: isRising ? '#34D399' : '#F87171', background: isRising ? 'rgba(52,211,153,.1)' : 'rgba(239,68,68,.1)', padding: '2px 7px', borderRadius: 10 }}>
+                            {isRising ? '↑' : '↓'} {Math.abs(Math.round(delta))}%
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: '#fff', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</p>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '0 0 10px' }}>{b.category || 'Brand'}</p>
+                      <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'rgba(255,255,255,.25)' }}>
+                        {b.total_creator_count > 0 && (
+                          <span>{b.total_creator_count} creator{b.total_creator_count !== 1 ? 's' : ''}</span>
+                        )}
+                        {b.weekly_mention_count > 0 && (
+                          <span>· {b.weekly_mention_count} this week</span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+            <div ref={loaderRef} style={{ padding: '20px 0', textAlign: 'center' }}>
+              {loading && page > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,.2)' }}>Loading more...</p>}
+              {!hasMore && brands.length > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,.15)' }}>You've seen every brand that matches ✓</p>}
+            </div>
+          </>
         )}
       </div>
     </Layout>
