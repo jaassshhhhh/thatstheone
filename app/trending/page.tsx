@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
+import Link from 'next/link'
 
 type TrendItem = {
   brand_id: string
@@ -28,6 +29,7 @@ const PLATFORM_ICONS: Record<string, string> = {
 export default function TrendingPage() {
   const [trends, setTrends] = useState<TrendItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [filter, setFilter] = useState<'all' | 'rising' | 'new' | 'dominant'>('all')
   const [lastUpdated, setLastUpdated] = useState('')
 
@@ -37,10 +39,14 @@ export default function TrendingPage() {
 
   async function loadTrends() {
     setLoading(true)
+    setLoadError(false)
     const { data, error } = await supabase.rpc('compute_brand_velocity')
     if (!error && data) {
       setTrends(data)
       setLastUpdated(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))
+    } else if (error) {
+      console.error('compute_brand_velocity failed:', error)
+      setLoadError(true)
     }
     setLoading(false)
   }
@@ -48,7 +54,7 @@ export default function TrendingPage() {
   const filtered = trends.filter(t => {
     if (filter === 'rising') return t.growth_pct > 0 && !t.is_new_this_week
     if (filter === 'new') return t.is_new_this_week
-    if (filter === 'dominant') return t.total_creators >= 3
+    if (filter === 'dominant') return t.total_creators >= 5
     return true
   })
 
@@ -130,6 +136,14 @@ export default function TrendingPage() {
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,.2)' }}>
             <p style={{ fontSize: 13 }}>Computing brand velocity...</p>
           </div>
+        ) : loadError ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <p style={{ fontSize: 28, marginBottom: 10 }}>⚠</p>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,.3)', marginBottom: 12 }}>Couldn't load trends right now</p>
+            <button onClick={loadTrends} style={{ fontSize: 12, padding: '6px 16px', borderRadius: 10, background: 'rgba(99,102,241,.15)', color: '#818CF8', border: '0.5px solid rgba(99,102,241,.25)', cursor: 'pointer' }}>
+              Try again
+            </button>
+          </div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <p style={{ fontSize: 28, marginBottom: 10 }}>◎</p>
@@ -153,8 +167,9 @@ export default function TrendingPage() {
                 : `Consistent presence across ${t.total_creators} creator${t.total_creators !== 1 ? 's' : ''}`
 
               return (
-                <div key={t.brand_id} className="tc"
-                  style={{ animationDelay: `${Math.min(i, 10) * 0.03}s`, background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 16, padding: '16px', position: 'relative', overflow: 'hidden' }}>
+                <Link key={t.brand_id} href={t.brand_slug ? `/brands/${t.brand_slug}` : '#'} style={{ textDecoration: 'none', display: 'block' }}>
+                <div className="tc"
+                  style={{ animationDelay: `${Math.min(i, 10) * 0.03}s`, background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 16, padding: '16px', position: 'relative', overflow: 'hidden', cursor: t.brand_slug ? 'pointer' : 'default' }}>
 
                   <div style={{ position: 'absolute', top: -24, right: -24, width: 80, height: 80, borderRadius: '50%', background: signal.color, opacity: .06, filter: 'blur(18px)', pointerEvents: 'none' }} />
 
@@ -214,6 +229,7 @@ export default function TrendingPage() {
                     </div>
                   </div>
                 </div>
+                </Link>
               )
             })}
           </div>
