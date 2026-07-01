@@ -178,14 +178,19 @@ export default function BrandPage() {
             <div>
               <p style={{ fontSize: 11, color: '#34D399', margin: '0 0 4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em' }}>Best deal available</p>
               {bestDeal.best_offer && <p style={{ fontSize: 13, color: '#fff', margin: '0 0 2px' }}>{bestDeal.best_offer}</p>}
-              {bestDeal.best_code && <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', margin: 0 }}>via {bestDeal.creator_name}</p>}
+              {bestDeal.creator_name && <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', margin: 0 }}>via {bestDeal.creator_name}</p>}
             </div>
-            {bestDeal.best_code && (
+            {bestDeal.best_code ? (
               <button onClick={() => copyCode(bestDeal.best_code, 'best')}
                 style={{ fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, background: copied === 'best' ? 'rgba(34,197,94,.2)' : 'rgba(52,211,153,.15)', color: '#34D399', border: '0.5px solid rgba(52,211,153,.3)', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'monospace', letterSpacing: '.06em' }}>
                 {copied === 'best' ? '✓ Copied' : bestDeal.best_code}
               </button>
-            )}
+            ) : (bestDeal.best_promo_url || bestDeal.promo_url || bestDeal.brand_url) ? (
+              <a href={bestDeal.best_promo_url || bestDeal.promo_url || bestDeal.brand_url} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, background: 'rgba(52,211,153,.15)', color: '#34D399', border: '0.5px solid rgba(52,211,153,.3)', whiteSpace: 'nowrap', textDecoration: 'none' }}>
+                Get deal →
+              </a>
+            ) : null}
           </div>
         )}
 
