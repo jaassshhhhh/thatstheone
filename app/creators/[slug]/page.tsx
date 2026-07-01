@@ -30,6 +30,7 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
   const { slug } = use(params)
   const [creator, setCreator] = useState<any>(null)
   const [sponsorships, setSponsorships] = useState<any[]>([])
+  const [stats, setStats] = useState({ total: 0, brands: 0, organic: 0, withCodes: 0, active: 0, organicRatio: 0 })
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -42,12 +43,33 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
       .from('creators').select('*').eq('slug', slug).single()
     if (!creatorData) { setLoading(false); return }
     setCreator(creatorData)
+
+    // Aggregate stats — a full, uncapped fetch of the lightweight fields only,
+    // so the numbers are accurate even for creators with a lot of history
+    const { data: allSp } = await supabase
+      .from('sponsorships')
+      .select('brand_id, is_organic, promo_code, is_active')
+      .eq('creator_id', creatorData.id)
+      .limit(2000)
+    const all = allSp || []
+    const uniqueBrandIds = new Set(all.map((s: any) => s.brand_id).filter(Boolean))
+    const organicCount = all.filter((s: any) => s.is_organic).length
+    setStats({
+      total: all.length,
+      brands: uniqueBrandIds.size,
+      organic: organicCount,
+      withCodes: all.filter((s: any) => s.promo_code).length,
+      active: all.filter((s: any) => s.is_active).length,
+      organicRatio: all.length > 0 ? Math.round((organicCount / all.length) * 100) : 0,
+    })
+
+    // Detailed list for the expandable history — capped for display, not for stats
     const { data: spData } = await supabase
       .from('sponsorships')
       .select('id, promo_code, promo_url, offer_text, exact_quote, sponsorship_type, is_active, is_organic, first_seen, video_title, video_id, dar_score, platform, brands ( name, slug )')
       .eq('creator_id', creatorData.id)
       .order('first_seen', { ascending: false })
-      .limit(50)
+      .limit(100)
     setSponsorships(spData || [])
     setLoading(false)
   }
@@ -75,14 +97,11 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
     </Layout>
   )
 
-  const withCodes = sponsorships.filter(s => s.promo_code)
-  const organic = sponsorships.filter(s => s.is_organic)
-  const uniqueBrands = new Set(sponsorships.map(s => s.brands?.name)).size
   const convictionScore = Math.min(100, Math.round(
-    (withCodes.length * 15) +
-    (organic.length * 20) +
-    (sponsorships.filter(s => s.is_active).length * 5) +
-    (uniqueBrands * 3)
+    (stats.withCodes * 15) +
+    (stats.organic * 20) +
+    (stats.active * 5) +
+    (stats.brands * 3)
   ))
 
   return (
@@ -140,10 +159,10 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
             {[
-              { label: 'Total deals', value: sponsorships.length },
-              { label: 'Brands', value: uniqueBrands },
-              { label: 'With codes', value: withCodes.length },
-              { label: 'Organic', value: organic.length },
+              { label: 'Total deals', value: stats.total },
+              { label: 'Brands', value: stats.brands },
+              { label: 'With codes', value: stats.withCodes },
+              { label: 'Organic', value: stats.organic },
             ].map(s => (
               <div key={s.label} style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '10px' }}>
                 <p style={{ fontSize: 18, fontWeight: 600, color: '#fff', margin: '0 0 2px' }}>{s.value}</p>
@@ -151,6 +170,25 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
               </div>
             ))}
           </div>
+
+          {/* Organic ratio — framed neutrally, not punitive */}
+          {stats.total > 0 && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,.3)' }}>Organic vs sponsored</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
+                  {stats.organicRatio}% organic
+                </span>
+              </div>
+              <div style={{ height: 6, borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
+                <div style={{ height: '100%', width: `${stats.organicRatio}%`, background: '#34D399' }} />
+                <div style={{ height: '100%', width: `${100 - stats.organicRatio}%`, background: 'rgba(255,255,255,.1)' }} />
+              </div>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', margin: '5px 0 0' }}>
+                {stats.organic} of {stats.total} mentions had no code or deal language attached
+              </p>
+            </div>
+          )}
 
           {/* Conviction score */}
           {convictionScore > 0 && (
