@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 import Link from 'next/link'
@@ -7,6 +7,8 @@ import Link from 'next/link'
 const PLATFORM_ICONS: Record<string, string> = {
   youtube: '▶', podcast: '🎙', twitch: '🎮', reddit: '🔴', newsletter: '📰',
 }
+
+const PAGE_SIZE = 30
 
 function formatSubs(n: number) {
   if (!n) return ''
@@ -18,33 +20,69 @@ function formatSubs(n: number) {
 export default function CreatorsPage() {
   const [creators, setCreators] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [hasMore, setHasMore] = useState(true)
+  const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [categories, setCategories] = useState<string[]>(['All'])
   const [platform, setPlatform] = useState('All')
+  const [totalCount, setTotalCount] = useState(0)
+  const loaderRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { loadCreators() }, [])
+  useEffect(() => {
+    supabase.from('creators').select('*', { count: 'exact', head: true }).then(({ count }) => setTotalCount(count || 0))
+    loadCategories()
+  }, [])
 
-  async function loadCreators() {
+  async function loadCategories() {
+    const { data } = await supabase.from('creators').select('category').not('category', 'is', null).limit(2000)
+    const unique = Array.from(new Set((data || []).map((c: any) => c.category).filter(Boolean))) as string[]
+    setCategories(['All', ...unique.sort()])
+  }
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  useEffect(() => { setPage(0); loadCreators(0, true) }, [debouncedSearch, category, platform])
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loading) {
+        const next = page + 1
+        setPage(next)
+        loadCreators(next)
+      }
+    }, { threshold: 0.1 })
+    if (loaderRef.current) obs.observe(loaderRef.current)
+    return () => obs.disconnect()
+  }, [hasMore, loading, page])
+
+  async function loadCreators(pageNum: number, reset = false) {
     setLoading(true)
-    const { data } = await supabase
+    const from = pageNum * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+
+    let q = supabase
       .from('creators')
       .select('id, name, slug, category, platform, subscriber_count, avatar_url, total_sponsorships')
       .order('subscriber_count', { ascending: false, nullsFirst: false })
-      .limit(200)
+      .range(from, to)
+
+    if (debouncedSearch) q = q.ilike('name', `%${debouncedSearch}%`)
+    if (category !== 'All') q = q.eq('category', category)
+    if (platform !== 'All') q = q.eq('platform', platform)
+
+    const { data } = await q
     const items = data || []
-    setCreators(items)
-    const cats = ['All', ...new Set(items.map((c: any) => c.category).filter(Boolean))]
-    setCategories(cats)
+
+    if (reset) setCreators(items)
+    else setCreators(prev => [...prev, ...items])
+    setHasMore(items.length === PAGE_SIZE)
     setLoading(false)
   }
-
-  const filtered = creators.filter(c => {
-    const matchSearch = !search || c.name?.toLowerCase().includes(search.toLowerCase())
-    const matchCat = category === 'All' || c.category === category
-    const matchPlat = platform === 'All' || c.platform === platform
-    return matchSearch && matchCat && matchPlat
-  })
 
   return (
     <Layout>
@@ -52,7 +90,7 @@ export default function CreatorsPage() {
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '16px 14px 40px' }}>
         <div style={{ marginBottom: 16 }}>
           <h1 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: '0 0 3px' }}>Creators</h1>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,.3)', margin: 0 }}>{creators.length} creators tracked</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,.3)', margin: 0 }}>{totalCount.toLocaleString()} creators tracked</p>
         </div>
 
         <div style={{ display: 'flex', gap: 8, background: 'rgba(255,255,255,.05)', border: '0.5px solid rgba(255,255,255,.1)', borderRadius: 12, padding: '5px 5px 5px 14px', marginBottom: 12 }}>
@@ -79,11 +117,13 @@ export default function CreatorsPage() {
           ))}
         </div>
 
-        {loading ? (
+        {loading && page === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,.2)' }}><p>Loading...</p></div>
+        ) : creators.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,.2)' }}><p style={{ fontSize: 13 }}>No creators match those filters</p></div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {filtered.map((c, i) => (
+            {creators.map((c, i) => (
               <Link key={c.id} href={`/creators/${c.slug}`} style={{ textDecoration: 'none' }}>
                 <div className="cc" style={{ background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 42, height: 42, borderRadius: 11, background: 'rgba(99,102,241,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#818CF8', flexShrink: 0, overflow: 'hidden' }}>
@@ -105,6 +145,10 @@ export default function CreatorsPage() {
                 </div>
               </Link>
             ))}
+            <div ref={loaderRef} style={{ padding: '20px 0', textAlign: 'center' }}>
+              {loading && page > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,.2)' }}>Loading more...</p>}
+              {!hasMore && creators.length > 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,.15)' }}>You've seen every creator that matches ✓</p>}
+            </div>
           </div>
         )}
       </div>
