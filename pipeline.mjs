@@ -94,7 +94,7 @@ const PODCAST_YOUTUBE_CHANNELS = [
     'youtube', 'google', 'twitter', 'instagram', 'facebook', 'tiktok',
     'twitch', 'discord', 'reddit', 'spotify', 'apple', 'netflix',
     'amazon', 'meta', 'whatsapp', 'snapchat', 'linkedin',
-    'muscleworks gym', 'the lady change', 'autumn elle nutrition',
+    'muscleworks gym', 'item shop',
     'unknown', 'unknown brand', 'n/a', 'na', 'none', 'brand',
     'sponsor', 'this brand', 'the brand', 'unnamed', 'unnamed brand',
   ])
