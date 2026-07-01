@@ -173,26 +173,37 @@ export default function BrandPage() {
         )}
 
         {/* Best deal banner */}
-        {bestDeal && (bestDeal.best_code || bestDeal.best_offer) && (
-          <div style={{ background: 'rgba(52,211,153,.06)', border: '0.5px solid rgba(52,211,153,.2)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div>
-              <p style={{ fontSize: 11, color: '#34D399', margin: '0 0 4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em' }}>Best deal available</p>
-              {bestDeal.best_offer && <p style={{ fontSize: 13, color: '#fff', margin: '0 0 2px' }}>{bestDeal.best_offer}</p>}
-              {bestDeal.creator_name && <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', margin: 0 }}>via {bestDeal.creator_name}</p>}
+        {bestDeal && (bestDeal.best_code || bestDeal.best_offer) && (() => {
+          const dealUrl = bestDeal.best_promo_url || bestDeal.promo_url || bestDeal.brand_url || brandUrl
+          return (
+            <div style={{ background: 'rgba(52,211,153,.06)', border: '0.5px solid rgba(52,211,153,.2)', borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: 11, color: '#34D399', margin: '0 0 4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em' }}>Best deal available</p>
+                  {bestDeal.best_offer && <p style={{ fontSize: 13, color: '#fff', margin: '0 0 2px' }}>{bestDeal.best_offer}</p>}
+                  {bestDeal.creator_name && <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', margin: 0 }}>via {bestDeal.creator_name}</p>}
+                </div>
+                {bestDeal.best_code ? (
+                  <button onClick={() => copyCode(bestDeal.best_code, 'best')}
+                    style={{ fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, background: copied === 'best' ? 'rgba(34,197,94,.2)' : 'rgba(52,211,153,.15)', color: '#34D399', border: '0.5px solid rgba(52,211,153,.3)', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'monospace', letterSpacing: '.06em' }}>
+                    {copied === 'best' ? '✓ Copied' : bestDeal.best_code}
+                  </button>
+                ) : dealUrl ? (
+                  <a href={dealUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, background: 'rgba(52,211,153,.15)', color: '#34D399', border: '0.5px solid rgba(52,211,153,.3)', whiteSpace: 'nowrap', textDecoration: 'none' }}>
+                    Get deal →
+                  </a>
+                ) : null}
+              </div>
+              {bestDeal.best_code && dealUrl && (
+                <a href={dealUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'rgba(52,211,153,.7)', textDecoration: 'none', marginTop: 10 }}>
+                  Visit brand to use this code →
+                </a>
+              )}
             </div>
-            {bestDeal.best_code ? (
-              <button onClick={() => copyCode(bestDeal.best_code, 'best')}
-                style={{ fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, background: copied === 'best' ? 'rgba(34,197,94,.2)' : 'rgba(52,211,153,.15)', color: '#34D399', border: '0.5px solid rgba(52,211,153,.3)', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'monospace', letterSpacing: '.06em' }}>
-                {copied === 'best' ? '✓ Copied' : bestDeal.best_code}
-              </button>
-            ) : (bestDeal.best_promo_url || bestDeal.promo_url || bestDeal.brand_url) ? (
-              <a href={bestDeal.best_promo_url || bestDeal.promo_url || bestDeal.brand_url} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 10, background: 'rgba(52,211,153,.15)', color: '#34D399', border: '0.5px solid rgba(52,211,153,.3)', whiteSpace: 'nowrap', textDecoration: 'none' }}>
-                Get deal →
-              </a>
-            ) : null}
-          </div>
-        )}
+          )
+        })()}
 
         {/* Creator list */}
         <h2 style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,.5)', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
