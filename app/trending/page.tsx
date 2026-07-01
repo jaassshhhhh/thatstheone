@@ -29,12 +29,14 @@ const PLATFORM_ICONS: Record<string, string> = {
 export default function TrendingPage() {
   const [trends, setTrends] = useState<TrendItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [totalBrands, setTotalBrands] = useState(0)
   const [loadError, setLoadError] = useState(false)
   const [filter, setFilter] = useState<'all' | 'rising' | 'new' | 'dominant'>('all')
   const [lastUpdated, setLastUpdated] = useState('')
 
   useEffect(() => {
     loadTrends()
+    supabase.from('brands').select('*', { count: 'exact', head: true }).then(({ count }) => setTotalBrands(count || 0))
   }, [])
 
   async function loadTrends() {
@@ -118,18 +120,25 @@ export default function TrendingPage() {
         </div>
 
         {!loading && trends.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 16 }}>
-            {[
-              { label: 'Brands tracked', value: trends.length, color: '#fff' },
-              { label: 'New this week', value: trends.filter(t => t.is_new_this_week).length, color: '#818CF8' },
-              { label: 'Surging', value: trends.filter(t => t.growth_pct >= 100).length, color: '#34D399' },
-            ].map(s => (
-              <div key={s.label} style={{ background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 12, padding: '10px 12px' }}>
-                <p style={{ fontSize: 20, fontWeight: 600, color: s.color, margin: '0 0 2px' }}>{s.value}</p>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: 0 }}>{s.label}</p>
-              </div>
-            ))}
-          </div>
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 6 }}>
+              {[
+                { label: 'Trending now', value: trends.length, color: '#fff' },
+                { label: 'New this week', value: trends.filter(t => t.is_new_this_week).length, color: '#818CF8' },
+                { label: 'Surging', value: trends.filter(t => t.growth_pct >= 100).length, color: '#34D399' },
+              ].map(s => (
+                <div key={s.label} style={{ background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 12, padding: '10px 12px' }}>
+                  <p style={{ fontSize: 20, fontWeight: 600, color: s.color, margin: '0 0 2px' }}>{s.value}</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: 0 }}>{s.label}</p>
+                </div>
+              ))}
+            </div>
+            {totalBrands > 0 && (
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', margin: '0 0 16px' }}>
+                {trends.length} of {totalBrands.toLocaleString()} tracked brands are trending this week — the rest are quieter right now, not missing.
+              </p>
+            )}
+          </>
         )}
 
         {loading ? (
