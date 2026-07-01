@@ -245,7 +245,7 @@ async function extractFromContent(content) {
           - Japanese: "コード" (code), "スポンサー" (sponsor), "使っています" (I use), "おすすめ" (recommend)
           - Other languages: look for brand names + discount indicators + personal recommendation language
           
-          Return ONLY a JSON array. Each item:
+         Return ONLY a JSON array. Each item:
           {
             "brand": "Clean brand name in English where possible",
             "sponsorship_type": "code"|"url"|"offer"|"mention",
@@ -255,11 +255,14 @@ async function extractFromContent(content) {
             "exact_quote": "exact sentence mentioning brand max 200 chars NO URLs OR null",
             "confidence": 0.85-1.0,
             "is_organic": true|false,
-            "detected_language": "en"|"hi"|"ja"|"es"|"fr"|"other"
+            "detected_language": "en"|"hi"|"ja"|"es"|"fr"|"other",
+            "brand_category": "Tech"|"Finance"|"Health"|"Lifestyle"|"Education"|"Gaming"|"Beauty"|"Food"|null
           }
+
+          brand_category: classify what the BRAND/PRODUCT itself actually is — a supplement company is "Health" even if it's advertised on a finance podcast. A budgeting app is "Finance" even if a gaming streamer reads the ad. Judge the product, never the show or creator it appears on. Use null only if genuinely unclear from the text.
           
           is_organic = true when creator expresses genuine personal use WITHOUT payment language — in ANY language. Look for: personal pronouns + product name + positive sentiment + no code/affiliate language.
-          
+
           is_organic = false when there is a code, affiliate link, "sponsored by" or equivalent in any language.
           
           promo_code: 2-12 chars only. NOT video IDs, generic words, URLs.
@@ -287,6 +290,7 @@ ${content.rawText.slice(0, 3000)}`
     const raw = completion.choices[0].message.content?.trim() || '[]'
     const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
     if (!Array.isArray(parsed)) return []
+    const VALID_CATEGORIES = new Set(['Tech', 'Finance', 'Health', 'Lifestyle', 'Education', 'Gaming', 'Beauty', 'Food'])
     return parsed
       .filter(s => s.confidence >= 0.85 && s.brand?.length > 1 && !isBlockedBrand(s.brand))
       .map(s => ({
@@ -294,6 +298,7 @@ ${content.rawText.slice(0, 3000)}`
         promo_code: isValidCode(s.promo_code) ? s.promo_code.toUpperCase() : null,
         exact_quote: cleanQuote(s.exact_quote),
         offer_text: s.offer_text?.slice(0, 100) || null,
+        brand_category: VALID_CATEGORIES.has(s.brand_category) ? s.brand_category : null,
         dar_score: computeDAR(s),
         dar_source: 'ai_extracted',
       }))
@@ -318,14 +323,17 @@ async function saveToDatabase(content, sponsors, creatorId) {
         .select().single()
       if (!brandData) continue
   
-      // First-mention-wins category guess — the accurate majority-vote pass
-      // happens separately via the periodic backfill query, this just stops
-      // brand new brands from being born with a permanently null category
-      if (!brandData.category && creatorRow?.category) {
+      // Primary: the AI classified what the product actually is, at extraction time.
+      // Fallback: if the AI couldn't tell, borrow the creator's category as a rough guess —
+      // the periodic majority-vote backfill corrects that guess later using real agreement.
+      // Never touch a brand that's been manually corrected (category_manual = true).
+      const categoryGuess = s.brand_category || creatorRow?.category || null
+      if (!brandData.category_group && categoryGuess) {
         await supabase.from('brands')
-          .update({ category: creatorRow.category })
+          .update({ category_group: categoryGuess })
           .eq('id', brandData.id)
-          .is('category', null)
+          .is('category_group', null)
+          .eq('category_manual', false)
       }
   
       const brandUrl = extractBrandUrl(content.rawText, s.brand)
