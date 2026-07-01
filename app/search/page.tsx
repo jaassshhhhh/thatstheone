@@ -63,8 +63,15 @@ function SearchContent() {
       .select(`id, best_code, brand_name, creator_name, brand_slug, creator_slug, last_seen`)
       .not('best_code', 'is', null)
       .order('last_seen', { ascending: false })
-      .limit(8)
-    setTrending(data || [])
+      .limit(20)
+    const seen = new Set()
+    const deduped = (data || []).filter((r: any) => {
+      const key = `${r.brand_slug}-${r.creator_slug}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    }).slice(0, 8)
+    setTrending(deduped)
   }
 
   const search = useCallback(async (q: string, filter: string) => {
