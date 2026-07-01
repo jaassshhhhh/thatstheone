@@ -16,11 +16,16 @@ function timeAgo(date: string) {
 }
 
 function formatSubs(n: number) {
-  if (!n) return ''
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
-  if (n >= 1000) return `${Math.round(n / 1000)}k`
-  return `${n}`
-}
+    if (!n) return ''
+    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
+    if (n >= 1000) return `${Math.round(n / 1000)}k`
+    return `${n}`
+  }
+  
+  function formatDate(date: string) {
+    if (!date) return ''
+    return new Date(date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+  }
 
 export default function BrandPage() {
   const params = useParams()
@@ -81,6 +86,11 @@ export default function BrandPage() {
   const totalMentions = creators.reduce((a, c) => a + (c.mention_count || 0), 0)
   const isRising = (brand.velocity_delta || 0) > 0
   const brandUrl = brand.website_url || brand.website
+  const earliestMention = creators.reduce((earliest: any, c: any) => {
+    if (!c.first_seen) return earliest
+    if (!earliest || new Date(c.first_seen) < new Date(earliest.first_seen)) return c
+    return earliest
+  }, null)
 
   return (
     <Layout>
@@ -143,6 +153,24 @@ export default function BrandPage() {
             ))}
           </div>
         </div>
+
+        {/* Trend origin */}
+        {earliestMention && earliestMention.first_seen && (
+          <div style={{ background: 'rgba(167,139,250,.06)', border: '0.5px solid rgba(167,139,250,.2)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>👀</span>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', margin: 0, lineHeight: 1.5 }}>
+              First mentioned by{' '}
+              {earliestMention.creator_slug ? (
+                <Link href={`/creators/${earliestMention.creator_slug}`} style={{ color: '#A78BFA', fontWeight: 600, textDecoration: 'none' }}>
+                  {earliestMention.creator_name}
+                </Link>
+              ) : (
+                <span style={{ color: '#A78BFA', fontWeight: 600 }}>{earliestMention.creator_name}</span>
+              )}
+              {' '}on {formatDate(earliestMention.first_seen)} — {timeAgo(earliestMention.first_seen)}
+            </p>
+          </div>
+        )}
 
         {/* Best deal banner */}
         {bestDeal && (bestDeal.best_code || bestDeal.best_offer) && (
