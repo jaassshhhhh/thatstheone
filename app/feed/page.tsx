@@ -778,7 +778,7 @@ export default function FeedPage() {
     const cfg = CARD_CONFIGS[s.cardType] || CARD_CONFIGS.TRENDING
     const isOpen = expanded === s.id || expanded === `${s.creator_id}-${s.brand_id}`
     const cardId = s.id || `${s.creator_id}-${s.brand_id}`
-    const hasDeal = s.best_code || s.promo_code || s.best_offer || s.offer_text || s.promo_url
+    const hasDeal = s.best_code || s.promo_code || s.best_offer || s.offer_text || s.best_promo_url || s.promo_url
     const hero = isHero(s, i)
     const quote = s.best_quote || s.exact_quote
     const code = s.best_code || s.promo_code
