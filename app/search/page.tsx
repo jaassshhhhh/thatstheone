@@ -59,11 +59,10 @@ function SearchContent() {
 
   async function loadTrending() {
     const { data } = await supabase
-      .from('sponsorships')
-      .select(`id, promo_code, video_title, is_active, brands ( name, slug ), creators ( name, slug )`)
-      .eq('is_active', true)
-      .not('promo_code', 'is', null)
-      .order('created_at', { ascending: false })
+      .from('creator_brand_relationships')
+      .select(`id, best_code, brand_name, creator_name, brand_slug, creator_slug, last_seen`)
+      .not('best_code', 'is', null)
+      .order('last_seen', { ascending: false })
       .limit(8)
     setTrending(data || [])
   }
@@ -359,24 +358,33 @@ function SearchContent() {
           <div>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>Latest indexed</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {trending.map((r: any) => (
+            {trending.map((r: any) => (
                 <div key={r.id}
                   style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 14, padding: 14, display: 'flex', alignItems: 'center', gap: 12, transition: 'border-color .2s' }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(99,102,241,.35)'}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,.07)'}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(99,102,241,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#818CF8', flexShrink: 0 }}>
-                    {r.brands?.name?.[0]?.toUpperCase()}
+                    {r.brand_name?.[0]?.toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>{r.brands?.name}</p>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '1px 0 0' }}>via {r.creators?.name}</p>
+                    <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#fff' }}>
+                      {r.brand_slug ? (
+                        <a href={`/brands/${r.brand_slug}`} style={{ color: '#fff', textDecoration: 'none' }}>{r.brand_name}</a>
+                      ) : r.brand_name}
+                    </p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '1px 0 0' }}>
+                      via{' '}
+                      {r.creator_slug ? (
+                        <a href={`/creators/${r.creator_slug}`} style={{ color: 'rgba(255,255,255,.3)', textDecoration: 'none' }}>{r.creator_name}</a>
+                      ) : r.creator_name}
+                    </p>
                   </div>
                   <span style={{ fontFamily: 'monospace', fontSize: 12, background: 'rgba(255,255,255,.07)', padding: '3px 9px', borderRadius: 5, flexShrink: 0, color: '#fff' }}>
-                    {r.promo_code}
+                    {r.best_code}
                   </span>
-                  <button onClick={() => copyCode(r.promo_code, r.brands?.name)}
-                    style={{ fontSize: 11, padding: '5px 12px', borderRadius: 7, background: copied === r.promo_code ? 'rgba(34,197,94,.15)' : 'rgba(99,102,241,.15)', color: copied === r.promo_code ? '#4ADE80' : '#818CF8', border: `1px solid ${copied === r.promo_code ? 'rgba(34,197,94,.3)' : 'rgba(99,102,241,.25)'}`, cursor: 'pointer', flexShrink: 0 }}>
-                    {copied === r.promo_code ? '✓' : 'Copy'}
+                  <button onClick={() => copyCode(r.best_code, r.brand_name)}
+                    style={{ fontSize: 11, padding: '5px 12px', borderRadius: 7, background: copied === r.best_code ? 'rgba(34,197,94,.15)' : 'rgba(99,102,241,.15)', color: copied === r.best_code ? '#4ADE80' : '#818CF8', border: `1px solid ${copied === r.best_code ? 'rgba(34,197,94,.3)' : 'rgba(99,102,241,.25)'}`, cursor: 'pointer', flexShrink: 0 }}>
+                    {copied === r.best_code ? '✓' : 'Copy'}
                   </button>
                 </div>
               ))}
