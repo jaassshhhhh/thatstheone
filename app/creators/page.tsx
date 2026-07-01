@@ -28,6 +28,7 @@ export default function CreatorsPage() {
   const [categories, setCategories] = useState<string[]>(['All'])
   const [platform, setPlatform] = useState('All')
   const [totalCount, setTotalCount] = useState(0)
+  const [creatorStats, setCreatorStats] = useState<Record<string, { brands: number; organic: number }>>({})
   const loaderRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -82,6 +83,29 @@ export default function CreatorsPage() {
     else setCreators(prev => [...prev, ...items])
     setHasMore(items.length === PAGE_SIZE)
     setLoading(false)
+
+    // Batched stats — one query for the whole visible page, not one per creator
+    const ids = items.map((c: any) => c.id).filter(Boolean)
+    if (ids.length) {
+      const { data: spData } = await supabase
+        .from('sponsorships')
+        .select('creator_id, brand_id, is_organic')
+        .in('creator_id', ids)
+      const statsMap: Record<string, { brands: number; organic: number }> = {}
+      const brandSets: Record<string, Set<string>> = {}
+      for (const row of spData || []) {
+        if (!row.creator_id) continue
+        if (!brandSets[row.creator_id]) brandSets[row.creator_id] = new Set()
+        if (row.brand_id) brandSets[row.creator_id].add(row.brand_id)
+        if (!statsMap[row.creator_id]) statsMap[row.creator_id] = { brands: 0, organic: 0 }
+        if (row.is_organic) statsMap[row.creator_id].organic++
+      }
+      for (const cid of Object.keys(brandSets)) {
+        if (!statsMap[cid]) statsMap[cid] = { brands: 0, organic: 0 }
+        statsMap[cid].brands = brandSets[cid].size
+      }
+      setCreatorStats(prev => ({ ...prev, ...statsMap }))
+    }
   }
 
   return (
@@ -131,10 +155,12 @@ export default function CreatorsPage() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#fff', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       {c.subscriber_count > 0 && <span style={{ fontSize: 11, color: 'rgba(255,255,255,.3)' }}>{formatSubs(c.subscriber_count)}</span>}
                       {c.category && <><span style={{ fontSize: 10, color: 'rgba(255,255,255,.15)' }}>·</span><span style={{ fontSize: 11, color: 'rgba(255,255,255,.25)' }}>{c.category}</span></>}
                       {c.platform && <><span style={{ fontSize: 10, color: 'rgba(255,255,255,.15)' }}>·</span><span style={{ fontSize: 11, color: 'rgba(255,255,255,.2)' }}>{PLATFORM_ICONS[c.platform]} {c.platform}</span></>}
+                      {creatorStats[c.id]?.brands > 0 && <><span style={{ fontSize: 10, color: 'rgba(255,255,255,.15)' }}>·</span><span style={{ fontSize: 11, color: 'rgba(255,255,255,.2)' }}>{creatorStats[c.id].brands} sponsor{creatorStats[c.id].brands !== 1 ? 's' : ''}</span></>}
+                      {creatorStats[c.id]?.organic > 0 && <><span style={{ fontSize: 10, color: 'rgba(255,255,255,.15)' }}>·</span><span style={{ fontSize: 11, color: '#34D399' }}>{creatorStats[c.id].organic} reco{creatorStats[c.id].organic !== 1 ? 's' : ''}</span></>}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
