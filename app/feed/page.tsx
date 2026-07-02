@@ -873,9 +873,16 @@ export default function FeedPage() {
         {(() => {
           const tier = getFreshnessTier(s.last_seen)
           return (
-            <p style={{ fontSize: 11, color: getFreshnessColor(tier), margin: '10px 0 0' }}>
-              {getFreshnessLine({ tier, lastSeen: s.last_seen, firstSeen: s.first_seen, mentionCount: s.mention_count || 1, timeAgo })}
-            </p>
+            <>
+              <p style={{ fontSize: 11, color: getFreshnessColor(tier), margin: '10px 0 0' }}>
+                {getFreshnessLine({ tier, lastSeen: s.last_seen, firstSeen: s.first_seen, mentionCount: s.mention_count || 1, timeAgo })}
+              </p>
+              {tier === 'dormant' && (hasDeal || s.is_organic) && (
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,.25)', fontStyle: 'italic', margin: '3px 0 0' }}>
+                  Still valid? Let us know below ↓
+                </p>
+              )}
+            </>
           )
         })()}
 
