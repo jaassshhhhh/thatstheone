@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
+import { getFreshnessTier, getFreshnessColor, getFreshnessLine } from '../lib/freshness'
 
 const SESSION_KEY = 'tto_session'
 function getSession() {
@@ -868,12 +869,15 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* Timeline — one quiet line */}
-        {s.mention_count > 1 && (
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,.25)', margin: '10px 0 0' }}>
-            First seen {timeAgo(s.first_seen)} · latest {timeAgo(s.last_seen)}
-          </p>
-        )}
+        {/* Freshness — leads with recency of confirmation, not age of origin */}
+        {(() => {
+          const tier = getFreshnessTier(s.last_seen)
+          return (
+            <p style={{ fontSize: 11, color: getFreshnessColor(tier), margin: '10px 0 0' }}>
+              {getFreshnessLine({ tier, lastSeen: s.last_seen, firstSeen: s.first_seen, mentionCount: s.mention_count || 1, timeAgo })}
+            </p>
+          )
+        })()}
 
         {/* Bottom row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, marginTop: 14, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
