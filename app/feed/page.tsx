@@ -331,7 +331,7 @@ export default function FeedPage() {
       setFeed([]); setLoading(false); return
     }
 
-    let q = supabase.from('creator_brand_relationships').select('*').order('best_dar_score', { ascending: false }).order('last_seen', { ascending: false }).range(from, to)
+    let q = supabase.from('creator_brand_relationships').select('*').order('freshness_rank', { ascending: true }).order('best_dar_score', { ascending: false }).order('last_seen', { ascending: false }).range(from, to)
     if (filter === 'Deals') q = q.not('best_code', 'is', null)
     if (filter === 'Organic') q = q.eq('is_organic', true)
     if (filter === 'New') q = q.gte('first_seen', new Date(Date.now() - 14 * 86400000).toISOString())

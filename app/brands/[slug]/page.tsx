@@ -53,6 +53,7 @@ export default function BrandPage() {
       .from('creator_brand_relationships')
       .select('*')
       .eq('brand_id', brandData.id)
+      .order('freshness_rank', { ascending: true })
       .order('mention_count', { ascending: false })
       .limit(50)
 
