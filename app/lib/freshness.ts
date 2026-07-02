@@ -20,27 +20,31 @@ export function getFreshnessColor(tier: FreshnessTier): string {
   return '#34D399'
 }
 
-// The actual reframe: lead with recency-of-confirmation, not age-of-origin.
+// The actual reframe: lead with recency-of-mention, not age-of-origin.
+// Wording is deliberately literal — "last mentioned" is what this data actually
+// measures (a piece of published content), not "confirmed" or "verified," which
+// would overclaim. Real human verification is a separate signal (the reaction
+// system — code_worked / code_expired), not this one.
 // first_seen only appears when it adds positive context (a sustained,
 // repeatedly-reconfirmed relationship) — never as the headline age claim.
 export function getFreshnessLine(params: {
-  tier: FreshnessTier
-  lastSeen: string | null | undefined
-  firstSeen: string | null | undefined
-  mentionCount: number
-  timeAgo: (date: string) => string
-}): string {
-  const { tier, lastSeen, firstSeen, mentionCount, timeAgo } = params
-
-  if (tier === 'dormant') {
-    return lastSeen ? `Not recently confirmed — last seen ${timeAgo(lastSeen)}` : 'Not recently confirmed'
+    tier: FreshnessTier
+    lastSeen: string | null | undefined
+    firstSeen: string | null | undefined
+    mentionCount: number
+    timeAgo: (date: string) => string
+  }): string {
+    const { tier, lastSeen, firstSeen, mentionCount, timeAgo } = params
+  
+    if (tier === 'dormant') {
+      return lastSeen ? `Not mentioned recently — last seen ${timeAgo(lastSeen)}` : 'Not mentioned recently'
+    }
+  
+    const mentioned = lastSeen ? `Last mentioned ${timeAgo(lastSeen)}` : 'Recently active'
+  
+    if (mentionCount > 1 && firstSeen) {
+      return `${mentioned} — ongoing since ${timeAgo(firstSeen)}`
+    }
+  
+    return mentioned
   }
-
-  const confirmed = lastSeen ? `Confirmed ${timeAgo(lastSeen)}` : 'Active'
-
-  if (mentionCount > 1 && firstSeen) {
-    return `${confirmed} — ongoing since ${timeAgo(firstSeen)}`
-  }
-
-  return confirmed
-}
