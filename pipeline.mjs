@@ -1073,27 +1073,29 @@ const PODCAST_SEEDS = [
 ]
 
 const BOOTSTRAP_PODCASTS = [
-  { name: 'The Tim Ferriss Show', rss: 'https://rss.art19.com/tim-ferriss-show', category: 'Lifestyle' },
-  { name: 'Huberman Lab', rss: 'https://feeds.megaphone.fm/hubermanlab', category: 'Health' },
-  { name: 'My First Million', rss: 'https://feeds.megaphone.fm/mfmpod', category: 'Finance' },
-  { name: 'Diary of a CEO', rss: 'https://feeds.acast.com/public/shows/diary-of-a-ceo-with-steven-bartlett', category: 'Entrepreneurship' },
-  { name: 'Modern Wisdom', rss: 'https://feeds.acast.com/public/shows/modern-wisdom', category: 'Lifestyle' },
-  { name: 'All-In Podcast', rss: 'https://feeds.megaphone.fm/allinpodcast', category: 'Tech' },
-  { name: 'Acquired', rss: 'https://acquired.fm/rss', category: 'Finance' },
-  { name: 'How I Built This', rss: 'https://feeds.simplecast.com/GHHnXNFD', category: 'Entrepreneurship' },
-  { name: 'Darknet Diaries', rss: 'https://feeds.megaphone.fm/darknetdiaries', category: 'Tech' },
-  { name: 'Crime Junkie', rss: 'https://feeds.simplecast.com/qm_9xx0g', category: 'True Crime' },
-  { name: 'The Knowledge Project', rss: 'https://feeds.simplecast.com/qN5oPkwB', category: 'Productivity' },
-  { name: 'Lex Fridman Podcast', rss: 'https://lexfridman.com/feed/podcast/', category: 'Tech' },
-  { name: 'Founders Podcast', rss: 'https://feeds.transistor.fm/founders', category: 'Entrepreneurship' },
-  { name: 'Planet Money', rss: 'https://feeds.npr.org/510289/podcast.xml', category: 'Finance' },
-  { name: 'Freakonomics Radio', rss: 'https://feeds.simplecast.com/Y8lFbOT4', category: 'Education' },
-  { name: 'SmartLess', rss: 'https://feeds.simplecast.com/yGFBCHId', category: 'Comedy' },
-  { name: 'Armchair Expert', rss: 'https://feeds.simplecast.com/e9Mnieb5', category: 'Lifestyle' },
-  { name: 'The Daily', rss: 'https://feeds.simplecast.com/54nAGcIl', category: 'News' },
-  { name: 'Contrarian Thinking', rss: 'https://feeds.megaphone.fm/contrarianthinking', category: 'Finance' },
-  { name: 'The Game w/ Alex Hormozi', rss: 'https://feeds.megaphone.fm/IMSA3959656606', category: 'Entrepreneurship' },
-]
+    { name: 'The Tim Ferriss Show', rss: 'https://rss.art19.com/tim-ferriss-show', category: 'Lifestyle' },
+    { name: 'Huberman Lab', rss: 'https://feeds.megaphone.fm/hubermanlab', category: 'Health' },
+    { name: 'My First Million', rss: 'https://feeds.megaphone.fm/HS2300184645', category: 'Finance' },
+    { name: 'Diary of a CEO', rss: 'https://rss2.flightcast.com/xmsftuzjjykcmqwolaqn6mdn', category: 'Entrepreneurship' },
+    { name: 'Modern Wisdom', rss: 'https://feeds.megaphone.fm/SIXMSB5088139739', category: 'Lifestyle' },
+    { name: 'All-In Podcast', rss: 'https://rss.libsyn.com/shows/254861/destinations/1928300.xml', category: 'Tech' },
+    { name: 'Acquired', rss: 'https://feeds.transistor.fm/acquired', category: 'Finance' },
+    { name: 'How I Built This', rss: 'https://rss.art19.com/how-i-built-this', category: 'Entrepreneurship' },
+    { name: 'Darknet Diaries', rss: 'https://feeds.megaphone.fm/darknetdiaries', category: 'Tech' },
+    { name: 'Crime Junkie', rss: 'https://feeds.simplecast.com/qm_9xx0g', category: 'True Crime' },
+    { name: 'The Knowledge Project', rss: 'https://feeds.megaphone.fm/FSMI7575968096', category: 'Productivity' },
+    { name: 'Lex Fridman Podcast', rss: 'https://lexfridman.com/feed/podcast/', category: 'Tech' },
+    { name: 'Founders Podcast', rss: 'https://feeds.megaphone.fm/DSLLC6297708582', category: 'Entrepreneurship' },
+    { name: 'Planet Money', rss: 'https://feeds.npr.org/510289/podcast.xml', category: 'Finance' },
+    { name: 'Freakonomics Radio', rss: 'https://feeds.simplecast.com/Y8lFbOT4', category: 'Education' },
+    { name: 'SmartLess', rss: 'https://feeds.simplecast.com/hNaFxXpO', category: 'Comedy' },
+    { name: 'Armchair Expert', rss: 'https://rss.art19.com/armchair-expert', category: 'Lifestyle' },
+    { name: 'The Daily', rss: 'https://feeds.simplecast.com/54nAGcIl', category: 'News' },
+    // 'Contrarian Thinking' removed — genuinely unfindable on Apple Podcasts under
+    // that title after two independent lookups (one wrongly matched a different
+    // show called "POWERS"). Needs manual research before re-adding — see notes.
+    { name: 'The Game w/ Alex Hormozi', rss: 'https://rss2.flightcast.com/zz5nwp81tktx53wb8fw6qq7j.xml', category: 'Entrepreneurship' },
+  ]
 
 async function discoverPodcasts(maxNew = 50) {
   const { data: existing } = await supabase.from('creators').select('name').eq('platform', 'podcast')
@@ -1158,13 +1160,14 @@ async function parsePodcastRSS(podcast) {
 async function runPodcasts() {
     console.log('\n🎙 Podcast connector starting...')
     
-    // Backfill RSS URLs for bootstrap podcasts already in DB but missing rss_url
+    // Sync RSS URLs from the bootstrap list — code is the source of truth,
+    // so a corrected URL here always overwrites whatever's stored, instead
+    // of silently skipping rows that already have a (possibly stale) value
     for (const podcast of BOOTSTRAP_PODCASTS) {
-      await supabase.from('creators')
-        .update({ rss_url: podcast.rss })
-        .eq('slug', makeSlug(podcast.name))
-        .is('rss_url', null)
-    }
+        await supabase.from('creators')
+          .update({ rss_url: podcast.rss })
+          .eq('slug', makeSlug(podcast.name))
+      }
   
     const newPodcasts = await discoverPodcasts(50)
     let total = 0
