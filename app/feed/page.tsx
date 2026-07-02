@@ -12,11 +12,11 @@ function getSession() {
   return s
 }
 
-async function track(type: string, value: string) {
-  const session = getSession()
-  if (!session) return
-  await supabase.from('user_signals').insert({ session_id: session, signal_type: type, value }).then(() => {})
-}
+async function track(type: string, value: string, brandId?: string, categoryGroup?: string | null) {
+    const session = getSession()
+    if (!session) return
+    await supabase.from('user_signals').insert({ session_id: session, signal_type: type, value, brand_id: brandId || null, category_group: categoryGroup || null }).then(() => {})
+  }
 
 const CARD_CONFIGS: Record<string, { label: string; icon: string; color: string; bg: string; border: string }> = {
   VELOCITY: { label: 'Blowing up',          icon: 'ti-flame',        color: '#F87171', bg: 'rgba(239,68,68,.1)',   border: 'rgba(239,68,68,.25)' },
@@ -400,10 +400,10 @@ export default function FeedPage() {
     }
   }
 
-  const copyCode = async (code: string, id: string, brand: string) => {
+  const copyCode = async (code: string, id: string, brand: string, brandId?: string, categoryGroup?: string | null) => {
     await navigator.clipboard.writeText(code)
     setCopied(id)
-    track('copy', brand)
+    track('copy', brand, brandId, categoryGroup)
     setTimeout(() => setCopied(null), 2000)
   }
 
@@ -804,7 +804,7 @@ export default function FeedPage() {
     return (
       <div key={cardId} className="fc"
         style={{ animationDelay: `${Math.min(i, 8) * 0.04}s`, background: `${cfg.color}0d`, border: `0.5px solid ${cfg.border}`, borderRadius: hero ? 20 : 16, padding: hero ? '20px' : '16px', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
-        onClick={() => { setExpanded(isOpen ? null : cardId); track('click', s.brand_name || '') }}>
+        onClick={() => { setExpanded(isOpen ? null : cardId); track('click', s.brand_name || '', s.brand_id, s.brand_category_group) }}>
 
         <div style={{ position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%', background: cfg.color, opacity: hero ? .1 : .06, filter: 'blur(24px)', pointerEvents: 'none' }} />
 
@@ -911,7 +911,7 @@ export default function FeedPage() {
                       Visit brand
                     </a>
                   )}
-                  <button onClick={e => { e.stopPropagation(); copyCode(code, cardId, s.brand_name || '') }}
+                  <button onClick={e => { e.stopPropagation(); copyCode(code, cardId, s.brand_name || '', s.brand_id, s.brand_category_group) }}
                     style={{ fontSize: 12, padding: '7px 14px', borderRadius: 9, background: copied === cardId ? '#34D399' : cfg.color, color: '#060810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                     {copied === cardId ? '✓ Copied' : 'Get code'}
                   </button>
@@ -990,7 +990,7 @@ export default function FeedPage() {
                 {code && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,.06)', borderRadius: 9, padding: '9px 12px' }}>
                     <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '.08em' }}>{code}</span>
-                    <button onClick={() => copyCode(code, cardId, s.brand_name || '')}
+                    <button onClick={() => copyCode(code, cardId, s.brand_name || '', s.brand_id, s.brand_category_group)}
                       style={{ fontSize: 12, padding: '5px 14px', borderRadius: 7, background: copied === cardId ? '#34D399' : cfg.color, color: '#060810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                       {copied === cardId ? '✓ Copied!' : 'Copy code'}
                     </button>
