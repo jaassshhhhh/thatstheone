@@ -1133,7 +1133,11 @@ async function parsePodcastRSS(podcast) {
     const itemMatches = xml.matchAll(/<item>([\s\S]*?)<\/item>/g)
     for (const match of itemMatches) {
       const item = match[1]
-      const title = item.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/)?.[1] || ''
+      const title = (
+        item.match(/<title[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/title>/)?.[1] ||
+        item.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1] ||
+        ''
+      )
       const desc = (
         item.match(/<content:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/content:encoded>/)?.[1] ||
         item.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] ||
@@ -1429,7 +1433,11 @@ async function runNewsletters() {
   
         for (const match of itemMatches) {
           const item = match[1]
-          const title = item.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/)?.[1] || ''
+          const title = (
+            item.match(/<title[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/title>/)?.[1] ||
+            item.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1] ||
+            ''
+          )
           const desc = (
             item.match(/<content:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/content:encoded>/)?.[1] ||
             item.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] ||
@@ -1476,7 +1484,11 @@ async function runNewsletters() {
         const itemMatches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 10)
         for (const match of itemMatches) {
           const item = match[1]
-          const title = item.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/)?.[1] || ''
+          const title = (
+            item.match(/<title[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/title>/)?.[1] ||
+            item.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1] ||
+            ''
+          )
           const desc = (
             item.match(/<content:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/content:encoded>/)?.[1] ||
             item.match(/<description[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] ||
