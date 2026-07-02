@@ -88,7 +88,7 @@ const PODCAST_YOUTUBE_CHANNELS = [
   ]
 
   const BRAND_BLOCKLIST = new Set([
-    'fortnite', 'minecraft', 'roblox', 'valorant', 'league of legends',
+    'minecraft', 'roblox', 'valorant', 'league of legends',
     'call of duty', 'apex legends', 'overwatch', 'counter-strike',
     'grand theft auto', 'gta', 'dead by daylight', 'dota', 'warzone',
     'youtube', 'google', 'twitter', 'instagram', 'facebook', 'tiktok',
