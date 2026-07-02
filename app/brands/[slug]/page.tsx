@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import Layout from '../../components/Layout'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { getFreshnessTier, getFreshnessColor, getFreshnessLine } from '../../lib/freshness'
 
 function timeAgo(date: string) {
   if (!date) return ''
@@ -246,10 +247,11 @@ export default function BrandPage() {
                         </span>
                       )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'rgba(255,255,255,.25)' }}>
-                      {c.first_seen && <span>Since {timeAgo(c.first_seen)}</span>}
-                      {c.last_seen && <span>· Latest {timeAgo(c.last_seen)}</span>}
-                      {c.platform && <span>· {c.platform}</span>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                      <span style={{ color: getFreshnessColor(getFreshnessTier(c.last_seen)) }}>
+                        {getFreshnessLine({ tier: getFreshnessTier(c.last_seen), lastSeen: c.last_seen, firstSeen: c.first_seen, mentionCount: c.mention_count || 1, timeAgo })}
+                      </span>
+                      {c.platform && <span style={{ color: 'rgba(255,255,255,.25)' }}>· {c.platform}</span>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
