@@ -18,6 +18,31 @@ async function track(type: string, value: string, brandId?: string, categoryGrou
     await supabase.from('user_signals').insert({ session_id: session, signal_type: type, value, brand_id: brandId || null, category_group: categoryGroup || null }).then(() => {})
   }
 
+const SIGNAL_WEIGHTS: Record<string, number> = { copy: 3, click: 2, search: 1 }
+const AFFINITY_THRESHOLD = 3
+
+async function computeAffinity(sessionId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from('user_signals')
+    .select('signal_type, category_group')
+    .eq('session_id', sessionId)
+    .not('category_group', 'is', null)
+
+  const scores: Record<string, number> = {}
+  for (const row of data || []) {
+    const weight = SIGNAL_WEIGHTS[row.signal_type] || 1
+    scores[row.category_group] = (scores[row.category_group] || 0) + weight
+  }
+
+  const totalSignal = Object.values(scores).reduce((a, b) => a + b, 0)
+  if (totalSignal < AFFINITY_THRESHOLD) return []
+
+  return Object.entries(scores)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([category]) => category)
+}
+
 const CARD_CONFIGS: Record<string, { label: string; icon: string; color: string; bg: string; border: string }> = {
   VELOCITY: { label: 'Blowing up',          icon: 'ti-flame',        color: '#F87171', bg: 'rgba(239,68,68,.1)',   border: 'rgba(239,68,68,.25)' },
   ORGANIC:  { label: 'Genuine love',        icon: 'ti-heart',        color: '#34D399', bg: 'rgba(16,185,129,.1)',  border: 'rgba(16,185,129,.25)' },
@@ -258,6 +283,7 @@ export default function FeedPage() {
   const [reactionCounts, setReactionCounts] = useState<Record<string, Record<string, number>>>({})
   const [myReactions, setMyReactions] = useState<Record<string, string[]>>({})
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set())
+  const [affinityCategories, setAffinityCategories] = useState<string[]>([])
   const [weeklyInsights, setWeeklyInsights] = useState<{ blowingUp: any; justStarted: any; mostGenuine: any; hiddenGem: any; bestDeal: any } | null>(null)
   const [expandedInsight, setExpandedInsight] = useState<string | null>(null)
   const loaderRef = useRef<HTMLDivElement>(null)
@@ -268,6 +294,8 @@ export default function FeedPage() {
     supabase.from('sponsorships').select('*', { count: 'exact', head: true }).then(({ count }) => setTotalCount(count || 0))
     loadBookmarks()
     loadWeeklyInsights()
+    const session = getSession()
+    if (session) computeAffinity(session).then(setAffinityCategories)
   }, [])
 
   useEffect(() => { loadFeed(0, true) }, [filter, userSearches])
