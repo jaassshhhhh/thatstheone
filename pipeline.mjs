@@ -1445,12 +1445,13 @@ async function runNewsletters() {
             ''
           ).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
           const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
+          const link = item.match(/<link[^>]*>(.*?)<\/link>/)?.[1] || ''
           const guid = item.match(/<guid[^>]*>(.*?)<\/guid>/)?.[1] || title
           if (!title || desc.length < 100) continue
   
           const content = makeContent(
             'newsletter', guid.slice(0, 200), nl.name,
-            title, `${title}\n\n${desc}`, '',
+            title, `${title}\n\n${desc}`, link,
             pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(), 'article'
           )
           const sponsors = await extractFromContent(content)
@@ -1496,12 +1497,13 @@ async function runNewsletters() {
             ''
           ).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
           const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
+          const link = item.match(/<link[^>]*>(.*?)<\/link>/)?.[1] || ''
           const guid = item.match(/<guid[^>]*>(.*?)<\/guid>/)?.[1] || title
           if (!title || desc.length < 100) continue
   
           const content = makeContent(
             'newsletter', guid.slice(0, 200), creator.name,
-            title, `${title}\n\n${desc}`, '',
+            title, `${title}\n\n${desc}`, link,
             pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(), 'article'
           )
           const sponsors = await extractFromContent(content)
@@ -1625,11 +1627,11 @@ async function run() {
   const trendSeeds = await getAllTrendSeeds()
 
   const results = {
-    // youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
+    youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
     podcasts: await runPodcasts(),
     reddit: 0,
-    // newsletters: await runNewsletters(),
-    // twitch: await runTwitch(),
+    newsletters: await runNewsletters(),
+    twitch: await runTwitch(),
   }
 
   // Update brand velocity scores
