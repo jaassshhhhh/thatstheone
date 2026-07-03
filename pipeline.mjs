@@ -368,6 +368,7 @@ async function saveToDatabase(content, sponsors, creatorId) {
         brand_id: brandData.id,
         promo_code: s.promo_code,
         promo_url: normalizeUrl(s.promo_url),
+        content_url: normalizeUrl(content.mediaUrl),
         offer_text: s.offer_text,
         exact_quote: s.exact_quote,
         sponsorship_type: s.sponsorship_type,
@@ -1624,11 +1625,11 @@ async function run() {
   const trendSeeds = await getAllTrendSeeds()
 
   const results = {
-    youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
+    // youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
     podcasts: await runPodcasts(),
     reddit: 0,
-    newsletters: await runNewsletters(),
-    twitch: await runTwitch(),
+    // newsletters: await runNewsletters(),
+    // twitch: await runTwitch(),
   }
 
   // Update brand velocity scores
