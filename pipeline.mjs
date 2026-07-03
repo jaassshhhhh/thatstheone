@@ -257,7 +257,7 @@ async function extractFromContent(content) {
           - Japanese: "コード" (code), "スポンサー" (sponsor), "使っています" (I use), "おすすめ" (recommend)
           - Other languages: look for brand names + discount indicators + personal recommendation language
           
-         Return ONLY a JSON array. Each item:
+        Return ONLY a JSON array. Each item:
           {
             "brand": "Clean brand name in English where possible",
             "sponsorship_type": "code"|"url"|"offer"|"mention",
@@ -268,11 +268,14 @@ async function extractFromContent(content) {
             "confidence": 0.85-1.0,
             "is_organic": true|false,
             "detected_language": "en"|"hi"|"ja"|"es"|"fr"|"other",
-            "brand_category": "Tech"|"Finance"|"Health"|"Lifestyle"|"Education"|"Gaming"|"Beauty"|"Food"|null
+            "brand_category": "Tech"|"Finance"|"Health"|"Lifestyle"|"Education"|"Gaming"|"Beauty"|"Food"|null,
+            "brand_description": "one plain sentence explaining what the product actually IS, max 100 chars, OR null"
           }
 
           brand_category: classify what the BRAND/PRODUCT itself actually is — a supplement company is "Health" even if it's advertised on a finance podcast. A budgeting app is "Finance" even if a gaming streamer reads the ad. Judge the product, never the show or creator it appears on. Use null only if genuinely unclear from the text.
-          
+
+          brand_description: a plain-language answer to "what even is this product" for someone who's never heard of it — e.g. "A daily greens and vitamins supplement drink" or "A phone system for small businesses." Base it only on what the content actually says about the product, never guess or invent details. Use null if the text gives no real clue what the product does.
+
           is_organic = true when creator expresses genuine personal use WITHOUT payment language — in ANY language. Look for: personal pronouns + product name + positive sentiment + no code/affiliate language.
 
           is_organic = false when there is a code, affiliate link, "sponsored by" or equivalent in any language.
@@ -311,6 +314,7 @@ ${content.rawText.slice(0, 3000)}`
         exact_quote: cleanQuote(s.exact_quote),
         offer_text: s.offer_text?.slice(0, 100) || null,
         brand_category: VALID_CATEGORIES.has(s.brand_category) ? s.brand_category : null,
+        brand_description: typeof s.brand_description === 'string' ? s.brand_description.trim().slice(0, 120) || null : null,
         dar_score: computeDAR(s),
         dar_source: 'ai_extracted',
       }))
@@ -346,6 +350,15 @@ async function saveToDatabase(content, sponsors, creatorId) {
           .eq('id', brandData.id)
           .is('category_group', null)
           .eq('category_manual', false)
+      }
+
+      // First real description wins — a plain "what is this" for someone who's never
+      // heard of the brand. Never overwritten once set, so it doesn't flip-flop.
+      if (!brandData.description && s.brand_description) {
+        await supabase.from('brands')
+          .update({ description: s.brand_description })
+          .eq('id', brandData.id)
+          .is('description', null)
       }
   
       const brandUrl = extractBrandUrl(content.rawText, s.brand)
