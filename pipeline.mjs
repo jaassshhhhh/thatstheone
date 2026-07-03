@@ -120,12 +120,12 @@ function isValidCode(code) {
     if (/^[0-9]+$/.test(code)) return false
     if (code.length === 11 && /^[a-zA-Z0-9_-]+$/.test(code)) return false
     const junk = new Set([
-      'FREE', 'CLICK', 'DOWNLOAD', 'WATCH', 'LINK', 'PBS', 'HTTPS',
-      'MORE', 'HERE', 'NOW', 'SHOP', 'CODE', 'WAN', 'GET', 'USE',
-      'NEW', 'OFF', 'THE', 'AND', 'FOR', 'YOU', 'ALL', 'SUBSCRIBE',
-      'REVIEWS', 'PROMO', 'DEAL', 'SAVE', 'LTT', 'HTTP', 'WWW',
-      'BONUS', 'NON', 'STICKY', 'FIRST', 'BEST', 'TOP',
-    ])
+        'FREE', 'CLICK', 'DOWNLOAD', 'WATCH', 'LINK', 'PBS', 'HTTPS',
+        'MORE', 'HERE', 'NOW', 'SHOP', 'CODE', 'WAN', 'GET', 'USE',
+        'NEW', 'OFF', 'THE', 'AND', 'FOR', 'YOU', 'ALL', 'SUBSCRIBE',
+        'REVIEWS', 'PROMO', 'DEAL', 'SAVE', 'LTT', 'HTTP', 'WWW',
+        'BONUS', 'NON', 'STICKY', 'FIRST', 'BEST', 'TOP',
+      ])
     if (junk.has(code.toUpperCase())) return false
     return true
   }
