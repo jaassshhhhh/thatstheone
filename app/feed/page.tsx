@@ -295,7 +295,7 @@ export default function FeedPage() {
     loadBookmarks()
     loadWeeklyInsights()
     const session = getSession()
-    if (session) computeAffinity(session).then(setAffinityCategories)
+    if (session) computeAffinity(session).then(cats => { setAffinityCategories(cats); console.log('🎯 affinity categories:', cats) })
   }, [])
 
   useEffect(() => { loadFeed(0, true) }, [filter, userSearches])
@@ -886,6 +886,11 @@ export default function FeedPage() {
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', margin: '2px 0 0' }}>
               via {creatorName}{metaBits ? ` · ${metaBits}` : ''}
             </p>
+            {s.brand_description && (
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '3px 0 0', lineHeight: 1.4 }}>
+                {s.brand_description}
+              </p>
+            )}
           </div>
         </div>
 
