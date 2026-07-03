@@ -132,6 +132,9 @@ export default function BrandPage() {
                 )}
               </div>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,.35)', margin: 0 }}>{brand.category || 'Brand'}</p>
+              {brand.description && (
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', margin: '4px 0 0', lineHeight: 1.5 }}>{brand.description}</p>
+              )}
             </div>
             {brandUrl && (
               <a href={brandUrl} target="_blank" rel="noopener noreferrer"
