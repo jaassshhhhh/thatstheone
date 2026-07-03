@@ -894,7 +894,7 @@ export default function FeedPage() {
             {s.platform && <span style={{ color: 'rgba(255,255,255,.2)' }}> · {s.platform}</span>}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {videoId && !videoId.startsWith('linktree_') && !videoId.startsWith('amazon_') && (
+          {videoId && s.platform === 'youtube' && (
               <a href={`https://youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
                 style={{ width: 30, height: 30, borderRadius: '50%', background: 'transparent', border: '0.5px solid rgba(255,255,255,.15)', color: 'rgba(255,255,255,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, textDecoration: 'none' }}>
