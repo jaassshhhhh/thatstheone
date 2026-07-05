@@ -54,6 +54,10 @@ const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID
 const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET
 
 const MIN_SUBSCRIBERS = 50000
+// Niche/small creator pipeline — a bounded exception to the floor above,
+// applied only to related-channel expansion. See Task 3 of the niche pipeline plan.
+const NICHE_MIN_SUBSCRIBERS = 1000
+const MAX_NICHE_PER_RUN = 15
 const MAX_CREATORS_PER_RUN = 60
 const VIDEOS_PER_CREATOR = 30
 
@@ -890,8 +894,10 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
     discoverByGapFill(knownIds),
   ])
 
+  const byRelatedTagged = byRelated.map(c => ({ ...c, source: 'related' }))
+
   const seen = new Set()
-  const allCandidates = [...byCategory, ...byPopularity, ...byBrand, ...byRelated, ...byTrends, ...byGapFill]
+  const allCandidates = [...byCategory, ...byPopularity, ...byBrand, ...byRelatedTagged, ...byTrends, ...byGapFill]
     .filter(c => {
       if (!c.channelId || seen.has(c.channelId) || knownIds.has(c.channelId)) return false
       seen.add(c.channelId)
@@ -974,6 +980,7 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
   }
 
   // Process new creators
+  let nicheAccepted = 0
   for (const candidate of allCandidates) {
     if (creators >= maxCreators) break
     if (!candidate.channelId || knownIds.has(candidate.channelId)) continue
@@ -982,8 +989,12 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
       break
     }
 
+    const isNicheEligible = candidate.source === 'related' && nicheAccepted < MAX_NICHE_PER_RUN
+    const floor = isNicheEligible ? NICHE_MIN_SUBSCRIBERS : MIN_SUBSCRIBERS
+
     const stats = await getYouTubeChannelStats(candidate.channelId)
-    if (!stats || stats.subscribers < MIN_SUBSCRIBERS) continue
+    if (!stats || stats.subscribers < floor) continue
+    if (isNicheEligible && stats.subscribers < MIN_SUBSCRIBERS) nicheAccepted++
 
     const viewsPerSub = stats.viewCount / Math.max(stats.subscribers, 1)
     const isHighEngagement = viewsPerSub > 50
