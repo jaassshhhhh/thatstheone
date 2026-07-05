@@ -372,9 +372,15 @@ export default function FeedPage() {
     items.forEach((s: any) => { brandMap[s.brand_name || ''] = (brandMap[s.brand_name || ''] || 0) + 1 })
 
     const classified = items.map((s: any) => {
-      const cardType = classifyCard(s, brandMap, userSearches)
-      return { ...s, cardType, headline: s.headline || generateHeadline(s, cardType, userSearches, brandMap) }
-    })
+        // is_organic is true if ANY of this creator's mentions of this brand was ever organic —
+        // but if there's also an active code/offer to show (from a possibly different, paid
+        // mention), showing "no brand deal involved" alongside a code is a real contradiction.
+        // Only treat it as organic here if there's genuinely nothing to sell.
+        const hasCurrentDeal = s.best_code || s.promo_code || s.best_offer || s.offer_text
+        const corrected = { ...s, is_organic: s.is_organic && !hasCurrentDeal }
+        const cardType = classifyCard(corrected, brandMap, userSearches)
+        return { ...corrected, cardType, headline: corrected.headline || generateHeadline(corrected, cardType, userSearches, brandMap) }
+      })
 
     let filtered = classified
     if (filter === 'For you') filtered = classified.filter(s => s.cardType === 'PERSONAL')
