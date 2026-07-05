@@ -1585,6 +1585,10 @@ async function runTwitch() {
         const channelData = await channelRes.json()
         const channel = channelData.data?.[0]
 
+        const followersRes = await fetch(`https://api.twitch.tv/helix/channels/followers?broadcaster_id=${stream.user_id}`, { headers })
+        const followersData = await followersRes.json()
+        const followerCount = followersData.total ?? null
+
         const text = [stream.title, channel?.title || '', user.description || '', game.name].join('\n').trim()
         if (text.length < 30) continue
 
@@ -1596,6 +1600,7 @@ async function runTwitch() {
             channel_id: `twitch_${stream.user_id}`,
             category: game.name,
             platform: 'twitch',
+            subscriber_count: followerCount,
           }, { onConflict: 'channel_id' })
           .select().single()
         if (!creatorData) continue
