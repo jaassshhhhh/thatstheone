@@ -1701,17 +1701,37 @@ async function run() {
   const trendSeeds = await getAllTrendSeeds()
 
   const results = {
-    youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
+    // youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
     podcasts: await runPodcasts(),
     reddit: 0,
-    newsletters: await runNewsletters(),
-    twitch: await runTwitch(),
+    // newsletters: await runNewsletters(),
+    // twitch: await runTwitch(),
   }
 
   // Update brand velocity scores
   await supabase.rpc('compute_brand_velocity').then(() => {
     console.log('\n📊 Brand velocity scores updated')
   }).catch(() => {})
+
+  console.log('\n📰 Backfilling missing headlines...')
+  const { data: missingHeadlines } = await supabase
+    .from('sponsorships')
+    .select('id, promo_code, promo_url, offer_text, exact_quote, sponsorship_type, platform, brands(name), creators(name)')
+    .is('headline', null)
+    .limit(200)
+  let headlinesFilled = 0
+  for (const s of (missingHeadlines || [])) {
+    const headline = await generateHeadline(
+      s.brands?.name || 'Unknown', s.creators?.name || 'A creator',
+      s.sponsorship_type, s.offer_text, s.promo_code, s.exact_quote, s.platform
+    )
+    if (headline) {
+      await supabase.from('sponsorships').update({ headline }).eq('id', s.id)
+      headlinesFilled++
+    }
+    await new Promise(r => setTimeout(r, 100))
+  }
+  console.log(`  ✓ ${headlinesFilled} headlines generated (${(missingHeadlines || []).length} were missing)`)
 
   const total = Object.values(results).reduce((a, b) => a + b, 0)
 
