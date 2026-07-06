@@ -19,11 +19,9 @@ async function trackSignal(type: string, value: string) {
   await supabase.from('user_signals').insert({ session_id: session, signal_type: type, value })
 }
 
-async function trackSearch(query: string) {
+async function trackSearch(query: string, hadResults: boolean) {
   if (!query || query.length < 2) return
-  await supabase
-    .from('search_trends')
-    .upsert({ query: query.toLowerCase(), count: 1, last_searched: new Date().toISOString() }, { onConflict: 'query' })
+  await supabase.rpc('increment_search_count', { query_param: query.toLowerCase(), had_results_param: hadResults })
   await trackSignal('search', query)
 }
 
@@ -78,7 +76,6 @@ function SearchContent() {
     if (!q.trim()) { setResults([]); setHasSearched(false); return }
     setLoading(true)
     setHasSearched(true)
-    await trackSearch(q)
 
     const recent = JSON.parse(localStorage.getItem('tto_recent') || '[]')
     const updated = [q, ...recent.filter((r: string) => r !== q)].slice(0, 5)
@@ -91,7 +88,11 @@ function SearchContent() {
     const brandIds = (matchingBrands || []).map((b: any) => b.id)
     const creatorIds = (matchingCreators || []).map((c: any) => c.id)
 
-    if (brandIds.length === 0 && creatorIds.length === 0) { setResults([]); setLoading(false); return }
+    if (brandIds.length === 0 && creatorIds.length === 0) {
+      await trackSearch(q, false)
+      setResults([]); setLoading(false); return
+    }
+    await trackSearch(q, true)
 
     const fields = `id, promo_code, promo_url, video_id, video_title, is_active, first_seen, offer_text, exact_quote, sponsorship_type, platform, is_organic, brands ( name, slug, website_url ), creators ( name, slug, subscriber_count, category )`
 
