@@ -103,13 +103,31 @@ const PODCAST_YOUTUBE_CHANNELS = [
     'sponsor', 'this brand', 'the brand', 'unnamed', 'unnamed brand',
   ])
 
-function isBlockedBrand(name) {
-  if (!name) return true
-  const lower = name.toLowerCase().trim()
-  if (BRAND_BLOCKLIST.has(lower)) return true
-  if (lower.length < 2) return true
-  return false
-}
+  function isBlockedBrand(name) {
+    if (!name) return true
+    const lower = name.toLowerCase().trim()
+    if (BRAND_BLOCKLIST.has(lower)) return true
+    if (lower.length < 2) return true
+    return false
+  }
+  
+  const STOREFRONT_AFFIXES = ['shop', 'store', 'merch', 'official', 'the']
+  
+  function stripAffixesAndNormalize(str) {
+    let s = str.toLowerCase()
+    for (const affix of STOREFRONT_AFFIXES) {
+      s = s.replace(new RegExp(`^${affix}|${affix}$`, 'g'), '')
+    }
+    return s.replace(/[^a-z0-9]/g, '')
+  }
+  
+  function isSelfPromotion(creatorName, brandName) {
+    if (!creatorName || !brandName) return false
+    const creatorCore = stripAffixesAndNormalize(creatorName)
+    const brandCore = stripAffixesAndNormalize(brandName)
+    if (creatorCore.length < 4 || brandCore.length < 4) return false
+    return creatorCore.includes(brandCore) || brandCore.includes(creatorCore)
+  }
 
 // ─── Normalised content format ─────────────────────────────
 function makeContent(platform, externalId, creatorName, title, rawText, mediaUrl, publishedAt, contentType = 'video') {
@@ -311,7 +329,7 @@ ${content.rawText.slice(0, 3000)}`
     if (!Array.isArray(parsed)) return []
     const VALID_CATEGORIES = new Set(['Tech', 'Finance', 'Health', 'Lifestyle', 'Education', 'Gaming', 'Beauty', 'Food'])
     return parsed
-      .filter(s => s.confidence >= 0.85 && s.brand?.length > 1 && !isBlockedBrand(s.brand))
+    .filter(s => s.confidence >= 0.85 && s.brand?.length > 1 && !isBlockedBrand(s.brand) && !isSelfPromotion(content.creatorName, s.brand))
       .map(s => ({
         ...s,
         promo_code: isValidCode(s.promo_code) ? s.promo_code.toUpperCase() : null,
