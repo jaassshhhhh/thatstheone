@@ -162,7 +162,7 @@ function getVelocityStat(s: any): string | null {
   if (days <= 14 && mentions === 1) return '👀 Just starting to appear'
   if (mentions >= 10) return `🔥 ${mentions} mentions — high conviction signal`
   if (mentions >= 5) return `📈 ${mentions} creators have mentioned this`
-  if (s.best_dar_score >= 80) return '✓ High confidence data point'
+  if ((s.verified_dar_score ?? s.best_dar_score) >= 80) return '✓ High confidence data point'
   return null
 }
 
@@ -324,12 +324,11 @@ export default function FeedPage() {
     const [{ data: velocityData }, { data: earlyData }, { data: organicData }, { data: hiddenGemData }, { data: bestDealData }] = await Promise.all([
       supabase.from('creator_brand_relationships').select('brand_name, mention_count, brand_slug').gte('last_seen', twoWeeksAgo).order('mention_count', { ascending: false }).limit(1),
       supabase.from('creator_brand_relationships').select('brand_name, creator_name, first_seen, brand_slug').gte('first_seen', twoWeeksAgo).order('first_seen', { ascending: false }).limit(1),
-      supabase.from('creator_brand_relationships').select('brand_name, mention_count, brand_slug').eq('is_organic', true).order('mention_count', { ascending: false }).limit(1),
     // Hidden gem: has a code, low mention count (under the radar), active
-    supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, brand_slug, best_promo_url').not('best_code', 'is', null).lt('mention_count', 4).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('best_dar_score', { ascending: false }).limit(1),
+    supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, brand_slug, best_promo_url').not('best_code', 'is', null).lt('mention_count', 4).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('verified_dar_score', { ascending: false }).limit(1),
      // Best verified deal: highest DAR score with an active code, excluding crypto/finance categories
-     supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, best_dar_score, brand_slug, best_promo_url').not('best_code', 'is', null).eq('is_active', true).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('best_dar_score', { ascending: false }).limit(1),])
-    setWeeklyInsights({
+     supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, verified_dar_score, brand_slug, best_promo_url').not('best_code', 'is', null).eq('is_active', true).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('verified_dar_score', { ascending: false }).limit(1),])
+     setWeeklyInsights({
       blowingUp: velocityData?.[0] || null,
       justStarted: earlyData?.[0] || null,
       mostGenuine: organicData?.[0] || null,
@@ -359,11 +358,11 @@ export default function FeedPage() {
       setFeed([]); setLoading(false); return
     }
 
-    let q = supabase.from('creator_brand_relationships').select('*').order('freshness_rank', { ascending: true }).order('best_dar_score', { ascending: false }).order('last_seen', { ascending: false }).range(from, to)
+    let q = supabase.from('creator_brand_relationships').select('*').order('freshness_rank', { ascending: true }).order('verified_dar_score', { ascending: false }).order('last_seen', { ascending: false }).range(from, to)
     if (filter === 'Deals') q = q.not('best_code', 'is', null)
     if (filter === 'Organic') q = q.eq('is_organic', true)
     if (filter === 'New') q = q.gte('first_seen', new Date(Date.now() - 14 * 86400000).toISOString())
-    if (filter === 'Trending') q = q.gte('best_dar_score', 70)
+    if (filter === 'Trending') q = q.gte('verified_dar_score', 70)
     if (filter === 'Saved') q = q.in('id', [...bookmarks])
 
     const { data } = await q
@@ -391,7 +390,7 @@ export default function FeedPage() {
           .from('creator_brand_relationships')
           .select('*')
           .eq('brand_category_group', affinityCategories[0])
-          .order('best_dar_score', { ascending: false })
+          .order('verified_dar_score', { ascending: false })
           .limit(6)
         const personalized = (personalizedData || [])
           .filter((s: any) => s.brand_name && s.creator_name && !existingIds.has(s.id))
@@ -907,7 +906,7 @@ export default function FeedPage() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
               {brandName}
-              {(s.best_dar_score || s.dar_score) >= 75 && (
+              {(s.verified_dar_score ?? s.best_dar_score ?? s.dar_score) >= 75 && (
                 <i className="ti ti-shield-check" style={{ fontSize: 13, color: '#34D399', opacity: .7 }} aria-hidden="true" />
               )}
             </p>
