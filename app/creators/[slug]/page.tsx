@@ -209,8 +209,8 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
           )}
         </div>
 
-        {/* Sponsorship history */}
-        <h2 style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,.4)', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+       {/* Sponsorship history — grouped by brand, not one card per individual mention */}
+       <h2 style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,.4)', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '.06em' }}>
           Sponsorship history
         </h2>
 
@@ -220,8 +220,26 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {sponsorships.map((s, i) => (
-              <div key={s.id} className="sc"
+            {(() => {
+              const groups: Record<string, any[]> = {}
+              for (const s of sponsorships) {
+                const key = s.brands?.slug || s.brands?.name || s.id
+                if (!groups[key]) groups[key] = []
+                groups[key].push(s)
+              }
+              const grouped = Object.values(groups).map(rows => {
+                const representative = [...rows].sort((a, b) => (b.dar_score || 0) - (a.dar_score || 0))[0]
+                const dates = rows.map(r => new Date(r.first_seen).getTime())
+                return {
+                  ...representative,
+                  mentionCount: rows.length,
+                  earliestSeen: new Date(Math.min(...dates)).toISOString(),
+                  latestSeen: new Date(Math.max(...dates)).toISOString(),
+                  is_organic: rows.every(r => r.is_organic),
+                }
+              }).sort((a, b) => new Date(b.latestSeen).getTime() - new Date(a.latestSeen).getTime())
+              return grouped.map((s, i) => (
+            <div key={s.id} className="sc"
                 style={{ animationDelay: `${Math.min(i, 10) * 0.03}s`, background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 14, padding: '14px 16px', cursor: 'pointer' }}
                 onClick={() => setExpanded(expanded === s.id ? null : s.id)}>
 
@@ -252,7 +270,9 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,.25)' }}>{timeAgo(s.first_seen)}</span>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,.25)' }}>
+                        {s.mentionCount > 1 ? `${s.mentionCount}× · last ${timeAgo(s.latestSeen)}` : timeAgo(s.earliestSeen)}
+                      </span>
                       {s.platform && (
                         <>
                           <span style={{ fontSize: 10, color: 'rgba(255,255,255,.15)' }}>·</span>
@@ -344,11 +364,12 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
                       )}
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+               )}
+               </div>
+               ))
+             })()}
+           </div>
+         )}
       </div>
     </Layout>
   )
