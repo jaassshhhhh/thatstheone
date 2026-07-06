@@ -324,10 +324,12 @@ export default function FeedPage() {
     const [{ data: velocityData }, { data: earlyData }, { data: organicData }, { data: hiddenGemData }, { data: bestDealData }] = await Promise.all([
       supabase.from('creator_brand_relationships').select('brand_name, mention_count, brand_slug').gte('last_seen', twoWeeksAgo).order('mention_count', { ascending: false }).limit(1),
       supabase.from('creator_brand_relationships').select('brand_name, creator_name, first_seen, brand_slug').gte('first_seen', twoWeeksAgo).order('first_seen', { ascending: false }).limit(1),
-    // Hidden gem: has a code, low mention count (under the radar), active
-    supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, brand_slug, best_promo_url').not('best_code', 'is', null).lt('mention_count', 4).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('verified_dar_score', { ascending: false }).limit(1),
-     // Best verified deal: highest DAR score with an active code, excluding crypto/finance categories
-     supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, verified_dar_score, brand_slug, best_promo_url').not('best_code', 'is', null).eq('is_active', true).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('verified_dar_score', { ascending: false }).limit(1),])
+      supabase.from('creator_brand_relationships').select('brand_name, mention_count, brand_slug').eq('is_organic', true).order('mention_count', { ascending: false }).limit(1),
+      // Hidden gem: has a code, low mention count (under the radar), active
+      supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, brand_slug, best_promo_url').not('best_code', 'is', null).lt('mention_count', 4).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('verified_dar_score', { ascending: false }).limit(1),
+      // Best verified deal: highest DAR score with an active code, excluding crypto/finance categories
+      supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, verified_dar_score, brand_slug, best_promo_url').not('best_code', 'is', null).eq('is_active', true).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('verified_dar_score', { ascending: false }).limit(1),
+    ])
      setWeeklyInsights({
       blowingUp: velocityData?.[0] || null,
       justStarted: earlyData?.[0] || null,
@@ -1035,6 +1037,38 @@ export default function FeedPage() {
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: cfg.color, textDecoration: 'none', marginTop: 10, opacity: .8 }}>
                     View {s.brand_name} brand page →
                   </a>
+                )}
+              </div>
+            )}
+
+            {/* Verification — extends the reaction system beyond just codes */}
+            {(quote || brandName) && (
+              <div style={{ padding: '11px 15px', background: 'rgba(255,255,255,.025)', borderRadius: 12, marginBottom: hasDeal ? 10 : 0 }}>
+                {brandName && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: quote ? 8 : 0 }}>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,.35)' }}>Is "{brandName}" the right brand here?</span>
+                    <div style={{ display: 'flex', gap: 10 }} onClick={e => e.stopPropagation()}>
+                      <button className="rxn" title="Yes, correct"
+                        onClick={e => toggleReaction(e, cardId, 'brand_confirmed', s.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('brand_confirmed') ? '#34D399' : 'rgba(255,255,255,.3)', padding: 0 }}>✓</button>
+                      <button className="rxn" title="No, wrong brand"
+                        onClick={e => toggleReaction(e, cardId, 'brand_wrong', s.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('brand_wrong') ? '#F87171' : 'rgba(255,255,255,.3)', padding: 0 }}>✗</button>
+                    </div>
+                  </div>
+                )}
+                {quote && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,.35)' }}>Does this quote look accurate?</span>
+                    <div style={{ display: 'flex', gap: 10 }} onClick={e => e.stopPropagation()}>
+                      <button className="rxn" title="Yes, accurate"
+                        onClick={e => toggleReaction(e, cardId, 'quote_confirmed', s.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('quote_confirmed') ? '#34D399' : 'rgba(255,255,255,.3)', padding: 0 }}>✓</button>
+                      <button className="rxn" title="No, inaccurate"
+                        onClick={e => toggleReaction(e, cardId, 'quote_wrong', s.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('quote_wrong') ? '#F87171' : 'rgba(255,255,255,.3)', padding: 0 }}>✗</button>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
