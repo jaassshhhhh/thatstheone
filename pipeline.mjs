@@ -1582,9 +1582,10 @@ async function runTwitch() {
     const games = gamesData.data || []
 
     for (const game of games) {
-      const streamsRes = await fetch(`https://api.twitch.tv/helix/streams?game_id=${game.id}&first=8`, { headers })
+      const streamsRes = await fetch(`https://api.twitch.tv/helix/streams?game_id=${game.id}&first=100`, { headers })
       const streamsData = await streamsRes.json()
-      const streams = streamsData.data || []
+      const pool = (streamsData.data || []).slice(20)
+      const streams = pool.sort(() => Math.random() - 0.5).slice(0, 8)
 
       for (const stream of streams) {
         const userRes = await fetch(`https://api.twitch.tv/helix/users?id=${stream.user_id}`, { headers })
@@ -1656,11 +1657,11 @@ async function run() {
   const trendSeeds = await getAllTrendSeeds()
 
   const results = {
-    // youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
-    // podcasts: await runPodcasts(),
-    // reddit: 0,
+    youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
+    podcasts: await runPodcasts(),
+    reddit: 0,
     newsletters: await runNewsletters(),
-    // twitch: await runTwitch(),
+    twitch: await runTwitch(),
   }
 
   // Update brand velocity scores
