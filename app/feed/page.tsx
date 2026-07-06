@@ -298,7 +298,7 @@ export default function FeedPage() {
     if (session) computeAffinity(session).then(cats => { setAffinityCategories(cats); console.log('🎯 affinity categories:', cats) })
   }, [])
 
-  useEffect(() => { loadFeed(0, true) }, [filter, userSearches])
+  useEffect(() => { loadFeed(0, true) }, [filter, userSearches, affinityCategories])
 
   useEffect(() => {
     const obs = new IntersectionObserver(entries => {
@@ -382,10 +382,32 @@ export default function FeedPage() {
         return { ...corrected, cardType, headline: corrected.headline || generateHeadline(corrected, cardType, userSearches, brandMap) }
       })
 
-    let filtered = classified
-    if (filter === 'For you') filtered = classified.filter(s => s.cardType === 'PERSONAL')
-
-    const ids = classified.filter((s: any) => s.id).map((s: any) => s.id)
+      let filtered = classified
+      if (filter === 'For you') filtered = classified.filter(s => s.cardType === 'PERSONAL')
+  
+      if (filter === 'All' && reset && affinityCategories.length > 0) {
+        const existingIds = new Set(filtered.map((s: any) => s.id))
+        const { data: personalizedData } = await supabase
+          .from('creator_brand_relationships')
+          .select('*')
+          .eq('brand_category_group', affinityCategories[0])
+          .order('best_dar_score', { ascending: false })
+          .limit(6)
+        const personalized = (personalizedData || [])
+          .filter((s: any) => s.brand_name && s.creator_name && !existingIds.has(s.id))
+          .slice(0, 3)
+          .map((s: any) => {
+            const cardType = 'PERSONAL'
+            return { ...s, cardType, headline: s.headline || generateHeadline(s, cardType, userSearches, brandMap) }
+          })
+        const positions = [2, 5, 8]
+        personalized.forEach((item: any, i: number) => {
+          const pos = Math.min(positions[i] ?? filtered.length, filtered.length)
+          filtered.splice(pos, 0, item)
+        })
+      }
+  
+      const ids = filtered.filter((s: any) => s.id).map((s: any) => s.id)
     if (ids.length) {
       const session = getSession()
       const [{ data: allRx }, { data: myRx }] = await Promise.all([
