@@ -1097,6 +1097,14 @@ const PODCAST_SEEDS = [
   'business', 'interview', 'news', 'storytelling', 'philosophy',
 ]
 
+const NICHE_PODCAST_SEEDS = [
+  'urban gardening', 'vintage watch collecting', 'home coffee roasting',
+  'craft beer podcast', 'analog photography', 'solo travel podcast',
+  'indie game development', 'minimalist living', 'freelance writing podcast',
+  'boutique fitness', 'sustainable fashion', 'independent bookstore',
+  'plant based cooking podcast', 'local journalism', 'small business owner',
+]
+
 const BOOTSTRAP_PODCASTS = [
     { name: 'The Tim Ferriss Show', rss: 'https://rss.art19.com/tim-ferriss-show', category: 'Lifestyle' },
     { name: 'Huberman Lab', rss: 'https://feeds.megaphone.fm/hubermanlab', category: 'Health' },
@@ -1139,6 +1147,24 @@ async function discoverPodcasts(maxNew = 50) {
         if (discovered.find(d => d.name === pod.trackName)) continue
         if ((pod.trackCount || 0) < 5) continue
         discovered.push({ name: pod.trackName, rss: pod.feedUrl, category: pod.primaryGenreName || 'General' })
+        known.add(pod.trackName?.toLowerCase())
+      }
+      await new Promise(r => setTimeout(r, 200))
+    } catch {}
+  }
+
+  for (const term of NICHE_PODCAST_SEEDS) {
+    if (discovered.length >= maxNew) break
+    try {
+      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=podcast&limit=8&country=us`
+      const res = await fetch(url, { headers: { 'User-Agent': 'ThatsTheOne/1.0' } })
+      const data = await res.json()
+      for (const pod of (data.results || [])) {
+        if (!pod.feedUrl) continue
+        if (known.has(pod.trackName?.toLowerCase())) continue
+        if (discovered.find(d => d.name === pod.trackName)) continue
+        if ((pod.trackCount || 0) < 5) continue
+        discovered.push({ name: pod.trackName, rss: pod.feedUrl, category: pod.primaryGenreName || term })
         known.add(pod.trackName?.toLowerCase())
       }
       await new Promise(r => setTimeout(r, 200))
