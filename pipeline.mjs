@@ -1043,7 +1043,7 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
     .eq('platform', 'youtube')
     .not('channel_id', 'is', null)
     .order('last_scraped_at', { ascending: true, nullsFirst: true })
-    .limit(20)
+    .limit(100)
 
   console.log(`  🔄 Re-processing ${(existingToRefresh || []).length} existing creators for new content...`)
   for (const creator of (existingToRefresh || [])) {
