@@ -178,6 +178,12 @@ function computeDAR(s) {
   return Math.min(Math.max(score, 30), 80)
 }
 
+function safeISOString(dateStr) {
+  if (!dateStr) return new Date().toISOString()
+  const d = new Date(dateStr)
+  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+}
+
 function makeSlug(name) {
   return name.toLowerCase()
     .replace(/[\s&']+/g, '-')
@@ -1260,7 +1266,7 @@ async function runPodcasts() {
         const content = makeContent(
           'podcast', ep.guid.slice(0, 200), podcast.name,
           ep.title, `${ep.title}\n\n${ep.description}`, ep.link,
-          ep.pubDate ? new Date(ep.pubDate).toISOString() : new Date().toISOString(), 'audio'
+          safeISOString(ep.pubDate), 'audio'
         )
         const sponsors = await extractFromContent(content)
         total += await saveToDatabase(content, sponsors, creatorData.id)
