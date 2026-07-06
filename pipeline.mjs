@@ -1402,14 +1402,6 @@ const NEWSLETTER_BOOTSTRAP = [
   { name: 'Milk Road', url: 'https://milkroad.com/feed', category: 'Crypto' },
 ]
 
-const NICHE_NEWSLETTER_SEEDS = [
-  'personal finance for freelancers', 'independent bookstores', 'home coffee roasting',
-  'urban gardening', 'vintage watch collecting', 'boutique fitness',
-  'sustainable fashion', 'craft beer', 'analog photography',
-  'solo travel', 'freelance writing', 'indie game development',
-  'plant based cooking', 'minimalist living', 'local journalism',
-]
-
 async function discoverNewsletters() {
   const { data: existing } = await supabase.from('creators').select('name').eq('platform', 'newsletter')
   const known = new Set((existing || []).map(c => c.name.toLowerCase()))
@@ -1429,50 +1421,6 @@ async function discoverNewsletters() {
       }
     }
   } catch {}
-
-  let nicheDebugPrinted = false
-  for (const seed of NICHE_NEWSLETTER_SEEDS) {
-    try {
-      const res = await fetch(`https://substack.com/api/v1/search?query=${encodeURIComponent(seed)}&type=publication`, {
-        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
-      })
-      if (!nicheDebugPrinted) {
-        const rawText = await res.text()
-        console.log(`  🔍 [debug] seed "${seed}" — status ${res.status}`)
-        console.log(`  🔍 [debug] raw response (first 500 chars): ${rawText.slice(0, 500)}`)
-        nicheDebugPrinted = true
-        if (!res.ok) continue
-        const data = JSON.parse(rawText)
-        const pubs = data?.publications || data?.results || data || []
-        console.log(`  🔍 [debug] parsed as array? ${Array.isArray(pubs)}, length: ${pubs?.length}`)
-        for (const pub of pubs) {
-          const name = pub.name || pub.title || pub.publication?.name
-          const subdomain = pub.subdomain || pub.publication?.subdomain
-          if (!name || !subdomain || known.has(name.toLowerCase())) continue
-          discovered.push({ name, url: `https://${subdomain}.substack.com/feed`, category: pub.category_name || seed })
-          known.add(name.toLowerCase())
-        }
-        await new Promise(r => setTimeout(r, 300))
-        continue
-      }
-      if (!res.ok) continue
-      const data = await res.json()
-      const pubs = data?.publications || data?.results || data || []
-      for (const pub of pubs) {
-        const name = pub.name || pub.title || pub.publication?.name
-        const subdomain = pub.subdomain || pub.publication?.subdomain
-        if (!name || !subdomain || known.has(name.toLowerCase())) continue
-        discovered.push({ name, url: `https://${subdomain}.substack.com/feed`, category: pub.category_name || seed })
-        known.add(name.toLowerCase())
-      }
-      await new Promise(r => setTimeout(r, 300))
-    } catch (err) {
-      if (!nicheDebugPrinted) {
-        console.log(`  🔍 [debug] seed "${seed}" threw: ${err.message}`)
-        nicheDebugPrinted = true
-      }
-    }
-  }
 
   console.log(`  📋 ${discovered.length} newsletters to process`)
   return discovered
@@ -1708,11 +1656,11 @@ async function run() {
   const trendSeeds = await getAllTrendSeeds()
 
   const results = {
-    youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
-    podcasts: await runPodcasts(),
-    reddit: 0,
+    // youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
+    // podcasts: await runPodcasts(),
+    // reddit: 0,
     newsletters: await runNewsletters(),
-    twitch: await runTwitch(),
+    // twitch: await runTwitch(),
   }
 
   // Update brand velocity scores
