@@ -1739,6 +1739,15 @@ async function run() {
   }
   console.log(`  ✓ ${headlinesFilled} headlines generated (${(missingHeadlines || []).length} were missing)`)
 
+  console.log('\n🔍 Checking for data contamination...')
+  const { data: contamResult } = await supabase.rpc('detect_contamination', { run_started_at: new Date(start).toISOString() })
+  const flaggedCount = contamResult?.[0]?.flagged_count || 0
+  if (flaggedCount > 0) {
+    console.log(`  ⚠️  ${flaggedCount} sponsorship(s) flagged for review — check the flagged_sponsorships table`)
+  } else {
+    console.log(`  ✓ No contamination detected this run`)
+  }
+
   const total = Object.values(results).reduce((a, b) => a + b, 0)
 
   console.log(`\n${'═'.repeat(55)}`)
