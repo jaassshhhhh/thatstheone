@@ -1297,7 +1297,7 @@ async function runPodcasts() {
         const content = makeContent(
           'podcast', ep.guid.slice(0, 200), creator.name,
           ep.title, `${ep.title}\n\n${ep.description}`, ep.link,
-          ep.pubDate ? new Date(ep.pubDate).toISOString() : new Date().toISOString(), 'audio'
+          safeISOString(ep.pubDate), 'audio'
         )
         const sponsors = await extractFromContent(content)
         total += await saveToDatabase(content, sponsors, creator.id)
@@ -1707,11 +1707,11 @@ async function run() {
   const trendSeeds = await getAllTrendSeeds()
 
   const results = {
-    // youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
+    youtube: await runYouTube(knownIds, MAX_CREATORS_PER_RUN, trendSeeds),
     podcasts: await runPodcasts(),
     reddit: 0,
-    // newsletters: await runNewsletters(),
-    // twitch: await runTwitch(),
+    newsletters: await runNewsletters(),
+    twitch: await runTwitch(),
   }
 
   // Update brand velocity scores
