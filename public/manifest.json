@@ -1,7 +1,7 @@
 {
   "name": "That's The One",
   "short_name": "TTO",
-  "description": "The search engine for creator deals",
+  "description": "The intelligence layer for creator commerce",
   "start_url": "/feed",
   "display": "standalone",
   "background_color": "#060810",

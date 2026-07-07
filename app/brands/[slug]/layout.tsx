@@ -1,11 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../../lib/supabase'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
   const { data: brand } = await supabase
     .from('brands')
     .select('name, category, website_url, total_creator_count')
@@ -15,11 +11,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!brand) return { title: "Brand — That's The One" }
 
   return {
-    title: `${brand.name} creator deals and promo codes`,
-    description: `Every creator promoting ${brand.name}. See promo codes, discount offers and sponsorship history from ${brand.total_creator_count || 'multiple'} creators. Updated daily.`,
+    title: `${brand.name} — creator relationships and conviction`,
+    description: `Every creator connected to ${brand.name} — sponsorships and organic mentions, scored for authenticity, from ${brand.total_creator_count || 'multiple'} creators. Updated daily.`,
     openGraph: {
       title: `${brand.name} — Creator Intelligence`,
-      description: `See every creator who promotes ${brand.name}, their promo codes and how long they've worked together.`,
+      description: `See every creator connected to ${brand.name} and how genuine that relationship really is.`,
       url: `https://thatsthe.one/brands/${slug}`,
     },
     alternates: {
@@ -29,10 +25,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 async function getBrand(slug: string) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
   const { data } = await supabase
     .from('brands')
     .select('name, category, website_url')

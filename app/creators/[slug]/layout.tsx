@@ -19,19 +19,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const deals = creator.total_sponsorships || 0
 
   return {
-    title: `${name} sponsorships and deals — That's The One`,
-    description: `See every brand ${name} has promoted, their promo codes, discount offers and sponsorship history. ${deals > 0 ? `${deals} deals tracked.` : ''} Updated daily.`,
+    title: `${name} — brand relationships and conviction score`,
+    description: `See every brand ${name} has been connected to — sponsorships, organic mentions, and a real conviction score. ${deals > 0 ? `${deals} tracked.` : ''} Updated daily.`,
     openGraph: {
       title: `${name} — Creator Intelligence`,
-      description: `Every sponsorship, deal and brand association for ${name}. Tracked across YouTube, podcasts and more.`,
+      description: `Every brand relationship for ${name}, scored and verified. Tracked across YouTube, podcasts, Twitch and more.`,
       url: `https://thatsthe.one/creators/${slug}`,
       siteName: "That's The One",
       type: 'profile',
     },
     twitter: {
       card: 'summary',
-      title: `${name} sponsorships — That's The One`,
-      description: `Every brand deal ${name} has ever promoted, tracked and scored.`,
+      title: `${name} — That's The One`,
+      description: `Every brand relationship ${name} has, tracked and scored for authenticity.`,
     },
     alternates: {
       canonical: `https://thatsthe.one/creators/${slug}`,
