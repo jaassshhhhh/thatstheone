@@ -43,7 +43,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div style={{ width: 80, display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(99,102,241,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#818CF8' }}>J</div>
+        <Link href="/profile" style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(99,102,241,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#818CF8', textDecoration: 'none', cursor: 'pointer' }}>J</Link>
         </div>
       </nav>
 
