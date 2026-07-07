@@ -298,7 +298,7 @@ export default function FeedPage() {
     if (session) computeAffinity(session).then(cats => { setAffinityCategories(cats); console.log('🎯 affinity categories:', cats) })
   }, [])
 
-  useEffect(() => { loadFeed(0, true) }, [filter, userSearches, affinityCategories])
+  useEffect(() => { loadFeed(0, true) }, [filter, userSearches, affinityCategories.join(',')])
 
   useEffect(() => {
     const obs = new IntersectionObserver(entries => {
