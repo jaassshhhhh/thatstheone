@@ -108,6 +108,7 @@ const PODCAST_YOUTUBE_CHANNELS = [
     const lower = name.toLowerCase().trim()
     if (BRAND_BLOCKLIST.has(lower)) return true
     if (lower.length < 2) return true
+    if (/^(unknown|unnamed|n\/a|na|none)\b/.test(lower)) return true
     return false
   }
   
