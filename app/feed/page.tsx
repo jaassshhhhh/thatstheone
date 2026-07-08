@@ -203,11 +203,14 @@ function generatePooledHeadline(s: any): string {
   const brand = s.brand_name || 'this brand'
   const count = s.distinct_creator_count || 1
   const desc = s.brand_description ? ` — ${s.brand_description.replace(/\.$/, '')}` : ''
-  if (count === 1) return s.best_headline || `${s.creator_name || 'A creator'} is working with ${brand}${desc}`
+  if (count === 1) {
+    const base = s.best_headline || `${s.creator_name || 'A creator'} is working with ${brand}`
+    return desc ? `${base}${desc}` : base
+  }
   const organicPct = s.organic_pct ?? 0
-  if (organicPct >= 70) return `${count} creators independently love ${brand}${desc} — barely any of them are getting paid for it`
-  if (s.best_code) return `${count} creators trust ${brand}${desc} enough to run their own codes — here's the best one`
-  if (count >= 10) return `${brand}${desc} is everywhere right now — ${count} different creators, and counting`
+  if (organicPct >= 70) return `${count} creators independently love ${brand}${desc}. Barely any of them are getting paid for it.`
+  if (s.best_code) return `${brand}${desc} — trusted by ${count} creators who run their own codes for it`
+  if (count >= 10) return `${brand}${desc} — everywhere right now, ${count} different creators and counting`
   return `${count} different creators all recommend ${brand}${desc}. That's not a coincidence.`
 }
 
