@@ -8,11 +8,11 @@ import { fileURLToPath } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 config({ path: resolve(__dirname, '.env.local') })
 
-const supabase = createClient(
+export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 const YT_KEYS = [
     process.env.YOUTUBE_API_KEY,
     process.env.YOUTUBE_API_KEY_2,
@@ -131,7 +131,7 @@ const PODCAST_YOUTUBE_CHANNELS = [
   }
 
 // ─── Normalised content format ─────────────────────────────
-function makeContent(platform, externalId, creatorName, title, rawText, mediaUrl, publishedAt, contentType = 'video') {
+export function makeContent(platform, externalId, creatorName, title, rawText, mediaUrl, publishedAt, contentType = 'video') {
   return { platform, externalId, creatorName, title, rawText, mediaUrl, publishedAt, contentType }
 }
 
@@ -179,7 +179,7 @@ function computeDAR(s) {
   return Math.min(Math.max(score, 30), 80)
 }
 
-function safeISOString(dateStr) {
+export function safeISOString(dateStr) {
   if (!dateStr) return new Date().toISOString()
   const d = new Date(dateStr)
   return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
@@ -270,7 +270,7 @@ Quote: ${exactQuote?.slice(0, 150) || 'none'}`
 }
 
 // ─── AI extraction ─────────────────────────────────────────
-async function extractFromContent(content) {
+export async function extractFromContent(content) {
   if (!content.rawText || content.rawText.length < 40) return []
   try {
     const completion = await openai.chat.completions.create({
@@ -351,7 +351,7 @@ ${content.rawText.slice(0, 3000)}`
 }
 
 // ─── Database write ────────────────────────────────────────
-async function saveToDatabase(content, sponsors, creatorId) {
+export async function saveToDatabase(content, sponsors, creatorId) {
     let saved = 0
     const { data: creatorRow } = await supabase
       .from('creators')
@@ -687,7 +687,7 @@ async function discoverByGapFill(knownIds) {
   } catch { return [] }
 }
 
-async function getYouTubeVideos(channelId, max = VIDEOS_PER_CREATOR) {
+export async function getYouTubeVideos(channelId, max = VIDEOS_PER_CREATOR) {
     const half = Math.floor(max / 2)
     const videos = []
     const seen = new Set()
@@ -787,7 +787,7 @@ function extractChapters(video) {
   }
   
   // ─── Build rich video context ──────────────────────────────
-  async function buildVideoContext(video, creatorName) {
+  export async function buildVideoContext(video, creatorName) {
     const videoId = video.id
     const description = video.snippet?.description || ''
     const title = video.snippet?.title || ''
@@ -1200,7 +1200,7 @@ async function discoverPodcasts(maxNew = 50) {
   return discovered
 }
 
-async function parsePodcastRSS(podcast) {
+export async function parsePodcastRSS(podcast, maxEpisodes = 20) {
   try {
     const res = await fetch(podcast.rss, { headers: { 'User-Agent': 'ThatsTheOne/1.0 (+https://thatsthe.one)' } })
     if (!res.ok) return []
@@ -1230,7 +1230,7 @@ async function parsePodcastRSS(podcast) {
           .replace(/\s+/g, ' ').trim()
         items.push({ title, description: cleanDesc, pubDate, link, guid })
       }
-      if (items.length >= 20) break
+      if (items.length >= maxEpisodes) break
     }
     console.log(`    📄 ${items.length} episodes parsed, avg desc length: ${items.length ? Math.round(items.reduce((a,i) => a + i.description.length, 0) / items.length) : 0} chars`)
     return items
@@ -1764,4 +1764,6 @@ async function run() {
   console.log(`${'═'.repeat(55)}`)
 }
 
-run().catch(console.error)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  run().catch(console.error)
+}
