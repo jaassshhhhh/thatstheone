@@ -199,6 +199,58 @@ function generateHeadline(s: any, cardType: string, userSearches: string[], bran
   return `${creator} and ${brand} — ${mentions > 1 ? `${mentions} mentions` : 'new partnership'}`
 }
 
+function generatePooledHeadline(s: any): string {
+  const brand = s.brand_name || 'this brand'
+  const count = s.distinct_creator_count || 1
+  const desc = s.brand_description ? ` — ${s.brand_description.replace(/\.$/, '')}` : ''
+  if (count === 1) return s.headline || `${s.creator_name || 'A creator'} is working with ${brand}${desc}`
+  return `${count} different creators all recommend ${brand}${desc}. That's not a coincidence.`
+}
+
+function getBestDealReason(s: any): string {
+  const reasons: string[] = []
+  if (s.best_code) reasons.push('a real active code')
+  if ((s.best_dar_score ?? s.verified_dar_score ?? 0) >= 75) reasons.push('the highest trust score among all mentions')
+  if (s.distinct_creator_count > 1) reasons.push(`checked against ${s.distinct_creator_count} other mentions`)
+  if (reasons.length === 0) return 'the most complete, verified mention we found'
+  return reasons.join(', ')
+}
+
+function adaptBrandCard(row: any) {
+  return {
+    id: row.best_sponsorship_id,
+    brand_id: row.brand_id,
+    creator_id: null,
+    brand_name: row.brand_name,
+    brand_slug: row.brand_slug,
+    brand_url: row.brand_url,
+    brand_category_group: row.brand_category_group,
+    brand_description: row.brand_description,
+    creator_name: row.best_creator_name,
+    creator_slug: row.best_creator_slug,
+    subscriber_count: row.best_subscriber_count,
+    platform: row.best_platform,
+    mention_count: row.total_mentions,
+    first_seen: row.first_seen,
+    last_seen: row.last_seen,
+    is_organic: row.best_is_organic,
+    is_active: row.any_active,
+    best_dar_score: row.best_dar_score,
+    verified_dar_score: row.best_dar_score,
+    best_code: row.best_code,
+    best_offer: row.best_offer,
+    best_quote: row.best_quote,
+    best_promo_url: row.best_promo_url,
+    best_content_url: row.best_content_url,
+    best_video_id: row.best_video_id,
+    video_id: row.best_video_id,
+    video_title: row.best_video_title,
+    freshness_rank: row.freshness_rank,
+    distinct_creator_count: row.distinct_creator_count,
+    creator_mentions: row.creator_mentions || [],
+  }
+}
+
 function timeAgo(date: string) {
   if (!date) return ''
   const d = Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
@@ -360,15 +412,15 @@ export default function FeedPage() {
       setFeed([]); setLoading(false); return
     }
 
-    let q = supabase.from('creator_brand_relationships').select('*').order('freshness_rank', { ascending: true }).order('verified_dar_score', { ascending: false }).order('last_seen', { ascending: false }).range(from, to)
+    let q = supabase.from('brand_feed_cards').select('*').order('freshness_rank', { ascending: true }).order('best_dar_score', { ascending: false }).order('last_seen', { ascending: false }).range(from, to)
     if (filter === 'Deals') q = q.not('best_code', 'is', null)
-    if (filter === 'Organic') q = q.eq('is_organic', true)
+    if (filter === 'Organic') q = q.eq('best_is_organic', true)
     if (filter === 'New') q = q.gte('first_seen', new Date(Date.now() - 14 * 86400000).toISOString())
-    if (filter === 'Trending') q = q.gte('verified_dar_score', 70)
-    if (filter === 'Saved') q = q.in('id', [...bookmarks])
+    if (filter === 'Trending') q = q.gte('best_dar_score', 70)
+    if (filter === 'Saved') q = q.in('best_sponsorship_id', [...bookmarks])
 
     const { data } = await q
-    const items = (data || []).filter((s: any) => s.brand_name && s.creator_name)
+    const items = (data || []).filter((s: any) => s.brand_name && s.best_creator_name).map(adaptBrandCard)
     const brandMap: Record<string, number> = {}
     items.forEach((s: any) => { brandMap[s.brand_name || ''] = (brandMap[s.brand_name || ''] || 0) + 1 })
 
@@ -380,33 +432,35 @@ export default function FeedPage() {
         const hasCurrentDeal = s.best_code || s.promo_code || s.best_offer || s.offer_text
         const corrected = { ...s, is_organic: s.is_organic && !hasCurrentDeal }
         const cardType = classifyCard(corrected, brandMap, userSearches)
-        return { ...corrected, cardType, headline: corrected.headline || generateHeadline(corrected, cardType, userSearches, brandMap) }
+        return { ...corrected, cardType, headline: generatePooledHeadline(corrected) }
       })
 
       let filtered = classified
       if (filter === 'For you') filtered = classified.filter(s => s.cardType === 'PERSONAL')
   
-      if (filter === 'All' && reset && affinityCategories.length > 0) {
-        const existingIds = new Set(filtered.map((s: any) => s.id))
-        const { data: personalizedData } = await supabase
-          .from('creator_brand_relationships')
-          .select('*')
-          .eq('brand_category_group', affinityCategories[0])
-          .order('verified_dar_score', { ascending: false })
-          .limit(6)
-        const personalized = (personalizedData || [])
-          .filter((s: any) => s.brand_name && s.creator_name && !existingIds.has(s.id))
-          .slice(0, 3)
-          .map((s: any) => {
-            const cardType = 'PERSONAL'
-            return { ...s, cardType, headline: s.headline || generateHeadline(s, cardType, userSearches, brandMap) }
+        if (filter === 'All' && reset && affinityCategories.length > 0) {
+          const existingIds = new Set(filtered.map((s: any) => s.id))
+          const { data: personalizedData } = await supabase
+            .from('brand_feed_cards')
+            .select('*')
+            .eq('brand_category_group', affinityCategories[0])
+            .order('best_dar_score', { ascending: false })
+            .limit(6)
+          const personalized = (personalizedData || [])
+            .filter((s: any) => s.brand_name && s.best_creator_name)
+            .map(adaptBrandCard)
+            .filter((s: any) => !existingIds.has(s.id))
+            .slice(0, 3)
+            .map((s: any) => {
+              const cardType = 'PERSONAL'
+              return { ...s, cardType, headline: generatePooledHeadline(s) }
+            })
+          const positions = [2, 5, 8]
+          personalized.forEach((item: any, i: number) => {
+            const pos = Math.min(positions[i] ?? filtered.length, filtered.length)
+            filtered.splice(pos, 0, item)
           })
-        const positions = [2, 5, 8]
-        personalized.forEach((item: any, i: number) => {
-          const pos = Math.min(positions[i] ?? filtered.length, filtered.length)
-          filtered.splice(pos, 0, item)
-        })
-      }
+        }
   
       const ids = filtered.filter((s: any) => s.id).map((s: any) => s.id)
     if (ids.length) {
@@ -855,7 +909,7 @@ export default function FeedPage() {
     const creatorName = s.creator_name || s.creators?.name
     const subs = s.subscriber_count || s.creators?.subscriber_count
     const metaBits = [
-      s.mention_count > 1 ? `${s.mention_count}× mentioned` : null,
+      s.distinct_creator_count > 1 ? `${s.distinct_creator_count} creators · ${s.mention_count}× mentioned` : (s.mention_count > 1 ? `${s.mention_count}× mentioned` : null),
       subs > 0 ? formatSubs(subs) : null,
     ].filter(Boolean).join(' · ')
 
@@ -1076,6 +1130,11 @@ export default function FeedPage() {
             {/* Deal panel */}
             {hasDeal && (
               <div style={{ padding: 14, background: 'rgba(255,255,255,.04)', borderRadius: 12 }}>
+                {s.distinct_creator_count > 1 && (
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: '0 0 8px', lineHeight: 1.5 }}>
+                    Best deal · via {s.creator_name} — chosen for {getBestDealReason(s)}
+                  </p>
+                )}
                 {offer && (
                   <p style={{ fontSize: 12, color: '#34D399', marginBottom: code ? 10 : 0, display: 'flex', alignItems: 'center', gap: 5 }}>
                     <i className="ti ti-gift" style={{ fontSize: 13 }} aria-hidden="true" />
@@ -1104,6 +1163,34 @@ export default function FeedPage() {
                     Visit brand →
                   </a>
                 )}
+              </div>
+            )}
+
+            {s.distinct_creator_count > 1 && Array.isArray(s.creator_mentions) && (
+              <div style={{ marginTop: 10 }}>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                  {s.creator_mentions.length - 1} other mention{s.creator_mentions.length - 1 !== 1 ? 's' : ''}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {s.creator_mentions
+                    .filter((m: any) => m.creator_name !== s.creator_name)
+                    .map((m: any, i: number) => (
+                    <div key={i} style={{ background: 'rgba(255,255,255,.03)', borderRadius: 12, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <p style={{ fontSize: 13, color: '#fff', margin: 0, fontWeight: 500 }}>{m.creator_name}</p>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', margin: '2px 0 0' }}>
+                          {m.mention_count > 1 ? `${m.mention_count} mentions` : '1 mention'}{m.code ? ` · code ${m.code}` : ''}
+                        </p>
+                      </div>
+                      {(m.promo_url || m.content_url) && (
+                        <a href={m.promo_url || m.content_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                          style={{ color: 'rgba(255,255,255,.3)', display: 'flex' }}>
+                          <i className="ti ti-external-link" style={{ fontSize: 15 }} aria-hidden="true" />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
