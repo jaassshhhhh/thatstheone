@@ -6,6 +6,9 @@ export const metadata = {
     description: "Real brand velocity data. See which brands are genuinely gaining traction in creator content.",
     url: 'https://thatsthe.one/trending',
   },
+  alternates: {
+    canonical: 'https://thatsthe.one/trending',
+  },
 }
 
 export default function TrendingLayout({ children }: { children: React.ReactNode }) {

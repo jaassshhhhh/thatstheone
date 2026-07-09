@@ -6,6 +6,9 @@ export const metadata = {
     description: "Search every verified creator-brand relationship indexed across YouTube, podcasts and more.",
     url: 'https://thatsthe.one/search',
   },
+  alternates: {
+    canonical: 'https://thatsthe.one/search',
+  },
 }
 
 export default function SearchLayout({ children }: { children: React.ReactNode }) {

@@ -6,6 +6,9 @@ export const metadata = {
     description: "The daily creator commerce intelligence feed. Real sponsorships, organic mentions, and conviction scores.",
     url: 'https://thatsthe.one/feed',
   },
+  alternates: {
+    canonical: 'https://thatsthe.one/feed',
+  },
 }
 
 export default function FeedLayout({ children }: { children: React.ReactNode }) {

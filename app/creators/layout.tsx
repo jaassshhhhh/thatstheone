@@ -6,6 +6,9 @@ export const metadata = {
     description: "Creator profiles with complete brand relationship history, conviction scores and verified mention timelines.",
     url: 'https://thatsthe.one/creators',
   },
+  alternates: {
+    canonical: 'https://thatsthe.one/creators',
+  },
 }
 
 export default function CreatorsLayout({ children }: { children: React.ReactNode }) {
