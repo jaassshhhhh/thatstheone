@@ -19,8 +19,8 @@ export default async function sitemap() {
     )
 
     const [{ data: creators }, { data: brands }] = await Promise.all([
-      supabase.from('creators').select('slug').not('slug', 'is', null).limit(1000),
-      supabase.from('brands').select('slug').not('slug', 'is', null).limit(1000),
+      supabase.from('creators').select('slug').not('slug', 'is', null).limit(30000),
+      supabase.from('brands').select('slug').not('slug', 'is', null).limit(30000),
     ])
 
     const creatorPages = (creators || []).map(c => ({
