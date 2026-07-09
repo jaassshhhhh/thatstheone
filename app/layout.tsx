@@ -37,6 +37,9 @@ export const metadata = {
     statusBarStyle: 'black-translucent' as const,
     title: "That's The One",
   },
+  alternates: {
+    canonical: 'https://thatsthe.one',
+  },
 }
 
 export default function RootLayout({
