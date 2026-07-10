@@ -349,11 +349,60 @@ ${content.rawText.slice(0, 3000)}`
       }))
   } catch { return [] }
 }
+// ─── Brand collab detector (Path A — shadow mode, logs only, never surfaced) ──
+let collabBrandMap = null // lowercase name -> id
+let collabPattern = null
+
+async function loadCollabDetector() {
+  if (collabPattern) return
+  const { data: brands } = await supabase.from('brands').select('id, name')
+  const names = (brands || []).filter(b => b.name && b.name.length > 2)
+  collabBrandMap = new Map(names.map(b => [b.name.toLowerCase(), b.id]))
+  const sortedNames = names.map(b => b.name).sort((a, b) => b.length - a.length)
+  collabPattern = new RegExp(
+    `(${sortedNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})` +
+    `\\s*(?:x|×|.{0,20}(?:collab|collaboration|teamed up with|limited edition with).{0,20})\\s*` +
+    `(${sortedNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+    'gi'
+  )
+  console.log(`  🔗 Collab detector loaded: ${names.length} known brands`)
+}
+
+async function detectAndLogCollabs(content, creatorId) {
+  try {
+    if (!content.rawText || content.rawText.length < 20) return
+    await loadCollabDetector()
+    const matches = [...content.rawText.matchAll(collabPattern)]
+    for (const m of matches) {
+      const nameA = m[1].toLowerCase()
+      const nameB = m[2].toLowerCase()
+      if (nameA === nameB) continue
+      const brandAId = collabBrandMap.get(nameA)
+      const brandBId = collabBrandMap.get(nameB)
+      if (!brandAId || !brandBId) continue
+      await supabase.from('brand_collabs').upsert({
+        brand_a_id: brandAId,
+        brand_b_id: brandBId,
+        detected_from: 'pipeline_regex',
+        source_content_url: normalizeUrl(content.mediaUrl),
+        source_creator_id: creatorId,
+        exact_quote: m[0].slice(0, 200),
+        confidence: 0.6,
+        last_seen: new Date().toISOString(),
+        is_active: false,
+      }, { onConflict: 'brand_a_id,brand_b_id,detected_from' })
+      console.log(`  🔗 Collab candidate logged: "${m[1]}" x "${m[2]}" (shadow mode)`)
+    }
+  } catch (err) {
+    console.log(`  ✗ Collab detection error: ${err.message}`)
+  }
+}
 
 // ─── Database write ────────────────────────────────────────
 export async function saveToDatabase(content, sponsors, creatorId) {
-    let saved = 0
-    const { data: creatorRow } = await supabase
+  let saved = 0
+  await detectAndLogCollabs(content, creatorId)
+  const { data: creatorRow } = await supabase
       .from('creators')
       .select('category')
       .eq('id', creatorId)
@@ -1277,13 +1326,18 @@ async function runPodcasts() {
     }
   
     // Re-process existing podcasts for new episodes — same pattern as YouTube
-    const { data: existingPodcasts } = await supabase
+    const fourDaysAgoMs = Date.now() - 4 * 86400000
+    const { data: podcastCandidates } = await supabase
     .from('creators')
-    .select('id, name, slug, rss_url')
+    .select('id, name, slug, rss_url, last_scraped_at')
     .eq('platform', 'podcast')
     .not('rss_url', 'is', null)
     .order('last_scraped_at', { ascending: true, nullsFirst: true })
-    .limit(30)
+    .limit(150)
+
+  const existingPodcasts = (podcastCandidates || [])
+    .filter(c => !c.last_scraped_at || new Date(c.last_scraped_at).getTime() < fourDaysAgoMs)
+    .slice(0, 30)
 
   console.log(`  🔄 Re-processing ${(existingPodcasts || []).length} existing podcasts for new episodes...`)
 
