@@ -635,6 +635,8 @@ async function discoverByCategory() {
     'science education', 'history documentary', 'philosophy',
     'gaming review', 'car review', 'watch review', 'photography',
     'parenting', 'home improvement', 'language learning', 'book review',
+    'sneaker review', 'streetwear haul', 'sneaker unboxing', 'sneaker collab',
+    'luxury watch collector', 'designer collab unboxing', 'streetwear fashion',
   ]
   const channels = []
   for (const cat of categories) {
