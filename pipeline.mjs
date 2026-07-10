@@ -75,8 +75,15 @@ const VIDEOS_PER_CREATOR = 30
 // }
 
 // ─── Brand blocklist ───────────────────────────────────────
+const SNEAKER_YOUTUBE_CHANNELS = [
+  { channelId: 'UCE_--R1P5-kfBzHTca0dsnw', name: 'Complex', category: 'Streetwear' },
+  { channelId: 'UCmd52DyhaO4E1Cvy4RrHuew', name: 'HYPEBEAST', category: 'Streetwear' },
+  { channelId: 'UCToda8e5o74n5JuhE4qzyOQ', name: 'Sneaker Freaker Magazine', category: 'Streetwear' },
+  { channelId: 'UCZ9l_6_f0PWRYXN5Y7Lcl2A', name: 'Jacques Slade', category: 'Streetwear' },
+]
+
 const PODCAST_YOUTUBE_CHANNELS = [
-    { channelId: 'UC2D2CMWXMOVWx7giW1n3LIg', name: 'Huberman Lab', category: 'Health' },
+  { channelId: 'UC2D2CMWXMOVWx7giW1n3LIg', name: 'Huberman Lab', category: 'Health' },
     { channelId: 'UCGq-a57w-aPwyi3pW7XLiHw', name: 'My First Million', category: 'Finance' },
     { channelId: 'UCnUYZLuoy1rq1aVMwx4aTzw', name: 'Diary of a CEO', category: 'Entrepreneurship' },
     { channelId: 'UCm_OTHGeSMDJmYperpuNlog', name: 'Lex Fridman', category: 'Tech' },
@@ -1037,6 +1044,72 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
         .select().single()
       if (!creatorData) continue
       console.log(`  📺 Added podcast channel: ${channel.name}`)
+      const videos = await getYouTubeVideos(channel.channelId, 20)
+      for (const video of videos) {
+        const richContext = await buildVideoContext(video, channel.name)
+        const content = makeContent(
+          'youtube', video.id, channel.name,
+          video.snippet?.title || '',
+          richContext,
+          `https://youtube.com/watch?v=${video.id}`,
+          video.snippet?.publishedAt || new Date().toISOString()
+        )
+        const sponsors = await extractFromContent(content)
+        sponsorships += await saveToDatabase(content, sponsors, creatorData.id)
+        await new Promise(r => setTimeout(r, 150))
+      }
+    }
+    await new Promise(r => setTimeout(r, 400))
+  }
+
+  // Always process high-value sneaker/streetwear YouTube channels — same
+  // unconditional pattern as podcasts, so it isn't starved by quota pressure
+  // elsewhere. Seeded directly rather than discovered via category search,
+  // since generic keyword search wasn't surfacing this niche reliably.
+  console.log('  👟 Processing sneaker/streetwear YouTube channels...')
+  for (const channel of SNEAKER_YOUTUBE_CHANNELS) {
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.55) break
+    const { data: existingCreator } = await supabase
+      .from('creators')
+      .select('id, name')
+      .eq('channel_id', channel.channelId)
+      .single()
+
+    if (existingCreator) {
+      const videos = await getYouTubeVideos(channel.channelId, 10)
+      for (const video of videos) {
+        const richContext = await buildVideoContext(video, existingCreator.name)
+        const content = makeContent(
+          'youtube', video.id, existingCreator.name,
+          video.snippet?.title || '',
+          richContext,
+          `https://youtube.com/watch?v=${video.id}`,
+          video.snippet?.publishedAt || new Date().toISOString()
+        )
+        const sponsors = await extractFromContent(content)
+        sponsorships += await saveToDatabase(content, sponsors, existingCreator.id)
+        await new Promise(r => setTimeout(r, 150))
+      }
+    } else {
+      const stats = await getYouTubeChannelStats(channel.channelId)
+      if (!stats) continue
+      knownIds.add(channel.channelId)
+      creators++
+      const { data: creatorData } = await supabase
+        .from('creators')
+        .upsert({
+          name: stats.name || channel.name,
+          slug: makeSlug(stats.name || channel.name),
+          channel_id: channel.channelId,
+          subscriber_count: stats.subscribers,
+          avatar_url: stats.thumbnail,
+          platform: 'youtube',
+          category: channel.category,
+          last_scraped_at: new Date().toISOString(),
+        }, { onConflict: 'channel_id' })
+        .select().single()
+      if (!creatorData) continue
+      console.log(`  👟 Added sneaker/streetwear channel: ${channel.name}`)
       const videos = await getYouTubeVideos(channel.channelId, 20)
       for (const video of videos) {
         const richContext = await buildVideoContext(video, channel.name)
