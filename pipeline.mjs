@@ -398,7 +398,7 @@ ${content.rawText.slice(0, 3000)}`
         }
       ],
       temperature: 0.05,
-      max_tokens: 800,
+      max_tokens: 1200,
     })
     const raw = completion.choices[0].message.content?.trim() || '[]'
     const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
@@ -417,7 +417,10 @@ ${content.rawText.slice(0, 3000)}`
         dar_score: computeDAR(s),
         dar_source: 'ai_extracted',
       }))
-  } catch { return [] }
+  } catch (err) {
+    console.log(`    ✗ extractFromContent error: ${err.message}`)
+    return []
+  }
 }
 // ─── Brand collab detector (Path A — shadow mode, logs only, never surfaced) ──
 let collabBrandMap = null // lowercase name -> id
