@@ -213,9 +213,39 @@ function extractBrandUrl(description, brandName) {
   while ((match = urlPattern.exec(description)) !== null) {
     const domain = match[1].toLowerCase()
     if (skip.has(domain)) continue
-    if (domain.includes(brandLower.slice(0, 5))) return `https://${domain}`
+    const domainRoot = domain.split('.')[0]
+    // Require the domain's actual name to START with the brand slug, not just contain it
+    // anywhere — prevents random tracking-link substrings (e.g. "adidas.njih") from
+    // false-matching. Length cap avoids "adidasoriginalstorefront.com"-style false positives too.
+    if (domainRoot.startsWith(brandLower.slice(0, 5)) && domainRoot.length <= brandLower.length + 4) {
+      return `https://${domain}`
+    }
   }
   return null
+}
+
+// ─── Verified brand URL fallback ────────────────────────────
+// When no reliable URL was found in the content text, actively check if the
+// brand's obvious .com domain is real and reachable, rather than leaving
+// website_url blank. Only saves a URL that's been confirmed to resolve.
+async function verifyBrandDomain(brandName) {
+  try {
+    const slug = brandName.toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (slug.length < 3) return null
+    const candidateUrl = `https://${slug}.com`
+    const res = await fetch(candidateUrl, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(5000),
+    })
+    // Accept normal success and redirect-resolved responses only
+    if (res.ok || (res.status >= 300 && res.status < 400)) {
+      return res.url || candidateUrl
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 function cleanQuote(quote) {
@@ -446,7 +476,10 @@ export async function saveToDatabase(content, sponsors, creatorId) {
           .is('description', null)
       }
   
-      const brandUrl = extractBrandUrl(content.rawText, s.brand)
+      let brandUrl = extractBrandUrl(content.rawText, s.brand)
+    if (!brandUrl) {
+      brandUrl = await verifyBrandDomain(s.brand)
+    }
     if (brandUrl) {
       await supabase.from('brands')
         .update({ website_url: brandUrl })
