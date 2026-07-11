@@ -200,6 +200,37 @@ function makeSlug(name) {
     .slice(0, 60)
 }
 
+// Captures a specific PRODUCT page URL (not just the brand's root domain) — only
+// when the creator has directly linked one in the text. Never guesses or constructs
+// a product URL; if none is present, returns null and the frontend falls back to
+// the brand-level link instead.
+function extractProductUrl(description, brandName) {
+  if (!description || !brandName) return null
+  const brandLower = brandName.toLowerCase().replace(/\s+/g, '')
+  const urlPattern = /https?:\/\/(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})(\/[a-zA-Z0-9\-_./?=&]*)?/g
+  const skip = new Set([
+    'youtube.com', 'instagram.com', 'twitter.com', 'x.com', 'tiktok.com',
+    'facebook.com', 'linkedin.com', 'spotify.com', 'apple.com', 'google.com',
+    'bit.ly', 'linktr.ee', 'amzn.to', 'patreon.com', 'discord.gg', 'twitch.tv',
+  ])
+  let match
+  while ((match = urlPattern.exec(description)) !== null) {
+    const domain = match[1].toLowerCase()
+    const path = match[2] || ''
+    if (skip.has(domain)) continue
+    const domainRoot = domain.split('.')[0]
+    const isBrandDomain = domainRoot.startsWith(brandLower.slice(0, 5)) && domainRoot.length <= brandLower.length + 4
+    // Only counts as a PRODUCT url if it's the brand's own domain AND has a real
+    // path beyond just "/" — a bare homepage link isn't a product link
+    if (isBrandDomain && path.length > 1) {
+      return `https://${domain}${path}`
+    }
+  }
+  return null
+}
+
+function extractBrandUrl(description, brandName) {
+
 function extractBrandUrl(description, brandName) {
   if (!description || !brandName) return null
   const brandLower = brandName.toLowerCase().replace(/\s+/g, '')
@@ -335,12 +366,15 @@ export async function extractFromContent(content) {
             "is_organic": true|false,
             "detected_language": "en"|"hi"|"ja"|"es"|"fr"|"other",
             "brand_category": "Tech"|"Finance"|"Health"|"Lifestyle"|"Education"|"Gaming"|"Beauty"|"Food"|null,
-            "brand_description": "one plain sentence explaining what the product actually IS, max 100 chars, OR null"
+            "brand_description": "one plain sentence explaining what the product actually IS, max 100 chars, OR null",
+            "product_mentioned": "the SPECIFIC product/model name if one is mentioned, e.g. 'Ultra Boost' or 'AG1 Travel Packs', max 80 chars, OR null if only the brand is mentioned generically"
           }
 
           brand_category: classify what the BRAND/PRODUCT itself actually is — a supplement company is "Health" even if it's advertised on a finance podcast. A budgeting app is "Finance" even if a gaming streamer reads the ad. Judge the product, never the show or creator it appears on. Use null only if genuinely unclear from the text.
 
-          brand_description: a plain-language answer to "what even is this product" for someone who's never heard of it — e.g. "A daily greens and vitamins supplement drink" or "A phone system for small businesses." Base it only on what the content actually says about the product, never guess or invent details. Use null if the text gives no real clue what the product does.
+         brand_description: a plain-language answer to "what even is this product" for someone who's never heard of it — e.g. "A daily greens and vitamins supplement drink" or "A phone system for small businesses." Base it only on what the content actually says about the product, never guess or invent details. Use null if the text gives no real clue what the product does.
+
+          product_mentioned: ONLY fill this when a SPECIFIC product, model, or variant is named — not the brand alone. "Adidas Ultra Boost" → product_mentioned: "Ultra Boost". "these Adidas shoes" with no model name → product_mentioned: null. Never guess or infer a model name that isn't explicitly in the text.
 
           is_organic = true when creator expresses genuine personal use WITHOUT payment language — in ANY language. Look for: personal pronouns + product name + positive sentiment + no code/affiliate language.
 
@@ -381,6 +415,7 @@ ${content.rawText.slice(0, 3000)}`
         offer_text: s.offer_text?.slice(0, 100) || null,
         brand_category: VALID_CATEGORIES.has(s.brand_category) ? s.brand_category : null,
         brand_description: typeof s.brand_description === 'string' ? s.brand_description.trim().slice(0, 120) || null : null,
+        product_mentioned: typeof s.product_mentioned === 'string' ? s.product_mentioned.trim().slice(0, 80) || null : null,
         dar_score: computeDAR(s),
         dar_source: 'ai_extracted',
       }))
@@ -480,6 +515,7 @@ export async function saveToDatabase(content, sponsors, creatorId) {
     if (!brandUrl) {
       brandUrl = await verifyBrandDomain(s.brand)
     }
+    const productUrl = extractProductUrl(content.rawText, s.brand)
     if (brandUrl) {
       await supabase.from('brands')
         .update({ website_url: brandUrl })
@@ -513,6 +549,8 @@ export async function saveToDatabase(content, sponsors, creatorId) {
         dar_score: s.dar_score,
         dar_source: s.dar_source,
         headline,
+        product_mentioned: s.product_mentioned || null,
+        product_url: productUrl,
       }, { onConflict: 'video_id,brand_id' })
 
     if (!error) {
