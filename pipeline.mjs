@@ -230,8 +230,6 @@ function extractProductUrl(description, brandName) {
 }
 
 function extractBrandUrl(description, brandName) {
-
-function extractBrandUrl(description, brandName) {
   if (!description || !brandName) return null
   const brandLower = brandName.toLowerCase().replace(/\s+/g, '')
   const urlPattern = /https?:\/\/(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})(?:\/[a-zA-Z0-9\-_./]*)?/g
