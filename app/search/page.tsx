@@ -3,6 +3,7 @@ import { useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
+import { getFreshnessTier, getFreshnessColor, getFreshnessLine } from '../lib/freshness'
 
 const SESSION_KEY = 'tto_session'
 
@@ -94,8 +95,7 @@ function SearchContent() {
     }
     await trackSearch(q, true)
 
-    const fields = `id, promo_code, promo_url, video_id, video_title, is_active, first_seen, offer_text, exact_quote, sponsorship_type, platform, is_organic, brands ( name, slug, website_url ), creators ( name, slug, subscriber_count, category )`
-
+    const fields = `id, promo_code, promo_url, video_id, video_title, is_active, first_seen, last_seen, offer_text, exact_quote, sponsorship_type, platform, is_organic, headline, brands ( name, slug, website_url, description ), creators ( name, slug, subscriber_count, category )`
     const { data: byBrand } = brandIds.length
       ? await supabase.from('sponsorships').select(fields).in('brand_id', brandIds).limit(30)
       : { data: [] }
@@ -131,9 +131,14 @@ function SearchContent() {
     setTimeout(() => setCopied(null), 2000)
   }
 
-  const formatDate = (date: string) => {
+  const timeAgo = (date: string) => {
     if (!date) return ''
-    return new Date(date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+    const d = Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
+    if (d === 0) return 'Today'
+    if (d === 1) return 'Yesterday'
+    if (d < 7) return `${d}d ago`
+    if (d < 30) return `${Math.floor(d / 7)}w ago`
+    return `${Math.floor(d / 30)}mo ago`
   }
 
   const activeFilterLabel = activeFilter === 'All' ? 'All categories' : activeFilter
@@ -257,6 +262,12 @@ function SearchContent() {
                   <div key={r.id} className="rc"
                     style={{ animationDelay: `${i * 0.04}s`, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 16, padding: 18 }}>
 
+                    {r.headline && (
+                      <p style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", serif', fontSize: 15, color: '#fff', margin: '0 0 12px', lineHeight: 1.4 }}>
+                        {r.headline}
+                      </p>
+                    )}
+
                     {/* Top row */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
@@ -271,8 +282,21 @@ function SearchContent() {
 )}
                           </div>
                           <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '2px 0 0' }}>
-                            via {r.creators?.name} · {formatDate(r.first_seen)} · {platformLabel}
+                            via {r.creators?.name} · {platformLabel}
                           </p>
+                          {r.brands?.description && (
+                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '3px 0 0', lineHeight: 1.4 }}>
+                              {r.brands.description}
+                            </p>
+                          )}
+                          {(() => {
+                            const tier = getFreshnessTier(r.last_seen || r.first_seen)
+                            return (
+                              <p style={{ fontSize: 11, color: getFreshnessColor(tier), margin: '4px 0 0' }}>
+                                {getFreshnessLine({ tier, lastSeen: r.last_seen || r.first_seen, firstSeen: r.first_seen, mentionCount: 1, timeAgo })}
+                              </p>
+                            )
+                          })()}
                         </div>
                       </div>
                       <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 5, background: r.is_active ? 'rgba(34,197,94,.1)' : 'rgba(255,255,255,.05)', color: r.is_active ? '#4ADE80' : 'rgba(255,255,255,.3)', border: `1px solid ${r.is_active ? 'rgba(34,197,94,.2)' : 'rgba(255,255,255,.08)'}`, flexShrink: 0 }}>
