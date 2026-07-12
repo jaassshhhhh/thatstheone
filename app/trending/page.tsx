@@ -39,11 +39,34 @@ export default function TrendingPage() {
   const [filter, setFilter] = useState<'all' | 'rising' | 'new' | 'dominant'>('all')
   const [category, setCategory] = useState('All')
   const [lastUpdated, setLastUpdated] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [evidence, setEvidence] = useState<Record<string, any[]>>({})
+  const [evidenceLoading, setEvidenceLoading] = useState<string | null>(null)
 
   useEffect(() => {
     loadTrends()
     supabase.from('brands').select('*', { count: 'exact', head: true }).then(({ count }) => setTotalBrands(count || 0))
   }, [])
+
+  async function loadEvidence(brandId: string) {
+    if (evidence[brandId]) {
+      setExpandedId(expandedId === brandId ? null : brandId)
+      return
+    }
+    setEvidenceLoading(brandId)
+    const { data } = await supabase
+      .from('sponsorships')
+      .select(`id, first_seen, is_organic, exact_quote, video_title, promo_code, creators ( name, slug, subscriber_count )`)
+      .eq('brand_id', brandId)
+      .gte('first_seen', new Date(Date.now() - 14 * 86400000).toISOString())
+      .order('first_seen', { ascending: false })
+      .limit(15)
+    setEvidence(prev => ({ ...prev, [brandId]: data || [] }))
+    setEvidenceLoading(null)
+    setExpandedId(brandId)
+  }
+
+  
 
   async function loadTrends() {
     setLoading(true)
@@ -240,10 +263,14 @@ export default function TrendingPage() {
               const headline = getInsightHeadline(t)
               const insightBody = getInsightBody(t)
 
+              const isExpanded = expandedId === t.brand_id
+              const isLoadingEvidence = evidenceLoading === t.brand_id
+              const brandEvidence = evidence[t.brand_id] || []
+
               return (
-                <Link key={t.brand_id} href={t.brand_slug ? `/brands/${t.brand_slug}` : '#'} style={{ textDecoration: 'none', display: 'block' }}>
-                <div className="tc"
-                  style={{ animationDelay: `${Math.min(i, 10) * 0.03}s`, background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 16, padding: '16px', position: 'relative', overflow: 'hidden', cursor: t.brand_slug ? 'pointer' : 'default' }}>
+                <div key={t.brand_id} className="tc"
+                  style={{ animationDelay: `${Math.min(i, 10) * 0.03}s`, background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 16, padding: '16px', position: 'relative', overflow: 'hidden', cursor: 'pointer' }}
+                  onClick={() => loadEvidence(t.brand_id)}>
 
                   <div style={{ position: 'absolute', top: -24, right: -24, width: 80, height: 80, borderRadius: '50%', background: signal.color, opacity: .06, filter: 'blur(18px)', pointerEvents: 'none' }} />
 
@@ -306,8 +333,50 @@ export default function TrendingPage() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Evidence — the actual raw signal behind the insight claim above,
+                      not just a restated summary. This is the proprietary data moat
+                      made visible: real mentions, real creators, real timestamps. */}
+                  <div onClick={e => e.stopPropagation()} style={{ marginTop: 10 }}>
+                    <button onClick={() => loadEvidence(t.brand_id)}
+                      style={{ fontSize: 11, color: '#818CF8', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      {isLoadingEvidence ? 'Loading...' : isExpanded ? '▲ Hide the evidence' : '▼ See what\'s driving this'}
+                    </button>
+                    {isExpanded && !isLoadingEvidence && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                        {brandEvidence.length === 0 && (
+                          <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)' }}>No recent mentions found in the last 14 days.</p>
+                        )}
+                        {brandEvidence.map((e: any) => (
+                          <div key={e.id} style={{ background: 'rgba(255,255,255,.03)', borderRadius: 10, padding: '10px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: e.exact_quote ? 4 : 0 }}>
+                              <span style={{ fontSize: 12, fontWeight: 500, color: '#fff' }}>
+                                {e.creators?.name}
+                                {e.is_organic && <span style={{ color: '#34D399', marginLeft: 6, fontSize: 10 }}>organic</span>}
+                                {e.promo_code && <span style={{ color: 'rgba(255,255,255,.3)', marginLeft: 6, fontSize: 10 }}>code {e.promo_code}</span>}
+                              </span>
+                              <span style={{ fontSize: 10, color: 'rgba(255,255,255,.25)' }}>
+                                {new Date(e.first_seen).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                              </span>
+                            </div>
+                            {e.exact_quote && (
+                              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.45)', margin: 0, fontStyle: 'italic', lineHeight: 1.4 }}>
+                                "{e.exact_quote.slice(0, 120)}{e.exact_quote.length > 120 ? '...' : ''}"
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {t.brand_slug && (
+                    <Link href={`/brands/${t.brand_slug}`} onClick={e => e.stopPropagation()}
+                      style={{ display: 'inline-block', marginTop: 10, fontSize: 11, color: 'rgba(255,255,255,.3)', textDecoration: 'none' }}>
+                      View {t.brand_name} brand page →
+                    </Link>
+                  )}
                 </div>
-                </Link>
               )
             })}
           </div>
