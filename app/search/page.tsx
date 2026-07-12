@@ -91,6 +91,40 @@ function SearchContent() {
     const creatorIds = (matchingCreators || []).map((c: any) => c.id)
 
     if (brandIds.length === 0 && creatorIds.length === 0) {
+      // Substring matching found nothing — fall through to semantic search
+      // rather than showing an empty state immediately.
+      try {
+        const res = await fetch('/api/semantic-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q }),
+        })
+        const { results: semanticBrands } = await res.json()
+        if (semanticBrands?.length) {
+          await trackSearch(q, true)
+          const semanticBrandIds = semanticBrands.map((b: any) => b.id)
+          const { data: semanticSponsorships } = await supabase
+            .from('sponsorships')
+            .select(`id, brand_id, creator_id, promo_code, promo_url, video_id, video_title, is_active, first_seen, last_seen, offer_text, exact_quote, sponsorship_type, platform, is_organic, headline, dar_score, product_mentioned, product_url, brands ( name, slug, website_url, description ), creators ( name, slug, subscriber_count, category )`)
+            .in('brand_id', semanticBrandIds)
+            .limit(30)
+          const rows = (semanticSponsorships || []).filter((r: any) => r.brands && r.creators)
+          const grouped: Record<string, any[]> = {}
+          for (const r of rows) {
+            const key = `${r.brand_id}-${r.creator_id}`
+            if (!grouped[key]) grouped[key] = []
+            grouped[key].push(r)
+          }
+          const semanticPooled = Object.values(grouped).map((group: any[]) => {
+            const sorted = [...group].sort((a, b) => (b.dar_score || 0) - (a.dar_score || 0))
+            const mostRecent = group.reduce((l, r) => new Date(r.last_seen || r.first_seen) > new Date(l.last_seen || l.first_seen) ? r : l, group[0])
+            return { ...sorted[0], mention_count: group.length, other_mentions: sorted.slice(1), last_seen: mostRecent.last_seen, isSemanticMatch: true }
+          })
+          setResults(semanticPooled)
+          setLoading(false)
+          return
+        }
+      } catch { /* fall through to empty state below */ }
       await trackSearch(q, false)
       setResults([]); setLoading(false); return
     }
