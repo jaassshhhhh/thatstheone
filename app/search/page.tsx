@@ -104,15 +104,18 @@ function SearchContent() {
       ? await supabase.from('sponsorships').select(fields).in('creator_id', creatorIds).limit(30)
       : { data: [] }
 
-    const combined = [...(byBrand || []), ...(byCreator || [])]
-    const seen = new Set()
-    const deduped = combined.filter((r: any) => {
-      if (!r.brands || !r.creators) return false
-      const key = `${r.brands.slug}-${r.creators.slug}`
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
+      const combined = [...(byBrand || []), ...(byCreator || [])]
+      const seen = new Set()
+      const deduped = combined.filter((r: any) => {
+        if (!r.brands || !r.creators) return false
+        // Dedupe by sponsorship id, not creator+brand pair — the old key collapsed
+        // every distinct product/video a creator mentioned for the same brand into
+        // a single result (e.g. Tharun Kumar's MuscleBlaze WrathX, Creatine, Whey
+        // mentions all vanished except one).
+        if (seen.has(r.id)) return false
+        seen.add(r.id)
+        return true
+      })
 
     const filtered = filter === 'All'
       ? deduped
