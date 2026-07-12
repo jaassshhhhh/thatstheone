@@ -66,7 +66,7 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
     // Detailed list for the expandable history — capped for display, not for stats
     const { data: spData } = await supabase
       .from('sponsorships')
-      .select('id, promo_code, promo_url, offer_text, exact_quote, sponsorship_type, is_active, is_organic, first_seen, video_title, video_id, dar_score, platform, brands ( name, slug )')
+      .select('id, promo_code, promo_url, product_url, product_mentioned, offer_text, exact_quote, sponsorship_type, is_active, is_organic, first_seen, video_title, video_id, dar_score, platform, brands ( name, slug, website_url )')
       .eq('creator_id', creatorData.id)
       .order('first_seen', { ascending: false })
       .limit(100)
@@ -307,6 +307,11 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
     💡 Personal recommendation — no brand deal involved
   </p>
 )}
+{s.product_mentioned && (
+  <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', margin: '0 0 8px' }}>
+    Recommends: <span style={{ color: '#fff', fontWeight: 500 }}>{s.product_mentioned}</span>
+  </p>
+)}
 {s.exact_quote && (
   <div style={{
     background: s.is_organic ? 'rgba(52,211,153,.05)' : 'rgba(255,255,255,.04)',
@@ -340,8 +345,8 @@ export default function CreatorProfilePage({ params }: { params: Promise<{ slug:
                           Watch ↗
                         </a>
                       )}
-                      {s.promo_url ? (
-  <a href={s.promo_url}
+                      {(s.product_url || s.promo_url || s.brands?.website_url) ? (
+  <a href={s.product_url || s.promo_url || s.brands?.website_url}
     target="_blank" rel="noopener noreferrer"
     onClick={e => e.stopPropagation()}
     style={{ fontSize: 11, padding: '5px 12px', borderRadius: 8, background: 'rgba(16,185,129,.08)', color: '#34D399', border: '0.5px solid rgba(16,185,129,.2)', textDecoration: 'none' }}>
