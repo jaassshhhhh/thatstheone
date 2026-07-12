@@ -8,6 +8,7 @@ type TrendItem = {
   brand_id: string
   brand_name: string
   brand_slug: string
+  category: string | null
   this_week: number
   last_week: number
   growth_pct: number
@@ -15,7 +16,11 @@ type TrendItem = {
   platforms: string[]
   top_creator: string
   is_new_this_week: boolean
+  organic_pct: number
+  avg_growth_pct: number
 }
+
+const CATEGORIES = ['All', 'Tech', 'Finance', 'Health', 'Lifestyle', 'Education', 'Gaming', 'Beauty', 'Food']
 
 const PLATFORM_ICONS: Record<string, string> = {
   youtube: '▶',
@@ -32,6 +37,7 @@ export default function TrendingPage() {
   const [totalBrands, setTotalBrands] = useState(0)
   const [loadError, setLoadError] = useState(false)
   const [filter, setFilter] = useState<'all' | 'rising' | 'new' | 'dominant'>('all')
+  const [category, setCategory] = useState('All')
   const [lastUpdated, setLastUpdated] = useState('')
 
   useEffect(() => {
@@ -42,7 +48,7 @@ export default function TrendingPage() {
   async function loadTrends() {
     setLoading(true)
     setLoadError(false)
-    const { data, error } = await supabase.rpc('compute_brand_velocity')
+    const { data, error } = await supabase.rpc('compute_brand_velocity_v2')
     if (!error && data) {
       setTrends(data)
       setLastUpdated(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))
@@ -53,19 +59,66 @@ export default function TrendingPage() {
     setLoading(false)
   }
 
-  const filtered = trends.filter(t => {
+  const inCategory = trends.filter(t =>
+    category === 'All' || t.category?.toLowerCase().includes(category.toLowerCase())
+  )
+
+  const filtered = inCategory.filter(t => {
     if (filter === 'rising') return t.growth_pct > 0 && !t.is_new_this_week
     if (filter === 'new') return t.is_new_this_week
     if (filter === 'dominant') return t.total_creators >= 5
     return true
   })
 
+  // Insight priority: organic signal and "new" status are the most interesting
+  // findings when true (they're rarer and more meaningful than a growth number),
+  // so they're checked before falling back to growth-based framing.
   function getSignalType(t: TrendItem): { label: string; color: string; bg: string; border: string } {
-    if (t.is_new_this_week) return { label: 'New this week', color: '#818CF8', bg: 'rgba(99,102,241,.1)', border: 'rgba(99,102,241,.2)' }
-    if (t.total_creators >= 5) return { label: 'Dominant', color: '#F87171', bg: 'rgba(239,68,68,.1)', border: 'rgba(239,68,68,.2)' }
-    if (t.growth_pct >= 100) return { label: 'Surging', color: '#34D399', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.2)' }
+    if (t.is_new_this_week) return { label: 'First mover', color: '#818CF8', bg: 'rgba(99,102,241,.1)', border: 'rgba(99,102,241,.2)' }
+    if (t.organic_pct >= 70) return { label: 'Not a paid push', color: '#34D399', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.2)' }
+    if (t.total_creators >= 5) return { label: 'Widely adopted', color: '#F87171', bg: 'rgba(239,68,68,.1)', border: 'rgba(239,68,68,.2)' }
+    if (t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) return { label: 'Worth watching', color: '#FBBF24', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.2)' }
     if (t.growth_pct > 0) return { label: 'Rising', color: '#FBBF24', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.2)' }
     return { label: 'Steady', color: 'rgba(255,255,255,.3)', bg: 'rgba(255,255,255,.04)', border: 'rgba(255,255,255,.08)' }
+  }
+
+  function getInsightHeadline(t: TrendItem): string {
+    if (t.is_new_this_week) {
+      return `Nobody was talking about ${t.brand_name} until this week`
+    }
+    if (t.organic_pct >= 70) {
+      return `Creators keep bringing up ${t.brand_name} unprompted`
+    }
+    if (t.total_creators >= 5) {
+      return `${t.brand_name} is showing up everywhere right now`
+    }
+    if (t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) {
+      return `${t.brand_name} is accelerating faster than most`
+    }
+    if (t.growth_pct > 0) {
+      return `${t.brand_name} is quietly picking up steam`
+    }
+    return `${t.brand_name} has a steady, consistent presence`
+  }
+
+  function getInsightBody(t: TrendItem): string {
+    if (t.is_new_this_week) {
+      return `${t.top_creator} is the only creator on it so far. Early enough that it could go either way.`
+    }
+    if (t.organic_pct >= 70) {
+      return `${t.organic_pct}% of recent mentions had no code, no deal, no sponsor language — just people who actually use it.`
+    }
+    if (t.total_creators >= 5) {
+      return `${t.total_creators} creators have mentioned it — that kind of spread is hard to manufacture with a single paid campaign.`
+    }
+    if (t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) {
+      const multiple = (t.growth_pct / t.avg_growth_pct).toFixed(1)
+      return `Growing ${multiple}x faster than the average trending brand this week. That kind of jump usually means something is about to break wider.`
+    }
+    if (t.growth_pct > 0) {
+      return `Up ${t.growth_pct}% from last week — not dramatic yet, but the direction is real.`
+    }
+    return `${t.total_creators} creators have mentioned it consistently, without a sudden spike either way.`
   }
 
   function formatGrowth(pct: number, isNew: boolean) {
@@ -104,6 +157,15 @@ export default function TrendingPage() {
           </p>
         </div>
 
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', paddingBottom: 2 }}>
+          {CATEGORIES.map(c => (
+            <button key={c} className="filt" onClick={() => setCategory(c)}
+              style={{ fontSize: 11, padding: '5px 13px', borderRadius: 20, border: '0.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .15s', borderColor: category === c ? '#6366F1' : 'rgba(255,255,255,.06)', background: category === c ? 'rgba(99,102,241,.12)' : 'transparent', color: category === c ? '#818CF8' : 'rgba(255,255,255,.3)' }}>
+              {c}
+            </button>
+          ))}
+        </div>
+
         <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
           {([
             { key: 'all', label: 'All' },
@@ -123,9 +185,9 @@ export default function TrendingPage() {
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 6 }}>
               {[
-                { label: 'Trending now', value: trends.length, color: '#fff' },
-                { label: 'New this week', value: trends.filter(t => t.is_new_this_week).length, color: '#818CF8' },
-                { label: 'Surging', value: trends.filter(t => t.growth_pct >= 100).length, color: '#34D399' },
+                { label: category === 'All' ? 'Trending now' : `Trending in ${category}`, value: inCategory.length, color: '#fff' },
+                { label: 'New this week', value: inCategory.filter(t => t.is_new_this_week).length, color: '#818CF8' },
+                { label: 'Surging', value: inCategory.filter(t => t.growth_pct >= 100).length, color: '#34D399' },
               ].map(s => (
                 <div key={s.label} style={{ background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 12, padding: '10px 12px' }}>
                   <p style={{ fontSize: 20, fontWeight: 600, color: s.color, margin: '0 0 2px' }}>{s.value}</p>
@@ -133,9 +195,14 @@ export default function TrendingPage() {
                 </div>
               ))}
             </div>
-            {totalBrands > 0 && (
+            {totalBrands > 0 && category === 'All' && (
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', margin: '0 0 16px' }}>
                 {trends.length} of {totalBrands.toLocaleString()} tracked brands are trending this week — the rest are quieter right now, not missing.
+              </p>
+            )}
+            {category !== 'All' && inCategory.length === 0 && (
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.2)', margin: '0 0 16px' }}>
+                Nothing in {category} is meeting the trend threshold this week.
               </p>
             )}
           </>
@@ -164,16 +231,8 @@ export default function TrendingPage() {
               const signal = getSignalType(t)
               const pct = t.growth_pct
               const isNew = t.is_new_this_week
-
-              const headline = isNew
-                ? `First spotted this week across ${t.total_creators} creator${t.total_creators !== 1 ? 's' : ''}`
-                : t.total_creators >= 5
-                ? `Promoted by ${t.total_creators} creators — one of the most mentioned brands`
-                : pct >= 100
-                ? `Mentions doubled — ${t.this_week} appearances vs ${t.last_week} last week`
-                : pct > 0
-                ? `Growing — up ${pct}% from last week`
-                : `Consistent presence across ${t.total_creators} creator${t.total_creators !== 1 ? 's' : ''}`
+              const headline = getInsightHeadline(t)
+              const insightBody = getInsightBody(t)
 
               return (
                 <Link key={t.brand_id} href={t.brand_slug ? `/brands/${t.brand_slug}` : '#'} style={{ textDecoration: 'none', display: 'block' }}>
@@ -189,14 +248,14 @@ export default function TrendingPage() {
                         {t.brand_name[0]?.toUpperCase()}
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>{t.brand_name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: signal.bg, color: signal.color, border: `0.5px solid ${signal.border}`, fontWeight: 500 }}>
                             {signal.label}
                           </span>
                         </div>
+                        <p style={{ fontSize: 15, fontWeight: 600, color: '#fff', margin: '0 0 4px' }}>{headline}</p>
                         <p style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', margin: 0, lineHeight: 1.4 }}>
-                          {headline}
+                          {insightBody}
                         </p>
                       </div>
                     </div>
