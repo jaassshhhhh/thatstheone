@@ -92,6 +92,7 @@ export default function TrendingPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [evidence, setEvidence] = useState<Record<string, any[]>>({})
   const [evidenceLoading, setEvidenceLoading] = useState<string | null>(null)
+  const [hoveredBar, setHoveredBar] = useState<string | null>(null)
 
   useEffect(() => {
     loadTrends()
@@ -449,12 +450,21 @@ export default function TrendingPage() {
                               <div>
                                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '0 0 6px' }}>Mentions, last 14 days</p>
                                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 36 }}>
-                                  {buckets.map((v, idx) => {
+                                {buckets.map((v, idx) => {
                                     const dayDate = new Date(today.getTime() - (13 - idx) * 86400000)
-                                    const label = `${v} mention${v !== 1 ? 's' : ''} on ${dayDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                                    const label = `${v} · ${dayDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                                    const barId = `spark-${t.brand_id}-${idx}`
                                     return (
-                                      <div key={idx} title={label}
-                                        style={{ width: 8, height: `${Math.max((v / max) * 100, 4)}%`, background: '#F87171', borderRadius: '2px 2px 0 0', cursor: 'default', opacity: v === 0 ? 0.35 : 1 }} />
+                                      <div key={idx} style={{ position: 'relative' }}
+                                        onMouseEnter={() => setHoveredBar(barId)}
+                                        onMouseLeave={() => setHoveredBar(null)}>
+                                        {hoveredBar === barId && (
+                                          <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 4, background: '#1a1d2e', border: '0.5px solid rgba(255,255,255,.15)', borderRadius: 6, padding: '3px 7px', fontSize: 10, color: '#fff', whiteSpace: 'nowrap', zIndex: 10, pointerEvents: 'none' }}>
+                                            {label}
+                                          </div>
+                                        )}
+                                        <div style={{ width: 8, height: `${Math.max((v / max) * 100, 4)}%`, background: '#F87171', borderRadius: '2px 2px 0 0', cursor: 'default', opacity: v === 0 ? 0.35 : 1 }} />
+                                      </div>
                                     )
                                   })}
                                 </div>
