@@ -386,7 +386,10 @@ export default function TrendingPage() {
                           const quoteRow = (e: any) => (
                             <div key={e.id} style={{ background: 'rgba(255,255,255,.03)', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: e.exact_quote ? 4 : 0 }}>
-                                <span style={{ fontSize: 12, fontWeight: 500, color: '#fff' }}>{e.creators?.name}</span>
+                                <Link href={e.creators?.slug ? `/creators/${e.creators.slug}` : '#'} onClick={ev => ev.stopPropagation()}
+                                  style={{ fontSize: 12, fontWeight: 500, color: '#fff', textDecoration: 'none' }}>
+                                  {e.creators?.name}
+                                </Link>
                                 <span style={{ fontSize: 10, color: 'rgba(255,255,255,.25)' }}>
                                   {new Date(e.first_seen).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                 </span>
@@ -404,7 +407,8 @@ export default function TrendingPage() {
                             const color = getAvatarColor(e.creators?.name)
                             return (
                               <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <Link href={e.creators?.slug ? `/creators/${e.creators.slug}` : '#'} onClick={ev => ev.stopPropagation()}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
                                   <div style={{ width: 36, height: 36, borderRadius: '50%', background: color.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: color.text }}>
                                     {e.creators?.name?.[0]?.toUpperCase()}
                                   </div>
@@ -414,7 +418,7 @@ export default function TrendingPage() {
                                       {e.creators?.subscriber_count ? `${formatSubs(e.creators.subscriber_count)} subscribers · ` : ''}first and only mention so far
                                     </p>
                                   </div>
-                                </div>
+                                </Link>
                                 {quoteRow(e)}
                               </div>
                             )
@@ -440,26 +444,35 @@ export default function TrendingPage() {
                           if (variant === 'dominant') {
                             const buckets = bucketEvidenceByDay(brandEvidence)
                             const max = Math.max(...buckets, 1)
+                            const today = new Date()
                             return (
                               <div>
                                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '0 0 6px' }}>Mentions, last 14 days</p>
                                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 36 }}>
-                                  {buckets.map((v, idx) => (
-                                    <div key={idx} style={{ width: 8, height: `${Math.max((v / max) * 100, 4)}%`, background: '#F87171', borderRadius: '2px 2px 0 0' }} />
-                                  ))}
+                                  {buckets.map((v, idx) => {
+                                    const dayDate = new Date(today.getTime() - (13 - idx) * 86400000)
+                                    const label = `${v} mention${v !== 1 ? 's' : ''} on ${dayDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                                    return (
+                                      <div key={idx} title={label}
+                                        style={{ width: 8, height: `${Math.max((v / max) * 100, 4)}%`, background: '#F87171', borderRadius: '2px 2px 0 0', cursor: 'default', opacity: v === 0 ? 0.35 : 1 }} />
+                                    )
+                                  })}
                                 </div>
                                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '12px 0 6px' }}>Who's driving it</p>
                                 <div style={{ display: 'flex', alignItems: 'center' }}>
                                   {uniqueCreators.slice(0, 5).map((e: any, idx: number) => {
                                     const color = getAvatarColor(e.creators?.name)
                                     return (
-                                      <div key={idx} style={{ width: 26, height: 26, borderRadius: '50%', background: color.bg, border: '2px solid #0a0c14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: color.text, marginLeft: idx === 0 ? 0 : -8 }}>
+                                      <Link key={idx} href={e.creators?.slug ? `/creators/${e.creators.slug}` : '#'}
+                                        onClick={ev => ev.stopPropagation()} title={e.creators?.name}
+                                        style={{ width: 26, height: 26, borderRadius: '50%', background: color.bg, border: '2px solid #0a0c14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: color.text, marginLeft: idx === 0 ? 0 : -8, textDecoration: 'none', flexShrink: 0 }}>
                                         {e.creators?.name?.[0]?.toUpperCase()}
-                                      </div>
+                                      </Link>
                                     )
                                   })}
                                   {uniqueCreators.length > 5 && (
-                                    <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(255,255,255,.08)', border: '2px solid #0a0c14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,.5)', marginLeft: -8 }}>
+                                    <div title={`${uniqueCreators.length - 5} more creators`}
+                                      style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(255,255,255,.08)', border: '2px solid #0a0c14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,.5)', marginLeft: -8 }}>
                                       +{uniqueCreators.length - 5}
                                     </div>
                                   )}
