@@ -320,6 +320,8 @@ function adaptBrandCard(row: any) {
     creator_mentions: row.creator_mentions || [],
     best_headline: row.best_headline,
     organic_pct: row.organic_pct,
+    product_mentioned: row.best_product_mentioned,
+    product_url: row.best_product_url,
   }
 }
 
@@ -969,7 +971,9 @@ export default function FeedPage() {
     const code = s.best_code || s.promo_code
     const offer = s.best_offer || s.offer_text
     const videoId = s.best_video_id || s.video_id
-    const promoUrl = s.best_promo_url || s.promo_url || s.brand_url
+   // Product-specific link takes priority when we have one; falls back to the
+    // generic deal/promo link, then the brand's own site — never a dead end.
+    const promoUrl = s.product_url || s.best_promo_url || s.promo_url || s.brand_url
     const sourceUrl = s.best_content_url
     const takeaway = getTakeawayLine(s, cardId)
     const velocityStat = getVelocityStat(s)
@@ -1042,6 +1046,11 @@ export default function FeedPage() {
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', margin: '2px 0 0' }}>
               via {creatorName}{metaBits ? ` · ${metaBits}` : ''}
             </p>
+            {s.product_mentioned && (
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: '2px 0 0' }}>
+                recommends: <span style={{ color: 'rgba(255,255,255,.55)' }}>{s.product_mentioned}</span>
+              </p>
+            )}
             {s.brand_description && (
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '3px 0 0', lineHeight: 1.4 }}>
                 {s.brand_description}
