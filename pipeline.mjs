@@ -484,11 +484,18 @@ export async function saveToDatabase(content, sponsors, creatorId) {
     for (const s of sponsors) {
       if (isBlockedBrand(s.brand)) continue
   
-      const { data: brandData } = await supabase
-        .from('brands')
-        .upsert({ name: s.brand, slug: makeSlug(s.brand) }, { onConflict: 'slug' })
-        .select().single()
-      if (!brandData) continue
+      // Generate an embedding for brand new to the table, or one that just got its
+      // first real description filled in (better embedding input than name alone).
+      if (!brandData.embedding && (s.brand_description || brandData.name)) {
+        try {
+          const input = `${brandData.name}. ${s.brand_description || brandData.description || ''}`.trim()
+          const embeddingRes = await openai.embeddings.create({ model: 'text-embedding-3-small', input })
+          await supabase.from('brands')
+            .update({ embedding: embeddingRes.data[0].embedding })
+            .eq('id', brandData.id)
+            .is('embedding', null)
+        } catch { /* non-critical — semantic search just won't cover this brand yet */ }
+      }
   
       // Primary: the AI classified what the product actually is, at extraction time.
       // Fallback: if the AI couldn't tell, borrow the creator's category as a rough guess —
