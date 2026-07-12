@@ -39,6 +39,7 @@ function SearchContent() {
   const [trending, setTrending] = useState<any[]>([])
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [hasSearched, setHasSearched] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [totalCount, setTotalCount] = useState(0)
   const searchParams = useSearchParams()
 
@@ -95,7 +96,7 @@ function SearchContent() {
     }
     await trackSearch(q, true)
 
-    const fields = `id, promo_code, promo_url, video_id, video_title, is_active, first_seen, last_seen, offer_text, exact_quote, sponsorship_type, platform, is_organic, headline, brands ( name, slug, website_url, description ), creators ( name, slug, subscriber_count, category )`
+    const fields = `id, brand_id, creator_id, promo_code, promo_url, video_id, video_title, is_active, first_seen, last_seen, offer_text, exact_quote, sponsorship_type, platform, is_organic, headline, dar_score, product_mentioned, product_url, brands ( name, slug, website_url, description ), creators ( name, slug, subscriber_count, category )`
     const { data: byBrand } = brandIds.length
       ? await supabase.from('sponsorships').select(fields).in('brand_id', brandIds).limit(30)
       : { data: [] }
@@ -105,21 +106,35 @@ function SearchContent() {
       : { data: [] }
 
       const combined = [...(byBrand || []), ...(byCreator || [])]
-      const seen = new Set()
-      const deduped = combined.filter((r: any) => {
+      const seenIds = new Set()
+      const uniqueRows = combined.filter((r: any) => {
         if (!r.brands || !r.creators) return false
-        // Dedupe by sponsorship id, not creator+brand pair — the old key collapsed
-        // every distinct product/video a creator mentioned for the same brand into
-        // a single result (e.g. Tharun Kumar's MuscleBlaze WrathX, Creatine, Whey
-        // mentions all vanished except one).
-        if (seen.has(r.id)) return false
-        seen.add(r.id)
+        if (seenIds.has(r.id)) return false
+        seenIds.add(r.id)
         return true
       })
 
+      // Pool by creator+brand pair — one card per relationship, with a real
+      // mention count and every other mention available to expand, instead of
+      // showing near-identical flat cards for the same creator repeatedly
+      // mentioning the same brand.
+      const groups: Record<string, any[]> = {}
+      for (const r of uniqueRows) {
+        const key = `${r.brand_id}-${r.creator_id}`
+        if (!groups[key]) groups[key] = []
+        groups[key].push(r)
+      }
+      const pooled = Object.values(groups).map((rows: any[]) => {
+        const sorted = [...rows].sort((a, b) => {
+          if (!!a.promo_code !== !!b.promo_code) return a.promo_code ? -1 : 1
+          return (b.dar_score || 0) - (a.dar_score || 0)
+        })
+        return { ...sorted[0], mention_count: rows.length, other_mentions: sorted.slice(1) }
+      })
+
     const filtered = filter === 'All'
-      ? deduped
-      : deduped.filter((r: any) => r.creators?.category?.toLowerCase().includes(filter.toLowerCase()))
+      ? pooled
+      : pooled.filter((r: any) => r.creators?.category?.toLowerCase().includes(filter.toLowerCase()))
 
     setResults(filtered)
     setLoading(false)
@@ -257,7 +272,7 @@ function SearchContent() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {results.map((r: any, i: number) => {
-                const promoUrl = r.promo_url || r.brands?.website_url
+                const promoUrl = r.product_url || r.promo_url || r.brands?.website_url
                 const isYouTube = r.video_id && !r.video_id.startsWith('linktree_') && !r.video_id.startsWith('amazon_')
                 const platformLabel = r.platform === 'linktree' ? '🌳 linktree' : r.platform === 'amazon' ? '🛒 amazon' : r.platform
 
@@ -286,7 +301,15 @@ function SearchContent() {
                           </div>
                           <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '2px 0 0' }}>
                             via {r.creators?.name} · {platformLabel}
+                            {r.mention_count > 1 && (
+                              <span style={{ color: 'rgba(255,255,255,.25)' }}> · mentioned {r.mention_count} times</span>
+                            )}
                           </p>
+                          {r.product_mentioned && (
+                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: '2px 0 0' }}>
+                              recommends: <span style={{ color: 'rgba(255,255,255,.55)' }}>{r.product_mentioned}</span>
+                            </p>
+                          )}
                           {r.brands?.description && (
                             <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '3px 0 0', lineHeight: 1.4 }}>
                               {r.brands.description}
@@ -381,6 +404,31 @@ function SearchContent() {
   )}
 </div>
                     </div>
+
+                    {r.mention_count > 1 && (
+                      <div style={{ marginTop: 10 }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                          style={{ fontSize: 11, color: '#818CF8', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                          {expandedId === r.id ? '▲' : '▼'} {r.other_mentions.length} other mention{r.other_mentions.length !== 1 ? 's' : ''}
+                        </button>
+                        {expandedId === r.id && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                            {r.other_mentions.map((m: any) => (
+                              <div key={m.id} style={{ background: 'rgba(255,255,255,.03)', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: 'rgba(255,255,255,.5)' }}>
+                                {m.product_mentioned ? `${m.product_mentioned} · ` : ''}
+                                {m.promo_code ? `code ${m.promo_code} · ` : ''}
+                                {timeAgo(m.first_seen)}
+                                {m.video_title && (
+                                  <div style={{ marginTop: 2, color: 'rgba(255,255,255,.3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {m.video_title}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })}
