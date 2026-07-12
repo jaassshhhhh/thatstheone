@@ -164,7 +164,7 @@ export default function TrendingPage() {
       return `${t.brand_name} is showing up everywhere right now`
     }
     if (t.this_week >= 5 && t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) {
-      return `${t.brand_name} went from ${t.last_week} to ${t.this_week} mentions this week`
+      return `${t.brand_name} is pushing harder than usual right now`
     }
     if (t.growth_pct > 0) {
       return `${t.brand_name} is quietly picking up steam`
@@ -186,7 +186,7 @@ export default function TrendingPage() {
       return `${t.total_creators} creators have mentioned it — that kind of spread is hard to manufacture with a single paid campaign.`
     }
     if (t.this_week >= 5 && t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) {
-      return `Real creators, real jump — most brands on this page grow slower than this right now.`
+      return `${t.this_week} creators talked about it this week, up from ${t.last_week} last week. A sudden marketing push like this often comes with a fresh deal, before every creator has the same code.`
     }
     if (t.growth_pct > 0) {
       return `Up ${t.growth_pct}% from last week — not dramatic yet, but the direction is real.`
