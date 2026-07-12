@@ -70,10 +70,11 @@ export default function BrandsPage() {
     const { data } = await q
     let items = data || []
 
-    // On the first page of a real search with few substring matches, also pull
-    // in semantically related brands (e.g. "vpn" -> Surfshark) so this listing
-    // behaves consistently with the main Search page.
-    if (debouncedSearch && pageNum === 0 && items.length < 5) {
+    // Always run semantic search alongside substring matching (not gated behind
+    // a low match count) — partial substring success (e.g. 6 brands literally
+    // named "___VPN") can still miss a real match like Surfshark, whose name
+    // doesn't contain the query text at all.
+    if (debouncedSearch && pageNum === 0) {
       try {
         const res = await fetch('/api/semantic-search', {
           method: 'POST',
