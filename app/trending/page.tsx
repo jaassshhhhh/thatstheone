@@ -260,15 +260,19 @@ export default function TrendingPage() {
                       </div>
                     </div>
 
-                    {/* Growth number */}
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <p style={{ fontSize: 18, fontWeight: 700, color: growthColor(pct, isNew), margin: '0 0 2px', letterSpacing: '-.02em' }}>
-                        {formatGrowth(pct, isNew)}
-                      </p>
-                      {!isNew && (
+                    {/* Growth number — de-emphasized now that the headline carries the
+                        actual insight; only shown at all when it's genuinely the most
+                        relevant fact (Rising/Steady cards), hidden for organic/dominant/new
+                        cards where a raw weekly percentage would contradict or distract
+                        from the real story already stated in the body copy. */}
+                    {(signal.label === 'Rising' || signal.label === 'Worth watching' || signal.label === 'Steady') && (
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,.35)', margin: '0 0 2px' }}>
+                          {formatGrowth(pct, isNew)}
+                        </p>
                         <p style={{ fontSize: 10, color: 'rgba(255,255,255,.2)', margin: 0 }}>vs last week</p>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Bottom row — creator + platforms */}
