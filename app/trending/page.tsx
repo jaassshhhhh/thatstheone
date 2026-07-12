@@ -83,8 +83,11 @@ export default function TrendingPage() {
   }
 
   function getInsightHeadline(t: TrendItem): string {
+    if (t.is_new_this_week && t.total_creators >= 3) {
+      return `${t.brand_name} suddenly got picked up by ${t.total_creators} creators at once`
+    }
     if (t.is_new_this_week) {
-      return `Nobody was talking about ${t.brand_name} until this week`
+      return `${t.brand_name} just entered our data for the first time`
     }
     if (t.organic_pct >= 70) {
       return `Creators keep bringing up ${t.brand_name} unprompted`
@@ -102,8 +105,11 @@ export default function TrendingPage() {
   }
 
   function getInsightBody(t: TrendItem): string {
+    if (t.is_new_this_week && t.total_creators >= 3) {
+      return `That kind of simultaneous attention usually means something specific triggered it — a launch, a controversy, a moment. ${t.top_creator} was one of them.`
+    }
     if (t.is_new_this_week) {
-      return `${t.top_creator} is the only creator on it so far. Early enough that it could go either way.`
+      return `${t.top_creator} is the first creator we've tracked mentioning it. Could be genuinely new to creator sponsorships, or just new to our coverage.`
     }
     if (t.organic_pct >= 70) {
       return `${t.organic_pct}% of recent mentions had no code, no deal, no sponsor language — just people who actually use it.`
