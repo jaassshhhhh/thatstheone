@@ -218,7 +218,7 @@ export default function BrandPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {creators.map((c, i) => {
             const isOpen = expanded === c.creator_id
-            const promoUrl = c.best_promo_url || c.promo_url || c.brand_url
+            const promoUrl = c.best_product_url || c.best_promo_url || c.promo_url || c.brand_url
 
             return (
               <div key={c.creator_id} className="cc"
@@ -245,12 +245,17 @@ export default function BrandPage() {
                           {formatSubs(c.subscriber_count)}
                         </span>
                       )}
-                      {c.mention_count > 1 && (
+                     {c.mention_count > 1 && (
                         <span style={{ fontSize: 10, color: 'rgba(255,255,255,.25)', background: 'rgba(255,255,255,.04)', padding: '1px 6px', borderRadius: 6 }}>
                           {c.mention_count}× mentioned
                         </span>
                       )}
                     </div>
+                    {c.best_product_mentioned && (
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: '2px 0 0' }}>
+                        recommends: <span style={{ color: 'rgba(255,255,255,.55)' }}>{c.best_product_mentioned}</span>
+                      </p>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
                       <span style={{ color: getFreshnessColor(getFreshnessTier(c.last_seen)) }}>
                         {getFreshnessLine({ tier: getFreshnessTier(c.last_seen), lastSeen: c.last_seen, firstSeen: c.first_seen, mentionCount: c.mention_count || 1, timeAgo })}
