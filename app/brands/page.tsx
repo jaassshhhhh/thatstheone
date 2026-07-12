@@ -96,6 +96,19 @@ export default function BrandsPage() {
       } catch { /* semantic search is a nice-to-have — substring results still show */ }
     }
 
+    // Pull deal/organic signal from the already-built brand_feed_cards view,
+    // rather than recomputing "is there an active code" or "how organic is this"
+    // from scratch — same logic already proven on Feed and Search.
+    if (items.length) {
+      const ids = items.map((b: any) => b.id)
+      const { data: cardsData } = await supabase
+        .from('brand_feed_cards')
+        .select('brand_id, best_code, best_offer, organic_pct, distinct_creator_count, any_active')
+        .in('brand_id', ids)
+      const cardMap = new Map((cardsData || []).map((c: any) => [c.brand_id, c]))
+      items = items.map((b: any) => ({ ...b, ...(cardMap.get(b.id) || {}) }))
+    }
+
     if (reset) setBrands(items)
     else setBrands(prev => [...prev, ...items])
     setHasMore(items.length === PAGE_SIZE)
@@ -178,15 +191,25 @@ export default function BrandsPage() {
                         )}
                       </div>
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#fff', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</p>
-                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '0 0 10px' }}>{b.category || 'Brand'}</p>
-                      <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'rgba(255,255,255,.25)' }}>
-                        {b.total_creator_count > 0 && (
-                          <span>{b.total_creator_count} creator{b.total_creator_count !== 1 ? 's' : ''}</span>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '0 0 8px' }}>{b.category || 'Brand'}</p>
+                      <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'rgba(255,255,255,.25)', marginBottom: (b.best_code || b.organic_pct >= 50) ? 8 : 0 }}>
+                        {(b.distinct_creator_count ?? b.total_creator_count) > 0 && (
+                          <span>{b.distinct_creator_count ?? b.total_creator_count} creator{(b.distinct_creator_count ?? b.total_creator_count) !== 1 ? 's' : ''}</span>
                         )}
                         {b.weekly_mention_count > 0 && (
                           <span>· {b.weekly_mention_count} this week</span>
                         )}
                       </div>
+                      {b.best_code && (
+                        <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 600, color: '#818CF8', background: 'rgba(99,102,241,.12)', padding: '2px 8px', borderRadius: 8, marginRight: 6, marginBottom: 4 }}>
+                          🎟 Active deal
+                        </span>
+                      )}
+                      {b.organic_pct >= 50 && (
+                        <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 600, color: '#34D399', background: 'rgba(52,211,153,.12)', padding: '2px 8px', borderRadius: 8, marginBottom: 4 }}>
+                          💡 {b.organic_pct}% organic
+                        </span>
+                      )}
                     </div>
                   </Link>
                 )
