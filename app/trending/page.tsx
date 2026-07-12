@@ -31,6 +31,56 @@ const PLATFORM_ICONS: Record<string, string> = {
   tiktok: '♪',
 }
 
+function formatSubs(n: number) {
+  if (!n) return ''
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
+  if (n >= 1000) return `${Math.round(n / 1000)}k`
+  return `${n}`
+}
+
+function hashString(str: string) {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash)
+}
+
+const AVATAR_COLORS = [
+  { bg: 'rgba(248,113,113,.15)', text: '#F87171' },
+  { bg: 'rgba(129,140,248,.15)', text: '#818CF8' },
+  { bg: 'rgba(251,191,36,.15)', text: '#FBBF24' },
+  { bg: 'rgba(52,211,153,.15)', text: '#34D399' },
+  { bg: 'rgba(244,114,182,.15)', text: '#F472B6' },
+  { bg: 'rgba(96,165,250,.15)', text: '#60A5FA' },
+]
+
+function getAvatarColor(name: string) {
+  const idx = hashString(name || '') % AVATAR_COLORS.length
+  return AVATAR_COLORS[idx]
+}
+
+function bucketEvidenceByDay(evidence: any[]) {
+  const days = 14
+  const buckets = Array(days).fill(0)
+  const now = Date.now()
+  for (const e of evidence) {
+    const diff = Math.floor((now - new Date(e.first_seen).getTime()) / 86400000)
+    const idx = days - 1 - diff
+    if (idx >= 0 && idx < days) buckets[idx]++
+  }
+  return buckets
+}
+
+function getEvidenceVariant(t: TrendItem): 'first_mover' | 'organic' | 'dominant' | 'accelerating' | 'default' {
+  if (t.is_new_this_week) return 'first_mover'
+  if (t.organic_pct >= 70) return 'organic'
+  if (t.total_creators >= 5) return 'dominant'
+  if (t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) return 'accelerating'
+  return 'default'
+}
+
 export default function TrendingPage() {
   const [trends, setTrends] = useState<TrendItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -66,8 +116,6 @@ export default function TrendingPage() {
     setExpandedId(brandId)
   }
 
-  
-
   async function loadTrends() {
     setLoading(true)
     setLoadError(false)
@@ -93,9 +141,6 @@ export default function TrendingPage() {
     return true
   })
 
-  // Insight priority: organic signal and "new" status are the most interesting
-  // findings when true (they're rarer and more meaningful than a growth number),
-  // so they're checked before falling back to growth-based framing.
   function getSignalType(t: TrendItem): { label: string; color: string; bg: string; border: string } {
     if (t.is_new_this_week) return { label: 'First mover', color: '#818CF8', bg: 'rgba(99,102,241,.1)', border: 'rgba(99,102,241,.2)' }
     if (t.organic_pct >= 70) return { label: 'Not a paid push', color: '#34D399', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.2)' }
@@ -274,7 +319,6 @@ export default function TrendingPage() {
 
                   <div style={{ position: 'absolute', top: -24, right: -24, width: 80, height: 80, borderRadius: '50%', background: signal.color, opacity: .06, filter: 'blur(18px)', pointerEvents: 'none' }} />
 
-                  {/* Top row */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                       <div style={{ width: 38, height: 38, borderRadius: 10, background: signal.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: signal.color, flexShrink: 0 }}>
@@ -293,11 +337,6 @@ export default function TrendingPage() {
                       </div>
                     </div>
 
-                    {/* Growth number — de-emphasized now that the headline carries the
-                        actual insight; only shown at all when it's genuinely the most
-                        relevant fact (Rising/Steady cards), hidden for organic/dominant/new
-                        cards where a raw weekly percentage would contradict or distract
-                        from the real story already stated in the body copy. */}
                     {(signal.label === 'Rising' || signal.label === 'Worth watching' || signal.label === 'Steady') && (
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         <p style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,.35)', margin: '0 0 2px' }}>
@@ -308,7 +347,6 @@ export default function TrendingPage() {
                     )}
                   </div>
 
-                  {/* Bottom row — creator + platforms */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {t.top_creator && (
@@ -334,38 +372,137 @@ export default function TrendingPage() {
                     </div>
                   </div>
 
-                  {/* Evidence — the actual raw signal behind the insight claim above,
-                      not just a restated summary. This is the proprietary data moat
-                      made visible: real mentions, real creators, real timestamps. */}
                   <div onClick={e => e.stopPropagation()} style={{ marginTop: 10 }}>
                     <button onClick={() => loadEvidence(t.brand_id)}
                       style={{ fontSize: 11, color: '#818CF8', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                       {isLoadingEvidence ? 'Loading...' : isExpanded ? '▲ Hide the evidence' : '▼ See what\'s driving this'}
                     </button>
                     {isExpanded && !isLoadingEvidence && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-                        {brandEvidence.length === 0 && (
+                      <div style={{ marginTop: 10 }}>
+                        {brandEvidence.length === 0 ? (
                           <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)' }}>No recent mentions found in the last 14 days.</p>
-                        )}
-                        {brandEvidence.map((e: any) => (
-                          <div key={e.id} style={{ background: 'rgba(255,255,255,.03)', borderRadius: 10, padding: '10px 12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: e.exact_quote ? 4 : 0 }}>
-                              <span style={{ fontSize: 12, fontWeight: 500, color: '#fff' }}>
-                                {e.creators?.name}
-                                {e.is_organic && <span style={{ color: '#34D399', marginLeft: 6, fontSize: 10 }}>organic</span>}
-                                {e.promo_code && <span style={{ color: 'rgba(255,255,255,.3)', marginLeft: 6, fontSize: 10 }}>code {e.promo_code}</span>}
-                              </span>
-                              <span style={{ fontSize: 10, color: 'rgba(255,255,255,.25)' }}>
-                                {new Date(e.first_seen).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                              </span>
+                        ) : (() => {
+                          const variant = getEvidenceVariant(t)
+                          const uniqueCreators = Array.from(new Map(brandEvidence.map((e: any) => [e.creators?.name, e])).values())
+                          const quoteRow = (e: any) => (
+                            <div key={e.id} style={{ background: 'rgba(255,255,255,.03)', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: e.exact_quote ? 4 : 0 }}>
+                                <span style={{ fontSize: 12, fontWeight: 500, color: '#fff' }}>{e.creators?.name}</span>
+                                <span style={{ fontSize: 10, color: 'rgba(255,255,255,.25)' }}>
+                                  {new Date(e.first_seen).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                </span>
+                              </div>
+                              {e.exact_quote && (
+                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,.45)', margin: 0, fontStyle: 'italic', lineHeight: 1.4 }}>
+                                  "{e.exact_quote.slice(0, 120)}{e.exact_quote.length > 120 ? '...' : ''}"
+                                </p>
+                              )}
                             </div>
-                            {e.exact_quote && (
-                              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.45)', margin: 0, fontStyle: 'italic', lineHeight: 1.4 }}>
-                                "{e.exact_quote.slice(0, 120)}{e.exact_quote.length > 120 ? '...' : ''}"
-                              </p>
-                            )}
-                          </div>
-                        ))}
+                          )
+
+                          if (variant === 'first_mover') {
+                            const e = brandEvidence[0]
+                            const color = getAvatarColor(e.creators?.name)
+                            return (
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: color.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: color.text }}>
+                                    {e.creators?.name?.[0]?.toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p style={{ fontSize: 12, fontWeight: 500, color: '#fff', margin: 0 }}>{e.creators?.name}</p>
+                                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: '2px 0 0' }}>
+                                      {e.creators?.subscriber_count ? `${formatSubs(e.creators.subscriber_count)} subscribers · ` : ''}first and only mention so far
+                                    </p>
+                                  </div>
+                                </div>
+                                {quoteRow(e)}
+                              </div>
+                            )
+                          }
+
+                          if (variant === 'organic') {
+                            const organicCount = brandEvidence.filter((e: any) => e.is_organic).length
+                            const paidCount = brandEvidence.length - organicCount
+                            const pctOrganic = Math.round(100 * organicCount / brandEvidence.length)
+                            return (
+                              <div>
+                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '0 0 6px' }}>Organic vs paid, last 14 days</p>
+                                <div style={{ display: 'flex', width: 160, height: 8, borderRadius: 4, overflow: 'hidden' }}>
+                                  <div style={{ width: `${pctOrganic}%`, background: '#34D399' }} />
+                                  <div style={{ width: `${100 - pctOrganic}%`, background: 'rgba(255,255,255,.15)' }} />
+                                </div>
+                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', margin: '6px 0 0' }}>{organicCount} organic, {paidCount} paid</p>
+                                {quoteRow(brandEvidence.find((e: any) => e.is_organic) || brandEvidence[0])}
+                              </div>
+                            )
+                          }
+
+                          if (variant === 'dominant') {
+                            const buckets = bucketEvidenceByDay(brandEvidence)
+                            const max = Math.max(...buckets, 1)
+                            return (
+                              <div>
+                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '0 0 6px' }}>Mentions, last 14 days</p>
+                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 36 }}>
+                                  {buckets.map((v, idx) => (
+                                    <div key={idx} style={{ width: 8, height: `${Math.max((v / max) * 100, 4)}%`, background: '#F87171', borderRadius: '2px 2px 0 0' }} />
+                                  ))}
+                                </div>
+                                <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '12px 0 6px' }}>Who's driving it</p>
+                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                  {uniqueCreators.slice(0, 5).map((e: any, idx: number) => {
+                                    const color = getAvatarColor(e.creators?.name)
+                                    return (
+                                      <div key={idx} style={{ width: 26, height: 26, borderRadius: '50%', background: color.bg, border: '2px solid #0a0c14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: color.text, marginLeft: idx === 0 ? 0 : -8 }}>
+                                        {e.creators?.name?.[0]?.toUpperCase()}
+                                      </div>
+                                    )
+                                  })}
+                                  {uniqueCreators.length > 5 && (
+                                    <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(255,255,255,.08)', border: '2px solid #0a0c14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,.5)', marginLeft: -8 }}>
+                                      +{uniqueCreators.length - 5}
+                                    </div>
+                                  )}
+                                </div>
+                                {quoteRow(brandEvidence[0])}
+                              </div>
+                            )
+                          }
+
+                          if (variant === 'accelerating') {
+                            const multiple = (t.growth_pct / t.avg_growth_pct).toFixed(1)
+                            const brandY = 20
+                            const avgY = 40
+                            return (
+                              <div>
+                                <svg viewBox="0 0 280 55" style={{ width: '100%', height: 55 }} role="img" aria-label={`${t.brand_name} growing ${multiple} times faster than average`}>
+                                  <line x1="0" y1="45" x2="280" y2={brandY} stroke="#FBBF24" strokeWidth="2.5" fill="none" />
+                                  <line x1="0" y1="45" x2="280" y2={avgY} stroke="rgba(255,255,255,.25)" strokeWidth="1.5" strokeDasharray="3,3" fill="none" />
+                                  <circle cx="280" cy={brandY} r="4" fill="#FBBF24" />
+                                  <circle cx="280" cy={avgY} r="3" fill="rgba(255,255,255,.4)" />
+                                </svg>
+                                <div style={{ display: 'flex', gap: 14, marginTop: 2 }}>
+                                  <span style={{ fontSize: 11, color: '#FBBF24' }}>
+                                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: '#FBBF24', marginRight: 4 }} />
+                                    {t.brand_name}, {multiple}x
+                                  </span>
+                                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,.35)' }}>
+                                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: 'rgba(255,255,255,.35)', marginRight: 4 }} />
+                                    Average trending brand
+                                  </span>
+                                </div>
+                                {quoteRow(brandEvidence[0])}
+                              </div>
+                            )
+                          }
+
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {brandEvidence.slice(0, 4).map(quoteRow)}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )}
                   </div>
