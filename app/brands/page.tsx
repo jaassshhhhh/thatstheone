@@ -53,12 +53,14 @@ export default function BrandsPage() {
     const from = pageNum * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
 
-    let q = supabase
-      .from('brands')
-      .select(`
+    const fields = `
         id, name, slug, category, website_url, velocity_score,
         total_creator_count, weekly_mention_count, velocity_delta
-      `)
+      `
+
+    let q = supabase
+      .from('brands')
+      .select(fields)
       .order('velocity_score', { ascending: false, nullsFirst: false })
       .range(from, to)
 
@@ -66,7 +68,32 @@ export default function BrandsPage() {
     if (category !== 'All') q = q.ilike('category', `%${category}%`)
 
     const { data } = await q
-    const items = data || []
+    let items = data || []
+
+    // On the first page of a real search with few substring matches, also pull
+    // in semantically related brands (e.g. "vpn" -> Surfshark) so this listing
+    // behaves consistently with the main Search page.
+    if (debouncedSearch && pageNum === 0 && items.length < 5) {
+      try {
+        const res = await fetch('/api/semantic-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: debouncedSearch }),
+        })
+        const { results: semanticBrands } = await res.json()
+        const existingIds = new Set(items.map((b: any) => b.id))
+        const newIds = (semanticBrands || [])
+          .filter((b: any) => b.similarity >= 0.35 && !existingIds.has(b.id))
+          .map((b: any) => b.id)
+        if (newIds.length) {
+          const { data: extra } = await supabase
+            .from('brands')
+            .select(fields)
+            .in('id', newIds)
+          items = [...items, ...(extra || [])]
+        }
+      } catch { /* semantic search is a nice-to-have — substring results still show */ }
+    }
 
     if (reset) setBrands(items)
     else setBrands(prev => [...prev, ...items])
