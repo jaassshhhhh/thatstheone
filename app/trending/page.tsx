@@ -455,7 +455,7 @@ export default function TrendingPage() {
                                     const label = `${v} · ${dayDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
                                     const barId = `spark-${t.brand_id}-${idx}`
                                     return (
-                                      <div key={idx} style={{ position: 'relative' }}
+                                      <div key={idx} style={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'flex-end' }}
                                         onMouseEnter={() => setHoveredBar(barId)}
                                         onMouseLeave={() => setHoveredBar(null)}>
                                         {hoveredBar === barId && (
