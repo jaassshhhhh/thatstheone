@@ -472,26 +472,34 @@ export default function TrendingPage() {
 
                           if (variant === 'accelerating') {
                             const multiple = (t.growth_pct / t.avg_growth_pct).toFixed(1)
-                            const brandY = 20
-                            const avgY = 40
+                            // Bar comparison, not a fabricated line trend — we only have two
+                            // real numbers here (this brand's growth vs the set average), not
+                            // a day-by-day trajectory, so a bar honestly represents what we
+                            // actually know instead of implying a curve we don't have.
+                            const maxVal = Math.max(t.growth_pct, t.avg_growth_pct, 1)
                             return (
                               <div>
-                                <svg viewBox="0 0 280 55" style={{ width: '100%', height: 55 }} role="img" aria-label={`${t.brand_name} growing ${multiple} times faster than average`}>
-                                  <line x1="0" y1="45" x2="280" y2={brandY} stroke="#FBBF24" strokeWidth="2.5" fill="none" />
-                                  <line x1="0" y1="45" x2="280" y2={avgY} stroke="rgba(255,255,255,.25)" strokeWidth="1.5" strokeDasharray="3,3" fill="none" />
-                                  <circle cx="280" cy={brandY} r="4" fill="#FBBF24" />
-                                  <circle cx="280" cy={avgY} r="3" fill="rgba(255,255,255,.4)" />
-                                </svg>
-                                <div style={{ display: 'flex', gap: 14, marginTop: 2 }}>
-                                  <span style={{ fontSize: 11, color: '#FBBF24' }}>
-                                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: '#FBBF24', marginRight: 4 }} />
-                                    {t.brand_name}, {multiple}x
-                                  </span>
-                                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,.35)' }}>
-                                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: 'rgba(255,255,255,.35)', marginRight: 4 }} />
-                                    Average trending brand
-                                  </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                  <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                                      <span style={{ fontSize: 11, color: '#FBBF24' }}>{t.brand_name}</span>
+                                      <span style={{ fontSize: 11, color: '#FBBF24', fontWeight: 500 }}>+{t.growth_pct}%</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: 8, borderRadius: 4, background: 'rgba(255,255,255,.06)' }}>
+                                      <div style={{ width: `${Math.max((t.growth_pct / maxVal) * 100, 4)}%`, height: '100%', borderRadius: 4, background: '#FBBF24' }} />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,.35)' }}>Average trending brand</span>
+                                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,.35)' }}>+{t.avg_growth_pct}%</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: 8, borderRadius: 4, background: 'rgba(255,255,255,.06)' }}>
+                                      <div style={{ width: `${Math.max((t.avg_growth_pct / maxVal) * 100, 4)}%`, height: '100%', borderRadius: 4, background: 'rgba(255,255,255,.25)' }} />
+                                    </div>
+                                  </div>
                                 </div>
+                                <p style={{ fontSize: 10, color: 'rgba(255,255,255,.3)', margin: '8px 0 0' }}>{multiple}x the average this week</p>
                                 {quoteRow(brandEvidence[0])}
                               </div>
                             )
