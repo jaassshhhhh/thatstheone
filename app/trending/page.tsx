@@ -183,7 +183,7 @@ export default function TrendingPage() {
       return `${t.organic_pct}% of recent mentions had no code, no deal, no sponsor language — just people who actually use it.`
     }
     if (t.total_creators >= 5) {
-      return `${t.total_creators} creators have mentioned it — that kind of spread is hard to manufacture with a single paid campaign.`
+      return `${t.total_creators} different creators are all talking about it — too many for one brand deal to explain.`
     }
     if (t.this_week >= 5 && t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) {
       return `${t.this_week} creators talked about it this week, up from ${t.last_week} last week. A sudden marketing push like this often comes with a fresh deal, before every creator has the same code.`
