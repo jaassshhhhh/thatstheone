@@ -129,7 +129,20 @@ function SearchContent() {
           if (!!a.promo_code !== !!b.promo_code) return a.promo_code ? -1 : 1
           return (b.dar_score || 0) - (a.dar_score || 0)
         })
-        return { ...sorted[0], mention_count: rows.length, other_mentions: sorted.slice(1) }
+        // The hero row is picked for having the best code/score, but the freshness
+        // line should reflect the group's true most recent mention, not just the
+        // hero's own date — otherwise a stale hero can wrongly show "27mo ago" when
+        // a 2-day-old mention exists elsewhere in the same group.
+        const mostRecent = rows.reduce((latest, r) =>
+          new Date(r.last_seen || r.first_seen) > new Date(latest.last_seen || latest.first_seen) ? r : latest
+        , rows[0])
+        return {
+          ...sorted[0],
+          mention_count: rows.length,
+          other_mentions: sorted.slice(1),
+          last_seen: mostRecent.last_seen,
+          first_seen: rows.reduce((earliest, r) => new Date(r.first_seen) < new Date(earliest.first_seen) ? r : earliest, rows[0]).first_seen,
+        }
       })
 
     const filtered = filter === 'All'
