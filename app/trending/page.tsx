@@ -77,7 +77,7 @@ function getEvidenceVariant(t: TrendItem): 'first_mover' | 'organic' | 'dominant
   if (t.is_new_this_week) return 'first_mover'
   if (t.organic_pct >= 70) return 'organic'
   if (t.total_creators >= 5) return 'dominant'
-  if (t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) return 'accelerating'
+  if (t.this_week >= 5 && t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) return 'accelerating'
   return 'default'
 }
 
@@ -145,7 +145,7 @@ export default function TrendingPage() {
     if (t.is_new_this_week) return { label: 'First mover', color: '#818CF8', bg: 'rgba(99,102,241,.1)', border: 'rgba(99,102,241,.2)' }
     if (t.organic_pct >= 70) return { label: 'Not a paid push', color: '#34D399', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.2)' }
     if (t.total_creators >= 5) return { label: 'Widely adopted', color: '#F87171', bg: 'rgba(239,68,68,.1)', border: 'rgba(239,68,68,.2)' }
-    if (t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) return { label: 'Worth watching', color: '#FBBF24', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.2)' }
+    if (t.this_week >= 5 && t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) return { label: 'Picking up speed', color: '#FBBF24', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.2)' }
     if (t.growth_pct > 0) return { label: 'Rising', color: '#FBBF24', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.2)' }
     return { label: 'Steady', color: 'rgba(255,255,255,.3)', bg: 'rgba(255,255,255,.04)', border: 'rgba(255,255,255,.08)' }
   }
@@ -163,8 +163,8 @@ export default function TrendingPage() {
     if (t.total_creators >= 5) {
       return `${t.brand_name} is showing up everywhere right now`
     }
-    if (t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) {
-      return `${t.brand_name} is accelerating faster than most`
+    if (t.this_week >= 5 && t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) {
+      return `${t.brand_name} went from ${t.last_week} to ${t.this_week} mentions this week`
     }
     if (t.growth_pct > 0) {
       return `${t.brand_name} is quietly picking up steam`
@@ -185,9 +185,8 @@ export default function TrendingPage() {
     if (t.total_creators >= 5) {
       return `${t.total_creators} creators have mentioned it — that kind of spread is hard to manufacture with a single paid campaign.`
     }
-    if (t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) {
-      const multiple = (t.growth_pct / t.avg_growth_pct).toFixed(1)
-      return `Growing ${multiple}x faster than the average trending brand this week. That kind of jump usually means something is about to break wider.`
+    if (t.this_week >= 5 && t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) {
+      return `Real creators, real jump — most brands on this page grow slower than this right now.`
     }
     if (t.growth_pct > 0) {
       return `Up ${t.growth_pct}% from last week — not dramatic yet, but the direction is real.`
@@ -337,7 +336,7 @@ export default function TrendingPage() {
                       </div>
                     </div>
 
-                    {(signal.label === 'Rising' || signal.label === 'Worth watching' || signal.label === 'Steady') && (
+                    {(signal.label === 'Rising' || signal.label === 'Picking up speed' || signal.label === 'Steady') && (
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         <p style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,.35)', margin: '0 0 2px' }}>
                           {formatGrowth(pct, isNew)}
