@@ -110,10 +110,14 @@ export default function BrandsPage() {
     }
 
     if (reset) setBrands(items)
-    else setBrands(prev => [...prev, ...items])
-    setHasMore(items.length === PAGE_SIZE)
-    setLoading(false)
-  }
+      else setBrands(prev => [...prev, ...items])
+      // hasMore should reflect whether the SUBSTRING query itself was full (i.e.
+      // more raw pages might exist) — semantic extras are a one-time bonus on page
+      // 0 and shouldn't affect pagination logic, or "no more results" gets reported
+      // prematurely just because semantic only added a few items.
+      setHasMore(data ? data.length === PAGE_SIZE : false)
+      setLoading(false)
+    }
 
   return (
     <Layout>
