@@ -726,7 +726,7 @@ async function discoverByCategory() {
   ]
   const channels = []
   for (const cat of categories) {
-    if (totalQuotaUsed() > totalQuotaLimit() * 0.4) break // stop at 40% quota used
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.15) break // stop at 15% quota used
     const results = await searchYouTubeChannels(`${cat} channel`, 3)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
@@ -745,7 +745,7 @@ async function discoverByPopularity() {
   ]
   const channels = []
   for (const q of queries) {
-    if (totalQuotaUsed() > totalQuotaLimit() * 0.5) break
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.2) break
     const results = await searchYouTubeChannels(q, 4)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
@@ -762,7 +762,7 @@ async function discoverByBrand() {
     .limit(15)
   const channels = []
   for (const brand of (brands || [])) {
-    if (totalQuotaUsed() > totalQuotaLimit() * 0.6) break
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.22) break
     const results = await searchYouTubeChannels(`${brand.name} review sponsor`, 3)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
@@ -780,7 +780,7 @@ async function discoverByRelated(knownIds) {
     .limit(15)
   const channels = []
   for (const creator of (existingCreators || [])) {
-    if (totalQuotaUsed() > totalQuotaLimit() * 0.65) break
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.25) break
     const results = await searchYouTubeChannels(`${creator.name} similar creator`, 3)
     channels.push(...results.filter(c => !knownIds.has(c.channelId)))
     await new Promise(r => setTimeout(r, 150))
@@ -793,7 +793,7 @@ async function discoverByTrends(trendSeeds) {
   if (!trendSeeds.length) return []
   const channels = []
   for (const topic of trendSeeds.slice(0, 15)) {
-    if (totalQuotaUsed() > totalQuotaLimit() * 0.7) break
+    if (totalQuotaUsed() > totalQuotaLimit() * 0.27) break
     const results = await searchYouTubeChannels(`${topic} youtube creator`, 3)
     channels.push(...results)
     await new Promise(r => setTimeout(r, 150))
@@ -814,8 +814,8 @@ async function discoverByGapFill(knownIds) {
       .map(([cat]) => cat)
     const channels = []
     for (const cat of underserved) {
-        if (totalQuotaUsed() > totalQuotaLimit() * 0.75) break
-      const results = await searchYouTubeChannels(`${cat} youtube creator`, 3)
+      if (totalQuotaUsed() > totalQuotaLimit() * 0.3) break
+    const results = await searchYouTubeChannels(`${cat} youtube creator`, 3)
       channels.push(...results.filter(c => !knownIds.has(c.channelId)))
       await new Promise(r => setTimeout(r, 150))
     }
@@ -1452,7 +1452,7 @@ async function runPodcasts() {
           .eq('slug', makeSlug(podcast.name))
       }
   
-    const newPodcasts = await discoverPodcasts(50)
+      const newPodcasts = await discoverPodcasts(100)
     let total = 0
   
     // Process newly discovered podcasts
@@ -1487,11 +1487,11 @@ async function runPodcasts() {
     .eq('platform', 'podcast')
     .not('rss_url', 'is', null)
     .order('last_scraped_at', { ascending: true, nullsFirst: true })
-    .limit(150)
+    .limit(250)
 
   const existingPodcasts = (podcastCandidates || [])
     .filter(c => !c.last_scraped_at || new Date(c.last_scraped_at).getTime() < fourDaysAgoMs)
-    .slice(0, 30)
+    .slice(0, 60)
 
   console.log(`  🔄 Re-processing ${(existingPodcasts || []).length} existing podcasts for new episodes...`)
 
@@ -1754,7 +1754,7 @@ async function runNewsletters() {
       .eq('platform', 'newsletter')
       .not('rss_url', 'is', null)
       .order('last_scraped_at', { ascending: true, nullsFirst: true })
-      .limit(20)
+      .limit(40)
   
     console.log(`  🔄 Re-processing ${(existingNewsletters || []).length} existing newsletters...`)
   
@@ -1836,7 +1836,7 @@ async function runTwitch() {
   let total = 0
 
   try {
-    const gamesRes = await fetch('https://api.twitch.tv/helix/games/top?first=15', { headers })
+    const gamesRes = await fetch('https://api.twitch.tv/helix/games/top?first=25', { headers })
     const gamesData = await gamesRes.json()
     const games = gamesData.data || []
 
@@ -1844,7 +1844,7 @@ async function runTwitch() {
       const streamsRes = await fetch(`https://api.twitch.tv/helix/streams?game_id=${game.id}&first=100`, { headers })
       const streamsData = await streamsRes.json()
       const pool = (streamsData.data || []).slice(20)
-      const streams = pool.sort(() => Math.random() - 0.5).slice(0, 8)
+      const streams = pool.sort(() => Math.random() - 0.5).slice(0, 12)
 
       for (const stream of streams) {
         const userRes = await fetch(`https://api.twitch.tv/helix/users?id=${stream.user_id}`, { headers })
