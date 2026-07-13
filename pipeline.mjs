@@ -1680,13 +1680,36 @@ const NEWSLETTER_BOOTSTRAP = [
   { name: 'Milk Road', url: 'https://milkroad.com/feed', category: 'Crypto' },
 ]
 
+async function getNewsletterDiscoveryState() {
+  const { data } = await supabase.from('newsletter_discovery_state').select('*').eq('id', 1).single()
+  return data || { best_listing_page: 0, category_index: 0, category_page: 2 }
+}
+
+async function advanceNewsletterDiscoveryState(state) {
+  const nextBestPage = (state.best_listing_page + 1) % 20
+  const nextCategoryIndex = (state.category_index + 1) % 4
+  const nextCategoryPage = nextCategoryIndex === 0 ? state.category_page + 1 : state.category_page
+  await supabase.from('newsletter_discovery_state').update({
+    best_listing_page: nextBestPage,
+    category_index: nextCategoryIndex,
+    category_page: nextCategoryPage,
+    updated_at: new Date().toISOString(),
+  }).eq('id', 1)
+}
+
 async function discoverNewsletters() {
   const { data: existing } = await supabase.from('creators').select('name').eq('platform', 'newsletter')
   const known = new Set((existing || []).map(c => c.name.toLowerCase()))
   const discovered = [...NEWSLETTER_BOOTSTRAP.filter(n => !known.has(n.name.toLowerCase()))]
 
+  const state = await getNewsletterDiscoveryState()
+  const NICHE_CATEGORIES = [
+    { id: 4, label: 'Technology' }, { id: 11, label: 'Culture/Music' },
+    { id: 18, label: 'History' }, { id: 34, label: 'Education' },
+  ]
+
   try {
-    const res = await fetch('https://substack.com/api/v1/publication/best?page=0&limit=25', { headers: { 'User-Agent': 'ThatsTheOne/1.0' } })
+    const res = await fetch(`https://substack.com/api/v1/publication/best?page=${state.best_listing_page}&limit=25`, { headers: { 'User-Agent': 'ThatsTheOne/1.0' } })
     if (res.ok) {
       const data = await res.json()
       const pubs = data?.publications || data || []
@@ -1699,6 +1722,27 @@ async function discoverNewsletters() {
       }
     }
   } catch {}
+
+  const cat = NICHE_CATEGORIES[state.category_index]
+  try {
+    const res = await fetch(`https://substack.com/api/v1/category/public/${cat.id}/all?page=${state.category_page}`, { headers: { 'User-Agent': 'ThatsTheOne/1.0' } })
+    if (res.ok) {
+      const data = await res.json()
+      const pubs = data?.publications || data || []
+      let categoryFound = 0
+      for (const pub of pubs) {
+        const name = pub.name || pub.title
+        const subdomain = pub.subdomain
+        if (!name || !subdomain || known.has(name.toLowerCase())) continue
+        discovered.push({ name, url: `https://${subdomain}.substack.com/feed`, category: pub.category_name || cat.label })
+        known.add(name.toLowerCase())
+        categoryFound++
+      }
+      console.log(`  🎯 ${cat.label} category (page ${state.category_page}): ${categoryFound} new candidates`)
+    }
+  } catch {}
+
+  await advanceNewsletterDiscoveryState(state)
 
   console.log(`  📋 ${discovered.length} newsletters to process`)
   return discovered
