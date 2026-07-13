@@ -48,8 +48,8 @@ function hashString(str: string) {
 }
 
 const AVATAR_COLORS = [
-  { bg: 'rgba(127,119,221,.15)', text: '#7F77DD' },
-  { bg: 'rgba(239,159,39,.15)', text: '#EF9F27' },
+  { bg: 'rgba(255,46,146,.15)', text: '#FF2E92' },
+  { bg: 'rgba(255,242,60,.15)', text: '#FFF23C' },
   { bg: 'rgba(255,255,255,.08)', text: 'rgba(255,255,255,.7)' },
 ]
 
@@ -140,11 +140,11 @@ export default function TrendingPage() {
   })
 
   function getSignalType(t: TrendItem): { label: string; color: string; bg: string; border: string } {
-    if (t.is_new_this_week) return { label: 'First mover', color: '#EF9F27', bg: 'rgba(239,159,39,.1)', border: 'rgba(239,159,39,.2)' }
-    if (t.organic_pct >= 70) return { label: 'Not a paid push', color: '#7F77DD', bg: 'rgba(127,119,221,.1)', border: 'rgba(127,119,221,.2)' }
+    if (t.is_new_this_week) return { label: 'First mover', color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' }
+    if (t.organic_pct >= 70) return { label: 'Not a paid push', color: '#FF2E92', bg: 'rgba(255,46,146,.12)', border: 'rgba(255,46,146,.3)' }
     if (t.total_creators >= 5) return { label: 'Widely adopted', color: 'rgba(255,255,255,.7)', bg: 'rgba(255,255,255,.05)', border: 'rgba(255,255,255,.15)' }
-    if (t.this_week >= 5 && t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) return { label: 'Picking up speed', color: '#EF9F27', bg: 'rgba(239,159,39,.1)', border: 'rgba(239,159,39,.2)' }
-    if (t.growth_pct > 0) return { label: 'Rising', color: '#EF9F27', bg: 'rgba(239,159,39,.1)', border: 'rgba(239,159,39,.2)' }
+    if (t.this_week >= 5 && t.growth_pct >= t.avg_growth_pct * 2 && t.avg_growth_pct > 0) return { label: 'Picking up speed', color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' }
+    if (t.growth_pct > 0) return { label: 'Rising', color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' }
     return { label: 'Steady', color: 'rgba(255,255,255,.3)', bg: 'rgba(255,255,255,.04)', border: 'rgba(255,255,255,.08)' }
   }
 
@@ -200,7 +200,7 @@ export default function TrendingPage() {
   }
 
   function growthColor(pct: number, isNew: boolean) {
-    if (isNew) return '#7F77DD'
+    if (isNew) return '#00E5FF'
     if (pct > 0) return '#34D399'
     if (pct === 0) return 'rgba(255,255,255,.3)'
     return '#F87171'
@@ -231,7 +231,7 @@ export default function TrendingPage() {
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', paddingBottom: 2 }}>
           {CATEGORIES.map(c => (
             <button key={c} className="filt" onClick={() => setCategory(c)}
-              style={{ fontSize: 11, padding: '5px 13px', borderRadius: 20, border: '0.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .15s', borderColor: category === c ? '#7F77DD' : 'rgba(255,255,255,.06)', background: category === c ? 'rgba(127,119,221,.12)' : 'transparent', color: category === c ? '#7F77DD' : 'rgba(255,255,255,.3)' }}>
+              style={{ fontSize: 11, padding: '5px 13px', borderRadius: 20, border: '0.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .15s', borderColor: category === c ? '#00E5FF' : 'rgba(255,255,255,.06)', background: category === c ? 'rgba(0,229,255,.12)' : 'transparent', color: category === c ? '#00E5FF' : 'rgba(255,255,255,.3)' }}>
               {c}
             </button>
           ))}
@@ -246,7 +246,7 @@ export default function TrendingPage() {
           ] as const).map(f => (
             <button key={f.key} className="filt"
               onClick={() => setFilter(f.key)}
-              style={{ fontSize: 11, padding: '5px 13px', borderRadius: 20, border: '0.5px solid', cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap', borderColor: filter === f.key ? '#7F77DD' : 'rgba(255,255,255,.08)', background: filter === f.key ? 'rgba(127,119,221,.15)' : 'transparent', color: filter === f.key ? '#7F77DD' : 'rgba(255,255,255,.4)' }}>
+              style={{ fontSize: 11, padding: '5px 13px', borderRadius: 20, border: '0.5px solid', cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap', borderColor: filter === f.key ? '#00E5FF' : 'rgba(255,255,255,.08)', background: filter === f.key ? 'rgba(0,229,255,.15)' : 'transparent', color: filter === f.key ? '#00E5FF' : 'rgba(255,255,255,.4)' }}>
               {f.label}
             </button>
           ))}
@@ -257,7 +257,7 @@ export default function TrendingPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 6 }}>
               {[
                 { label: category === 'All' ? 'Trending now' : `Trending in ${category}`, value: inCategory.length, color: '#fff' },
-                { label: 'New this week', value: inCategory.filter(t => t.is_new_this_week).length, color: '#7F77DD' },
+                { label: 'New this week', value: inCategory.filter(t => t.is_new_this_week).length, color: '#00E5FF' },
                 { label: 'Surging', value: inCategory.filter(t => t.growth_pct >= 100).length, color: '#34D399' },
               ].map(s => (
                 <div key={s.label} style={{ background: 'rgba(255,255,255,.03)', border: '0.5px solid rgba(255,255,255,.07)', borderRadius: 12, padding: '10px 12px' }}>
@@ -287,7 +287,7 @@ export default function TrendingPage() {
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <p style={{ fontSize: 28, marginBottom: 10 }}>⚠</p>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,.3)', marginBottom: 12 }}>Couldn't load trends right now</p>
-            <button onClick={loadTrends} style={{ fontSize: 12, padding: '6px 16px', borderRadius: 10, background: 'rgba(127,119,221,.15)', color: '#7F77DD', border: '0.5px solid rgba(127,119,221,.25)', cursor: 'pointer' }}>
+            <button onClick={loadTrends} style={{ fontSize: 12, padding: '6px 16px', borderRadius: 10, background: 'rgba(127,119,221,.15)', color: '#00E5FF', border: '0.5px solid rgba(127,119,221,.25)', cursor: 'pointer' }}>
               Try again
             </button>
           </div>
@@ -371,7 +371,7 @@ export default function TrendingPage() {
 
                   <div onClick={e => e.stopPropagation()} style={{ marginTop: 10 }}>
                     <button onClick={() => loadEvidence(t.brand_id)}
-                      style={{ fontSize: 11, color: '#7F77DD', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      style={{ fontSize: 11, color: '#00E5FF', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                       {isLoadingEvidence ? 'Loading...' : isExpanded ? '▲ Hide the evidence' : '▼ See what\'s driving this'}
                     </button>
                     {isExpanded && !isLoadingEvidence && (

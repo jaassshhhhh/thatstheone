@@ -44,14 +44,14 @@ async function computeAffinity(sessionId: string): Promise<string[]> {
 }
 
 const CARD_CONFIGS: Record<string, { label: string; icon: string; color: string; bg: string; border: string }> = {
-  VELOCITY: { label: 'Blowing up',          icon: 'ti-flame',        color: '#EF9F27', bg: 'rgba(239,159,39,.1)',  border: 'rgba(239,159,39,.25)' },
-  ORGANIC:  { label: 'Genuine love',        icon: 'ti-heart',        color: '#7F77DD', bg: 'rgba(127,119,221,.1)', border: 'rgba(127,119,221,.25)' },
+  VELOCITY: { label: 'Blowing up',          icon: 'ti-flame',        color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' },
+  ORGANIC:  { label: 'Genuine love',        icon: 'ti-heart',        color: '#FF2E92', bg: 'rgba(255,46,146,.12)', border: 'rgba(255,46,146,.3)' },
   NEW_DEAL: { label: 'Just dropped',        icon: 'ti-speakerphone', color: 'rgba(255,255,255,.7)', bg: 'rgba(255,255,255,.05)', border: 'rgba(255,255,255,.15)' },
-  TRENDING: { label: 'Everyone\'s talking', icon: 'ti-trending-up',  color: '#EF9F27', bg: 'rgba(239,159,39,.1)',  border: 'rgba(239,159,39,.25)' },
-  MULTI:    { label: 'Creator consensus',   icon: 'ti-users',        color: '#7F77DD', bg: 'rgba(127,119,221,.1)', border: 'rgba(127,119,221,.25)' },
-  HOT:      { label: 'Limited deal',        icon: 'ti-bolt',         color: '#EF9F27', bg: 'rgba(239,159,39,.1)',  border: 'rgba(239,159,39,.25)' },
+  TRENDING: { label: 'Everyone\'s talking', icon: 'ti-trending-up',  color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' },
+  MULTI:    { label: 'Creator consensus',   icon: 'ti-users',        color: '#FF2E92', bg: 'rgba(255,46,146,.12)', border: 'rgba(255,46,146,.3)' },
+  HOT:      { label: 'Limited deal',        icon: 'ti-bolt',         color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' },
   PERSONAL: { label: 'For you',             icon: 'ti-sparkles',     color: 'rgba(255,255,255,.7)', bg: 'rgba(255,255,255,.05)', border: 'rgba(255,255,255,.15)' },
-  EARLY:    { label: 'Just spotted',        icon: 'ti-eye',          color: '#EF9F27', bg: 'rgba(239,159,39,.1)',  border: 'rgba(239,159,39,.25)' },
+  EARLY:    { label: 'Just spotted',        icon: 'ti-eye',          color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' },
 }
 
 const REACTIONS = [
@@ -97,7 +97,7 @@ function getTakeawayLine(s: any, cardId: string) {
   const hasDeal = s.best_code || s.promo_code || offer
   if (s.is_organic) {
     const idx = hashString(cardId + 'organic') % ORGANIC_PHRASES.length
-    return { text: ORGANIC_PHRASES[idx](creator), color: '#7F77DD', icon: '💡' }
+    return { text: ORGANIC_PHRASES[idx](creator), color: '#FF2E92', icon: '💡' }
   }
   if (hasDeal && offer) {
     const idx = hashString(cardId + 'sponsored') % SPONSORED_PHRASES.length
