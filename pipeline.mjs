@@ -1317,87 +1317,106 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
 // CONNECTOR 2 — Podcasts
 // ═══════════════════════════════════════════════════════════
 
-const PODCAST_SEEDS = [
-  'entrepreneurship', 'personal finance', 'productivity', 'health wellness',
-  'technology', 'investing', 'education', 'comedy', 'true crime', 'fitness',
-  'mental health', 'marketing', 'leadership', 'crypto', 'real estate',
-  'self improvement', 'science', 'history', 'sports', 'food',
-  'business', 'interview', 'news', 'storytelling', 'philosophy',
-]
-
-const NICHE_PODCAST_SEEDS = [
-  'urban gardening', 'vintage watch collecting', 'home coffee roasting',
-  'craft beer podcast', 'analog photography', 'solo travel podcast',
-  'indie game development', 'minimalist living', 'freelance writing podcast',
-  'boutique fitness', 'sustainable fashion', 'independent bookstore',
-  'plant based cooking podcast', 'local journalism', 'small business owner',
-]
-
 const BOOTSTRAP_PODCASTS = [
-    { name: 'The Tim Ferriss Show', rss: 'https://rss.art19.com/tim-ferriss-show', category: 'Lifestyle' },
-    { name: 'Huberman Lab', rss: 'https://feeds.megaphone.fm/hubermanlab', category: 'Health' },
-    { name: 'My First Million', rss: 'https://feeds.megaphone.fm/HS2300184645', category: 'Finance' },
-    { name: 'Diary of a CEO', rss: 'https://rss2.flightcast.com/xmsftuzjjykcmqwolaqn6mdn', category: 'Entrepreneurship' },
-    { name: 'Modern Wisdom', rss: 'https://feeds.megaphone.fm/SIXMSB5088139739', category: 'Lifestyle' },
-    { name: 'All-In Podcast', rss: 'https://rss.libsyn.com/shows/254861/destinations/1928300.xml', category: 'Tech' },
-    { name: 'Acquired', rss: 'https://feeds.transistor.fm/acquired', category: 'Finance' },
-    { name: 'How I Built This', rss: 'https://rss.art19.com/how-i-built-this', category: 'Entrepreneurship' },
-    { name: 'Darknet Diaries', rss: 'https://feeds.megaphone.fm/darknetdiaries', category: 'Tech' },
-    { name: 'Crime Junkie', rss: 'https://feeds.simplecast.com/qm_9xx0g', category: 'True Crime' },
-    { name: 'The Knowledge Project', rss: 'https://feeds.megaphone.fm/FSMI7575968096', category: 'Productivity' },
-    { name: 'Lex Fridman Podcast', rss: 'https://lexfridman.com/feed/podcast/', category: 'Tech' },
-    { name: 'Founders Podcast', rss: 'https://feeds.megaphone.fm/DSLLC6297708582', category: 'Entrepreneurship' },
-    { name: 'Planet Money', rss: 'https://feeds.npr.org/510289/podcast.xml', category: 'Finance' },
-    { name: 'Freakonomics Radio', rss: 'https://feeds.simplecast.com/Y8lFbOT4', category: 'Education' },
-    { name: 'SmartLess', rss: 'https://feeds.simplecast.com/hNaFxXpO', category: 'Comedy' },
-    { name: 'Armchair Expert', rss: 'https://rss.art19.com/armchair-expert', category: 'Lifestyle' },
-    { name: 'The Daily', rss: 'https://feeds.simplecast.com/54nAGcIl', category: 'News' },
-    // 'Contrarian Thinking' removed — genuinely unfindable on Apple Podcasts under
-    // that title after two independent lookups (one wrongly matched a different
-    // show called "POWERS"). Needs manual research before re-adding — see notes.
-    { name: 'The Game w/ Alex Hormozi', rss: 'https://rss2.flightcast.com/zz5nwp81tktx53wb8fw6qq7j.xml', category: 'Entrepreneurship' },
-  ]
+  { name: 'The Tim Ferriss Show', rss: 'https://rss.art19.com/tim-ferriss-show', category: 'Lifestyle' },
+  { name: 'Huberman Lab', rss: 'https://feeds.megaphone.fm/hubermanlab', category: 'Health' },
+  { name: 'My First Million', rss: 'https://feeds.megaphone.fm/HS2300184645', category: 'Finance' },
+  { name: 'Diary of a CEO', rss: 'https://rss2.flightcast.com/xmsftuzjjykcmqwolaqn6mdn', category: 'Entrepreneurship' },
+  { name: 'Modern Wisdom', rss: 'https://feeds.megaphone.fm/SIXMSB5088139739', category: 'Lifestyle' },
+  { name: 'All-In Podcast', rss: 'https://rss.libsyn.com/shows/254861/destinations/1928300.xml', category: 'Tech' },
+  { name: 'Acquired', rss: 'https://feeds.transistor.fm/acquired', category: 'Finance' },
+  { name: 'How I Built This', rss: 'https://rss.art19.com/how-i-built-this', category: 'Entrepreneurship' },
+  { name: 'Darknet Diaries', rss: 'https://feeds.megaphone.fm/darknetdiaries', category: 'Tech' },
+  { name: 'Crime Junkie', rss: 'https://feeds.simplecast.com/qm_9xx0g', category: 'True Crime' },
+  { name: 'The Knowledge Project', rss: 'https://feeds.megaphone.fm/FSMI7575968096', category: 'Productivity' },
+  { name: 'Lex Fridman Podcast', rss: 'https://lexfridman.com/feed/podcast/', category: 'Tech' },
+  { name: 'Founders Podcast', rss: 'https://feeds.megaphone.fm/DSLLC6297708582', category: 'Entrepreneurship' },
+  { name: 'Planet Money', rss: 'https://feeds.npr.org/510289/podcast.xml', category: 'Finance' },
+  { name: 'Freakonomics Radio', rss: 'https://feeds.simplecast.com/Y8lFbOT4', category: 'Education' },
+  { name: 'SmartLess', rss: 'https://feeds.simplecast.com/hNaFxXpO', category: 'Comedy' },
+  { name: 'Armchair Expert', rss: 'https://rss.art19.com/armchair-expert', category: 'Lifestyle' },
+  { name: 'The Daily', rss: 'https://feeds.simplecast.com/54nAGcIl', category: 'News' },
+  // 'Contrarian Thinking' removed — genuinely unfindable on Apple Podcasts under
+  // that title after two independent lookups (one wrongly matched a different
+  // show called "POWERS"). Needs manual research before re-adding — see notes.
+  { name: 'The Game w/ Alex Hormozi', rss: 'https://rss2.flightcast.com/zz5nwp81tktx53wb8fw6qq7j.xml', category: 'Entrepreneurship' },
+]
+
+async function getRotatingPodcastSeeds(count = 40) {
+const { data: candidates } = await supabase
+  .from('podcast_seed_terms')
+  .select('id, term')
+  .order('used_at', { ascending: true, nullsFirst: true })
+  .limit(count)
+
+let terms = (candidates || []).map(t => t.term)
+const usedIds = (candidates || []).map(t => t.id)
+
+if (terms.length < count) {
+  const needed = count - terms.length
+  const { data: existingTerms } = await supabase.from('podcast_seed_terms').select('term')
+  const existingSet = new Set((existingTerms || []).map(t => t.term.toLowerCase()))
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{
+        role: 'system',
+        content: `Generate ${needed} genuinely niche, specific podcast topic search terms — the kind that surface small, independent shows on Apple Podcasts, not major mainstream ones. Think narrow hobbies, specific professions, or micro-communities (e.g. "vintage synthesizer collecting", "urban beekeeping", "solo restaurant ownership"). Return ONLY a JSON array of strings, no other text.`
+      }],
+      temperature: 0.9,
+      max_tokens: 500,
+    })
+    const raw = completion.choices[0].message.content?.trim() || '[]'
+    const generated = JSON.parse(raw.replace(/```json|```/g, '').trim())
+    const newTerms = (Array.isArray(generated) ? generated : [])
+      .filter(t => typeof t === 'string' && t.length > 3 && !existingSet.has(t.toLowerCase()))
+      .slice(0, needed)
+    if (newTerms.length) {
+      const { data: inserted } = await supabase
+        .from('podcast_seed_terms')
+        .insert(newTerms.map(term => ({ term, source: 'ai_generated' })))
+        .select('id, term')
+      terms = [...terms, ...(inserted || []).map(t => t.term)]
+      usedIds.push(...(inserted || []).map(t => t.id))
+      console.log(`  🤖 Generated ${newTerms.length} new podcast seed terms via AI`)
+    }
+  } catch (err) {
+    console.log(`  ✗ Seed generation error: ${err.message}`)
+  }
+}
+
+if (usedIds.length) {
+  await supabase.from('podcast_seed_terms').update({ used_at: new Date().toISOString() }).in('id', usedIds)
+}
+
+return terms
+}
 
 async function discoverPodcasts(maxNew = 50) {
-  const { data: existing } = await supabase.from('creators').select('name').eq('platform', 'podcast')
-  const known = new Set((existing || []).map(c => c.name.toLowerCase()))
-  const discovered = [...BOOTSTRAP_PODCASTS.filter(p => !known.has(p.name.toLowerCase()))]
+const { data: existing } = await supabase.from('creators').select('name').eq('platform', 'podcast')
+const known = new Set((existing || []).map(c => c.name.toLowerCase()))
+const discovered = [...BOOTSTRAP_PODCASTS.filter(p => !known.has(p.name.toLowerCase()))]
 
-  for (const term of PODCAST_SEEDS) {
-    if (discovered.length >= maxNew) break
-    try {
-      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=podcast&limit=8&country=us`
-      const res = await fetch(url, { headers: { 'User-Agent': 'ThatsTheOne/1.0' } })
-      const data = await res.json()
-      for (const pod of (data.results || [])) {
-        if (!pod.feedUrl) continue
-        if (known.has(pod.trackName?.toLowerCase())) continue
-        if (discovered.find(d => d.name === pod.trackName)) continue
-        if ((pod.trackCount || 0) < 5) continue
-        discovered.push({ name: pod.trackName, rss: pod.feedUrl, category: pod.primaryGenreName || 'General' })
-        known.add(pod.trackName?.toLowerCase())
-      }
-      await new Promise(r => setTimeout(r, 200))
-    } catch {}
-  }
+const seedTerms = await getRotatingPodcastSeeds(40)
+console.log(`  🔄 Using ${seedTerms.length} rotating seed terms this run`)
 
-  for (const term of NICHE_PODCAST_SEEDS) {
-    if (discovered.length >= maxNew) break
-    try {
-      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=podcast&limit=8&country=us`
-      const res = await fetch(url, { headers: { 'User-Agent': 'ThatsTheOne/1.0' } })
-      const data = await res.json()
-      for (const pod of (data.results || [])) {
-        if (!pod.feedUrl) continue
-        if (known.has(pod.trackName?.toLowerCase())) continue
-        if (discovered.find(d => d.name === pod.trackName)) continue
-        if ((pod.trackCount || 0) < 5) continue
-        discovered.push({ name: pod.trackName, rss: pod.feedUrl, category: pod.primaryGenreName || term })
-        known.add(pod.trackName?.toLowerCase())
-      }
-      await new Promise(r => setTimeout(r, 200))
-    } catch {}
-  }
+for (const term of seedTerms) {
+  if (discovered.length >= maxNew) break
+  try {
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=podcast&limit=8&country=us`
+    const res = await fetch(url, { headers: { 'User-Agent': 'ThatsTheOne/1.0' } })
+    const data = await res.json()
+    for (const pod of (data.results || [])) {
+      if (!pod.feedUrl) continue
+      if (known.has(pod.trackName?.toLowerCase())) continue
+      if (discovered.find(d => d.name === pod.trackName)) continue
+      if ((pod.trackCount || 0) < 5) continue
+      discovered.push({ name: pod.trackName, rss: pod.feedUrl, category: pod.primaryGenreName || term })
+      known.add(pod.trackName?.toLowerCase())
+    }
+    await new Promise(r => setTimeout(r, 200))
+  } catch {}
+}
 
   console.log(`  📋 ${discovered.length} podcasts to process`)
   return discovered
