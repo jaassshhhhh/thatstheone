@@ -26,9 +26,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         borderBottom: '1px solid rgba(255,255,255,.06)',
       }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-          <Logo size={26} />
-          <span style={{ fontWeight: 600, fontSize: 14, letterSpacing: '-.02em', color: '#fff' }}>that's the one</span>
-        </Link>
+  <Logo size={26} />
+</Link>
 
         <div style={{ display: 'flex', gap: 4 }} className="desktop-nav">
           {tabs.map(t => (
