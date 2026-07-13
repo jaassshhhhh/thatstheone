@@ -1,6 +1,7 @@
 'use client'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import Logo from './Logo'
 
 const tabs = [
   { label: 'Feed',     href: '/feed',     icon: 'ti-layout-grid' },
@@ -14,18 +15,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
   return (
-    <div style={{ background: '#060810', minHeight: '100vh', fontFamily: '-apple-system,BlinkMacSystemFont,sans-serif', color: '#fff' }}>
+    <div style={{ background: '#14122E', minHeight: '100vh', fontFamily: '-apple-system,BlinkMacSystemFont,sans-serif', color: '#fff' }}>
 
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 24px',
-        background: 'rgba(6,8,16,.9)',
+        background: 'rgba(20,18,46,.9)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(255,255,255,.06)',
       }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-          <div style={{ width: 26, height: 26, borderRadius: 7, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>✦</div>
+          <Logo size={26} />
           <span style={{ fontWeight: 600, fontSize: 14, letterSpacing: '-.02em', color: '#fff' }}>that's the one</span>
         </Link>
 
@@ -33,8 +34,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {tabs.map(t => (
             <Link key={t.href} href={t.href} style={{
               fontSize: 13, padding: '6px 14px', borderRadius: 8, textDecoration: 'none',
-              color: pathname === t.href || pathname.startsWith(t.href + '/') ? '#818CF8' : 'rgba(255,255,255,.4)',
-              background: pathname === t.href || pathname.startsWith(t.href + '/') ? 'rgba(99,102,241,.12)' : 'transparent',
+              color: pathname === t.href || pathname.startsWith(t.href + '/') ? '#7F77DD' : 'rgba(255,255,255,.4)',
+              background: pathname === t.href || pathname.startsWith(t.href + '/') ? 'rgba(127,119,221,.15)' : 'transparent',
               transition: 'all .15s',
             }}>
               {t.label}
@@ -43,7 +44,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div style={{ width: 80, display: 'flex', justifyContent: 'flex-end' }}>
-        <Link href="/profile" style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(99,102,241,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#818CF8', textDecoration: 'none', cursor: 'pointer' }}>J</Link>
+        <Link href="/profile" style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(127,119,221,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#7F77DD', textDecoration: 'none', cursor: 'pointer' }}>J</Link>
         </div>
       </nav>
 
@@ -54,7 +55,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
         display: 'flex',
-        background: 'rgba(6,8,16,.95)',
+        background: 'rgba(20,18,46,.95)',
         backdropFilter: 'blur(16px)',
         borderTop: '1px solid rgba(255,255,255,.06)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -65,12 +66,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Link key={t.href} href={t.href} style={{
               flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
               padding: '8px 0 6px', textDecoration: 'none', gap: 2,
-              color: active ? '#818CF8' : 'rgba(255,255,255,.3)',
+              color: active ? '#7F77DD' : 'rgba(255,255,255,.3)',
               transition: 'color .15s',
             }}>
               <i className={`ti ${t.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
               <span style={{ fontSize: 9, letterSpacing: '.02em' }}>{t.label}</span>
-              {active && <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#6366F1' }} />}
+              {active && <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#EF9F27' }} />}
             </Link>
           )
         })}

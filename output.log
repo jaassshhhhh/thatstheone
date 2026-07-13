@@ -1,0 +1,664 @@
+◇ injected env (13) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+
+═══════════════════════════════════════════════════════
+🚀 Unified pipeline — 2026-07-12T02:20:03.213Z
+   Sources: YouTube · Podcasts · Reddit · Newsletters · Twitch
+   YouTube strategies: Category · Popularity · Brand · Related · Trends · Gap
+═══════════════════════════════════════════════════════
+📚 1000 creators already in database
+
+
+🌊 Fetching trend seeds...
+  📈 YouTube trending: 20 topic seeds
+  ✅ Total: 20 trend seeds (YT:20 Reddit:0 Users:0)
+
+▶ YouTube connector starting...
+  🔍 Running 6 discovery strategies...
+  📋 2 unique candidates:
+     3 from categories
+     0 from popularity
+     0 from brands
+     0 from related channels
+     0 from trend seeds
+     0 from gap fill
+  📊 Quota used so far: ~9310 / 48000 units
+  📺 Processing podcast YouTube channels...
+  👟 Processing sneaker/streetwear YouTube channels...
+  🔄 Re-processing 300 existing creators for new content...
+  🔗 Collab detector loaded: 999 known brands
+    🟡 [youtube] Munch → mention
+       📰 Desi Gym Fitness mentions Munch in recent YouTube video
+    🟡 [youtube] Vicks → mention 🌱
+       📰 Parenting India reviews Vicks Baby Rub for infants on YouTube
+    🟢 [youtube] CashKaro → AAYUSH25
+       📰 CashKaro offering ₹25 signup bonus through Aayush Sapra's referral code
+    🟡 [youtube] Samsung → mention
+       📰 Counting Unique reviews Samsung Galaxy A27's 6.7-inch AMOLED display on YouTube
+    🟡 [youtube] Samsung → mention
+       📰 Counting Unique highlights Samsung Galaxy A27's 50MP camera capabilities on YouTube
+    🟡 [youtube] Samsung → Galaxy S25 Ultra available at 8499 during Amazon Prime Day sale.
+       📰 Counting Unique promoting Galaxy S25 Ultra for ₹8499 during Amazon Prime Day
+    🟡 [youtube] Samsung → mention
+       📰 Counting Unique highlights Samsung Galaxy A56's vibrant violet color on YouTube
+    🟡 [youtube] Wheel → mention
+       📰 Counting Unique mentions Wheel for exceptional clothing cleaning on YouTube
+    🟡 [youtube] Realme → mention 🌱
+       📰 Counting Unique highlights Realme watch for sporty performance in recent video
+    🟡 [youtube] Realme → mention 🌱
+       📰 Counting Unique discusses Realme's 55 dB noise cancellation feature on YouTube
+    🟢 [youtube] Micromax → LAPTOP10
+       📰 Micromax offering discount on Ignite LPQ61408W with LAPTOP10 code through Web Tech
+    🟡 [youtube] iBall → NULL
+       📰 Web Tech features iBall CompBook M500 in recent YouTube review
+    🟢 [youtube] iBall → NULL
+       📰 Web Tech features iBall's Exemplaire Plus in recent YouTube video
+    🟢 [youtube] Realme → url
+       📰 Web Tech reviews Realme XT in new YouTube video
+    🟡 [youtube] Realme → mention 🌱
+       📰 Web Tech recommends Realme 3i after using Realme 2 Pro
+    🟡 [youtube] Infinix → mention 🌱
+       📰 Web Tech highlights Infinix Hot 8 in recent YouTube video
+    🟢 [youtube] Gamer Supps → BART
+       📰 Joe Bart Games promoting Gamer Supps with 10% off and free shipping
+    🟢 [youtube] Gamer Supps → BART
+       📰 Joe Bart Games promotes Gamer Supps with 10% off and free shipping
+    🟢 [youtube] Gamer Supps → BART
+       📰 Joe Bart Games promotes Gamer Supps with 10% off and free shipping
+    🟢 [youtube] Gamer Supps → BART
+       📰 Joe Bart Games promotes Gamer Supps with 10% off and free shipping
+    🟢 [youtube] Gamer Supps → BART
+       📰 Joe Bart Games promotes Gamer Supps with 10% off and free shipping
+    🟢 [youtube] Gamer Supps → BART
+       📰 Joe Bart Games promotes Gamer Supps with 10% off and free shipping
+    🟢 [youtube] Gamer Supps → BART
+       📰 Joe Bart Games promotes Gamer Supps with 10% off and free shipping code
+    🟢 [youtube] Gamer Supps → BART
+       📰 Joe Bart Games promotes Gamer Supps with 10% off and free shipping
+    🟢 [youtube] LMNT → Get a free 8-count Sample Pack of LMNT's most popular drink mix flavors with any purchase.
+       📰 Renaissance Periodization promotes LMNT's free 8-count Sample Pack offer
+    🟢 [youtube] Versagripps → DRMIKE10
+       📰 Renaissance Periodization promotes Versagripps hypertrophy training belt with code DRMIKE10
+    🟢 [youtube] Supremacy World War 3 → Play for FREE on PC, iOS, or Android
+       📰 The Fat Electrician promotes free play of Supremacy World War 3 on all platforms
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician promotes Xidax PCs on YouTube channel
+    🟢 [youtube] Delete Me → 20% Off
+       📰 The Fat Electrician promotes Delete Me with 20% off for viewers
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician promotes Xidax PCs in recent YouTube content
+    🟢 [youtube] Delete Me → 20% Off
+       📰 The Fat Electrician promotes 20% off Delete Me on YouTube
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician partners with Xidax for PC sponsorship on YouTube
+    🟢 [youtube] Supremacy World War 3 → Play Supremacy World War 3 for FREE on PC, iOS, or Android
+       📰 The Fat Electrician promotes free access to Supremacy World War 3 across devices
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician partners with Xidax for PC sponsorship on YouTube
+    🟢 [youtube] Delete Me → 20% Off
+       📰 The Fat Electrician promotes 20% off Delete Me on YouTube
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician partners with Xidax for PC sponsorship on YouTube
+    🟢 [youtube] Element → Get a free sample pack with your order.
+       📰 The Fat Electrician promoting Element's free sample pack offer on YouTube
+    🟢 [youtube] Delete Me → 20% Off
+       📰 The Fat Electrician promoting 20% off Delete Me on YouTube
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician partners with Xidax for PC sponsorship on YouTube
+    🟢 [youtube] Zyx Custom Gaming PCs → mention
+       📰 The Fat Electrician features Zyx Custom Gaming PCs in recent YouTube video
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician partners with Xidax for PC sponsorship on YouTube
+    🟡 [youtube] Warwood → mention
+       📰 The Fat Electrician mentions Warwood tools in latest YouTube video
+    🟡 [youtube] Las Concealment → mention
+       📰 The Fat Electrician mentions Las Concealment in latest YouTube video
+    🟢 [youtube] War Thunder → free large bonus back with boosters, vehicles, and more
+       📰 The Fat Electrician promotes War Thunder with free large bonuses for players
+    🟢 [youtube] DeleteMe → 20% Off
+       📰 The Fat Electrician promoting 20% off DeleteMe on YouTube
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician partners with Xidax for PC sponsorship on YouTube
+    🟢 [youtube] Sundays → TFE
+       📰 The Fat Electrician promotes Sundays dog food with discount code TFE
+    🟢 [youtube] Henson Shaving → code
+       📰 The Fat Electrician promotes Henson Shaving in latest YouTube video
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician partners with Xidax for PC sponsorship on YouTube
+    🟢 [youtube] Delete Me → 20% Off
+       📰 The Fat Electrician promoting 20% off Delete Me on YouTube
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician partners with Xidax for PC sponsorship on YouTube
+    🟢 [youtube] War Thunder → free large bonus back with boosters, vehicles, and more
+       📰 The Fat Electrician promotes free large bonus in War Thunder via YouTube
+    🟢 [youtube] Xidax → url
+       📰 The Fat Electrician partners with Xidax for PC sponsorship on YouTube
+    🟢 [youtube] Big Mode → 20% off everything for one week only
+       📰 Big Mode offers 20% off sitewide for one week via videogamedunkey
+    🟢 [youtube] Epson → mention 🌱
+       📰 CalebRated mentions Epson projector in recent YouTube review video
+    🟢 [youtube] CableRated → mention
+       📰 CalebRated mentions CableRated in recent YouTube video
+    🟡 [youtube] Hisense → mention
+       📰 CalebRated features Hisense as video sponsor on YouTube
+    🟡 [youtube] Hisense → mention
+       📰 CalebRated features Hisense in recent YouTube video sponsorship
+    🟡 [youtube] Nero 62 Custom Diecast → mention
+       📰 3Dbotmaker promoting Nero 62 Custom Diecast on YouTube channel
+    🟡 [youtube] Manscaped → mention
+       📰 3Dbotmaker mentions Manscaped in recent YouTube video sponsorship
+    🟡 [youtube] O'Doul's → mention
+       📰 3Dbotmaker mentions O'Doul's in latest YouTube video
+    🟡 [youtube] Scorpio Love Smith → mention
+       📰 3Dbotmaker receives sponsorship mention from Scorpio Love Smith on YouTube
+    🟡 [youtube] Valerion → mention
+       📰 The Hook Up features Valerion's Pure Vision white screen in new video
+    🟡 [youtube] XGIMI → mention
+       📰 The Hook Up highlights XGIMI's Titan Noir on Kickstarter
+    🟡 [youtube] Hisense → mention
+       📰 The Hook Up mentions Hisense's triple laser projector on YouTube
+    🟡 [youtube] Silver Ticket → mention
+       📰 The Hook Up features Silver Ticket on YouTube with no current offers
+    🟡 [youtube] Spectra → mention
+       📰 The Hook Up features Spectra Element Gray in latest YouTube video
+    🟢 [youtube] Aiper → HOOKUPPD5
+       📰 The Hook Up promotes Aiper with code HOOKUPPD5 on YouTube
+    🟡 [youtube] Roborock → mention 🌱
+       📰 The Hook Up reviews discounted Roborock X1 Lidar now priced at $1,848
+    🟡 [youtube] Navimow → mention 🌱
+       📰 The Hook Up highlights Navimow X430 priced at $2,099, a record low
+    🟡 [youtube] Beatbot → mention 🌱
+       📰 The Hook Up highlights Beatbot Sora 10 as top choice at $449
+    🟢 [youtube] Beatbot → Extra 5% off
+       📰 The Hook Up promotes Beatbot with extra 5% off using HOOKUPPOOL5
+    🟡 [youtube] Aiper → mention
+       📰 The Hook Up reviews Aiper Scuba V3 robot on YouTube
+    🟡 [youtube] Ecovacs → mention
+       📰 The Hook Up features Ecovacs UltraMarine P1 budget robot vacuum on YouTube
+    🟡 [youtube] Dolphin → mention
+       📰 The Hook Up features Dolphin's Premium Sand/Silt/Pollen Robot on YouTube
+    🟢 [youtube] Aiper → HOOKUPWR01
+       📰 Aiper provides additional 5% discount code through The Hook Up on YouTube
+    🟢 [youtube] OtO → url
+       📰 The Hook Up reviews OtO Smart Sprinkler on YouTube
+    🟢 [youtube] HolidayCoro → Huge supply of holiday light show products
+       📰 The Hook Up promotes HolidayCoro's extensive holiday light show products
+    🟢 [youtube] Govee → mention
+       📰 The Hook Up features Govee's new immersion TV kit on YouTube
+    🟡 [youtube] BTF Lighting → mention
+       📰 The Hook Up thanks BTF Lighting for LED strip testing support
+    🟡 [youtube] Sony → mention
+       📰 A2D Channel features Sony's Bravia home theater system in latest video
+    🟢 [youtube] cdkeyoffer → A2D
+       📰 A2D Channel promoting 25% discount on Windows keys from cdkeyoffer
+    🟢 [youtube] BuyHatke → url
+       📰 A2D Channel promotes BuyHatke Chrome Extension on YouTube
+    🟢 [youtube] cdkeyoffer → A2D
+       📰 A2D Channel promotes 25% discount on Windows keys from cdkeyoffer
+    🟢 [youtube] cdkeyoffer → A2D
+       📰 A2D Channel promotes 25% off Windows keys from cdkeyoffer
+    🟢 [youtube] Shure → Take your content creation to the next level with the Shure's MoveMic.
+       📰 A2D Channel promotes Shure's MoveMic for enhanced content creation on YouTube
+    🟢 [youtube] cdkeyoffer → A2D
+       📰 A2D Channel promoting 25% discount on Windows keys from cdkeyoffer
+    🟢 [youtube] cdkeyoffer → $23 for Win 11 Pro
+       📰 A2D Channel promotes Win 11 Pro for $23 on cdkeyoffer
+    🟢 [youtube] cdkeyoffer → $15 for Win 10 Home
+       📰 A2D Channel promoting Win 10 Home for $15 on cdkeyoffer
+    🟢 [youtube] cdkeyoffer → $29 for Office 2016
+       📰 A2D Channel promoting Office 2016 for $29 on cdkeyoffer
+    🟢 [youtube] cdkeyoffer → $47 for Office 2019
+       📰 A2D Channel promoting Office 2019 for $47 on cdkeyoffer
+    🟢 [youtube] Notion → url
+       📰 Matt Wolfe features Notion in recent YouTube sponsorship deal
+    🟢 [youtube] MindStudio → FRIENDS100
+       📰 Matt Wolfe promotes one month free of MindStudio with code FRIENDS100
+    🟢 [youtube] Wirestock → MATT20
+       📰 Matt Wolfe promotes 20% off Wirestock Premium Account with code MATT20
+  ⚠️  Quota limit approaching — stopping re-processing
+  🔥 Processing trending videos directly...
+    🟢 [youtube] Gamer Supps → S7
+       📰 SMii7Yplus promotes 10% off Gamer Supps orders with code S7
+    🟢 [youtube] Traction Bikes → MARKYB
+       📰 Marky B promoting £100 off SurRons with Traction Bikes code MARKYB
+    🟢 [youtube] Gamer Supps → S7
+       📰 SMii7Yplus promotes Gamer Supps with 10% off using code S7
+    🟢 [youtube] Zenni Optical → PRESTON10
+       📰 PrestonPlayz partners with Zenni Optical for 10% off using PRESTON10
+  ✓ Trending videos: 4 sponsorships
+  ✓ YouTube: 0 new creators, 98 sponsorships
+
+🎙 Podcast connector starting...
+  📋 5 podcasts to process
+  🎙 Empowering Exceptional Minds
+    📄 20 episodes parsed, avg desc length: 1382 chars
+    🟢 [podcast] Young Scholars Academy → save 10%
+       📰 Young Scholars Academy offers 10% savings through Empowering Exceptional Minds podcast
+  🎙 I Survived
+    📄 20 episodes parsed, avg desc length: 924 chars
+    🟢 [podcast] BetterHelp → SURVIVED
+       📰 BetterHelp offering 10% off first month through I Survived podcast
+    🟢 [podcast] Apartments.com → find whatever you’re searching for and more
+       📰 I Survived podcast promotes Apartments.com for all housing searches
+    🟢 [podcast] Earnin → ISURVIVED
+       📰 I Survived promoting Earnin through podcast signups with code ISURVIVED
+    🟢 [podcast] First Leaf → 50% off your first box PLUS free shipping for an entire year
+       📰 First Leaf offering 50% off first box and free shipping through I Survived podcast
+    🟢 [podcast] Mint → new 3-month premium wireless plan for just $15 a month
+       📰 I Survived promoting Mint's new $15 monthly wireless plan for three months
+    🟢 [podcast] Talkiatry → ISURVIVED
+       📰 Talkiatry matches patients with in-network psychiatrists in minutes via I Survived
+    🟢 [podcast] Shopify → one-dollar-per-month trial period
+       📰 I Survived promoting Shopify's one-dollar-per-month trial for new users
+    🟢 [podcast] Mint Mobile → new 3-month premium wireless plan for just $15 a month
+       📰 I Survived promoting Mint Mobile's new $15 per month wireless plan
+    🟢 [podcast] Omaha Steaks → SURVIVED
+       📰 Omaha Steaks offers $35 off with code SURVIVED through I Survived podcast
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promoting car insurance quotes through Progressive's podcast platform
+    🟢 [podcast] Omaha Steaks → SURVIVED
+       📰 Omaha Steaks offers $35 off with code SURVIVED through I Survived podcast
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promotes car insurance quotes from Progressive on podcast
+    🟢 [podcast] Talkiatry → Get matched with an in-network psychiatrist
+       📰 Talkiatry partners with I Survived podcast for quick psychiatrist matching
+    🟢 [podcast] First Leaf → SURVIVED
+       📰 First Leaf providing 50% off first box and free shipping via I Survived
+    🟢 [podcast] Mint → SURVIVED
+       📰 I Survived promoting Mint's new $15 monthly wireless plan for three months
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promotes Progressive car insurance quotes through podcast channels
+    🟢 [podcast] Shopify → one-dollar-per-month trial period
+       📰 Shopify offers one-dollar-per-month trial through I Survived podcast
+    🟢 [podcast] BetterHelp → SURVIVED
+       📰 BetterHelp providing 10% off first month through I Survived podcast code
+    🟢 [podcast] Progressive → Join the over 28 million drivers who trust Progressive.
+       📰 I Survived promoting Progressive to over 28 million trusted drivers
+    🟢 [podcast] Apartments.com → The place to find a place.
+       📰 Apartments.com partners with I Survived podcast to reach new audiences
+    🟢 [podcast] Apartments.com → Find whatever you’re searching for and more.
+       📰 I Survived promotes Apartments.com for extensive rental property searches
+    🟢 [podcast] Progressive → Quote your car insurance.
+       📰 I Survived promotes car insurance quotes through Progressive's podcast platform
+    🟢 [podcast] Shopify → Sign up for a one-dollar-per-month trial period.
+       📰 I Survived promoting Shopify's one-dollar-per-month trial for new users
+    🟢 [podcast] Omaha Steaks → SURVIVED
+       📰 I Survived podcast promoting $35 off Omaha Steaks with code SURVIVED
+    🟢 [podcast] Progressive → url
+       📰 I Survived promotes Progressive car insurance to podcast listeners
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promoting car insurance quotes from Progressive on podcast platform
+    🟢 [podcast] BetterHelp → SURVIVED
+       📰 BetterHelp offers 10% off first month through I Survived podcast
+    🟢 [podcast] First Leaf → SURVIVED
+       📰 First Leaf providing 50% off first box through I Survived podcast
+    🟢 [podcast] Mint → new 3-month premium wireless plan for just $15 a month
+       📰 I Survived promoting Mint's new $15/month premium wireless plan
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promoting car insurance quotes from Progressive on podcast platform
+    🟢 [podcast] Angi → Download the free Angi tool
+       📰 I Survived podcast promotes free download of Angi tool
+    🟢 [podcast] Apartments.com → find whatever you’re searching for and more
+       📰 Apartments.com partnering with I Survived podcast to promote property searches
+    🟢 [podcast] Apartments.com → Find whatever you’re searching for and more.
+       📰 I Survived promotes Apartments.com for finding rental properties on podcast
+    🟢 [podcast] Shopify → Sign up for a one-dollar-per-month trial period.
+       📰 I Survived promotes Shopify's one-dollar-per-month trial for new users
+    🟢 [podcast] Omaha Steaks → SURVIVED
+       📰 I Survived podcast offers $35 off Omaha Steaks with code SURVIVED
+    🟢 [podcast] Apartments.com → url
+       📰 Apartments.com featured on I Survived podcast for property searches
+    🟢 [podcast] Tempo → 60% off your first box
+       📰 Tempo offering 60% off first box through I Survived podcast
+    🟢 [podcast] BetterHelp → SURVIVED
+       📰 BetterHelp offers 10% off first month through I Survived podcast code
+    🟢 [podcast] Angi → url
+       📰 I Survived promotes Angi tool on podcast for home improvement solutions
+    🟢 [podcast] Apartments.com → url
+       📰 Apartments.com partners with I Survived podcast to reach new audiences
+    🟢 [podcast] Mint Mobile → SURVIVED
+       📰 I Survived promoting Mint Mobile's $15/month wireless plan with code SURVIVED
+    🟢 [podcast] TesterUp → url
+       📰 I Survived promotes TesterUp on podcast, available for free download
+    🟢 [podcast] Tempo → SURVIVED
+       📰 Tempo offering 60% off first box through I Survived podcast code
+    🟢 [podcast] Apartments.com → url
+       📰 I Survived promotes Apartments.com in latest podcast episode
+    🟢 [podcast] Mint Mobile → new 3-month premium wireless plan for just $15 a month
+       📰 I Survived promoting Mint Mobile's $15 monthly plan for new customers
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promotes Progressive car insurance to podcast listeners
+    🟢 [podcast] TesterUp → Download TesterUp for free
+       📰 I Survived promoting free TesterUp downloads through podcast link
+    🟢 [podcast] Apartments.com → Find whatever you’re searching for and more.
+       📰 Apartments.com partners with I Survived podcast to promote housing search services
+    🟢 [podcast] Progressive → Quote your car insurance.
+       📰 I Survived podcast promotes car insurance quotes from Progressive
+    🟢 [podcast] Shopify → Sign up for a one-dollar-per-month trial period.
+       📰 I Survived promoting Shopify’s one-dollar-per-month trial for new users
+    🟢 [podcast] Stamps → ISURVIVED
+       📰 Stamps offers sixty days risk-free with I Survived podcast code
+    🟢 [podcast] Tempo → 60% off your first box
+       📰 Tempo offering 60% off first box through I Survived podcast
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promoting car insurance quotes from Progressive on podcast episodes
+    🟢 [podcast] Apartments.com → The place to find a place
+       📰 Apartments.com partners with I Survived podcast to promote rental services
+    🟢 [podcast] BetterHelp → 10% off your first month
+       📰 BetterHelp offers 10% off first month through I Survived podcast
+    🟡 [podcast] Apartments.com → mention
+       📰 I Survived highlights Apartments.com as the go-to rental resource
+    🟢 [podcast] Mint → new 3-month premium wireless plan for just $15 a month
+       📰 I Survived promoting Mint's new $15/month wireless plan for three months
+    🟢 [podcast] Progressive → join the over 28 million drivers who trust Progressive
+       📰 I Survived promoting Progressive insurance to over 28 million drivers
+  🎙 Hey, ADHD Agent | Systems, Time Management, Real Estate Agent, Lead Generation, Realtor, Moms in Real Estate
+    📄 20 episodes parsed, avg desc length: 2190 chars
+    🟢 [podcast] Flodesk → Get 25% off your first year
+       📰 Hey, ADHD Agent promotes 25% off Flodesk for first-year subscribers
+    🟢 [podcast] Coffee and Contracts → $20 off your first month
+       📰 Hey, ADHD Agent promoting $20 off first month with Coffee and Contracts
+    🟢 [podcast] Coffee and Contracts → $20 off your first month
+       📰 Coffee and Contracts offering $20 off first month for new users
+    🟢 [podcast] Real Estate, Simplified → EPISODE50
+       📰 Hey, ADHD Agent offers 50th episode discount with code EPISODE50
+    🟢 [podcast] Coffee & Contracts → HEYADHDAGENT
+       📰 Coffee & Contracts offering special discount through code HEYADHDAGENT for listeners
+  🎙 Seattle Real Estate with UrbanAsh at Pointe3 Real Estate
+    📄 20 episodes parsed, avg desc length: 569 chars
+  🎙 Living the Urban Farmer Life
+    📄 19 episodes parsed, avg desc length: 262 chars
+  🔄 Re-processing 5 existing podcasts for new episodes...
+  🎙 Empowering Exceptional Minds (refresh)
+    📄 20 episodes parsed, avg desc length: 1382 chars
+    🟢 [podcast] Young Scholars Academy → save 10%
+       📰 Young Scholars Academy offering 10% off through Empowering Exceptional Minds podcast
+  🎙 Seattle Real Estate with UrbanAsh at Pointe3 Real Estate (refresh)
+    📄 20 episodes parsed, avg desc length: 569 chars
+  🎙 I Survived (refresh)
+    📄 20 episodes parsed, avg desc length: 924 chars
+    🟢 [podcast] BetterHelp → SURVIVED
+       📰 BetterHelp offers 10% off first month through I Survived podcast
+    🟢 [podcast] Apartments.com → the place to find a place
+       📰 Apartments.com collaborating with I Survived podcast to promote rental listings
+    🟢 [podcast] Earnin → ISURVIVED
+       📰 Earnin partners with I Survived podcast for listener engagement initiative
+    🟢 [podcast] First Leaf → 50% off your first box PLUS free shipping for an entire year
+       📰 I Survived podcast promoting First Leaf with 50% off first box and free shipping
+    🟢 [podcast] Mint → new 3-month premium wireless plan for just $15 a month
+       📰 I Survived promoting Mint's new $15/month wireless plan for three months
+    🟢 [podcast] Talkiatry → ISURVIVED
+       📰 Talkiatry partners with I Survived for quick psychiatrist matching service
+    🟢 [podcast] Shopify → one-dollar-per-month trial period
+       📰 Shopify offers one-dollar-per-month trial through I Survived podcast
+    🟢 [podcast] Mint Mobile → new 3-month premium wireless plan for just $15 a month
+       📰 I Survived promoting Mint Mobile's $15 monthly wireless plan for three months
+    🟢 [podcast] Omaha Steaks → SURVIVED
+       📰 I Survived promoting $35 off Omaha Steaks with code SURVIVED
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promotes Progressive car insurance quotes through podcast episodes
+    🟢 [podcast] Omaha Steaks → SURVIVED
+       📰 I Survived podcast promotes $35 off Omaha Steaks with code SURVIVED
+    🟢 [podcast] Progressive → Join the over 28 million drivers who trust Progressive.
+       📰 I Survived promoting Progressive to over 28 million trusted drivers
+    🟢 [podcast] Talkiatry → Get matched with an in-network psychiatrist in just a few minutes.
+       📰 Talkiatry enables quick matching with in-network psychiatrists via I Survived podcast
+    🟢 [podcast] First Leaf → SURVIVED
+       📰 First Leaf providing 50% off first box and free shipping via I Survived
+    🟢 [podcast] Mint → SURVIVED
+       📰 I Survived promoting Mint's new $15/month wireless plan through podcast link
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promoting Progressive car insurance quotes via podcast platform
+    🟢 [podcast] Shopify → one-dollar-per-month trial period
+       📰 I Survived promoting Shopify's one-dollar-per-month trial for new users
+    🟢 [podcast] BetterHelp → SURVIVED
+       📰 BetterHelp offers 10% off first month through I Survived podcast
+    🟢 [podcast] Progressive → Join the over 28 million drivers who trust Progressive.
+       📰 I Survived promotes Progressive insurance to over 28 million drivers
+    🟢 [podcast] Apartments.com → The place to find a place.
+       📰 I Survived promotes Apartments.com as a resource for housing searches
+    🟢 [podcast] Apartments.com → Find whatever you’re searching for and more.
+       📰 Apartments.com partners with I Survived podcast for housing search promotion
+    🟢 [podcast] Progressive → Quote your car insurance and join over 28 million drivers.
+       📰 I Survived promoting car insurance quotes from Progressive to 28 million drivers
+    🟢 [podcast] Shopify → Sign up for a one-dollar-per-month trial period.
+       📰 I Survived promoting Shopify's one-dollar-per-month trial for new users
+    🟢 [podcast] Omaha Steaks → SURVIVED
+       📰 I Survived promoting Omaha Steaks with $35 off for listeners
+    🟢 [podcast] Progressive → url
+       📰 I Survived podcast promotes Progressive as trusted by 28 million drivers
+    🟢 [podcast] Progressive → Quote your car insurance at Progressive.com
+       📰 I Survived promoting car insurance quotes at Progressive.com for listeners
+    🟢 [podcast] BetterHelp → SURVIVED
+       📰 BetterHelp providing 10% off first month via I Survived podcast
+    🟢 [podcast] First Leaf → SURVIVED
+       📰 I Survived promoting First Leaf with 50% off first box and free shipping
+    🟢 [podcast] Mint → new 3-month premium wireless plan for just $15 a month
+       📰 Mint launches new 3-month premium wireless plan at $15 per month
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promotes Progressive car insurance quotes to podcast listeners
+    🟢 [podcast] Apartments.com → find whatever you’re searching for and more
+       📰 I Survived promoting Apartments.com for all housing needs through podcast links
+    🟢 [podcast] Apartments.com → url
+       📰 Apartments.com partners with I Survived podcast to reach new audiences
+    🟢 [podcast] Shopify → one-dollar-per-month trial period
+       📰 I Survived promoting Shopify's one-dollar-per-month trial for new users
+    🟢 [podcast] Omaha Steaks → SURVIVED
+       📰 I Survived podcast promoting $35 off Omaha Steaks with code SURVIVED
+    🟢 [podcast] Apartments.com → url
+       📰 Apartments.com partners with I Survived podcast for promotional content
+    🟢 [podcast] Tempo → 60% off your first box
+       📰 Tempo offering 60% off first box through I Survived podcast
+    🟢 [podcast] BetterHelp → SURVIVED
+       📰 BetterHelp offers 10% off first month with I Survived code SURVIVED
+    🟢 [podcast] Angi → url
+       📰 I Survived promotes Angi's services on latest podcast episode
+    🟢 [podcast] Apartments.com → url
+       📰 I Survived podcast promotes Apartments.com as a go-to housing resource
+    🟢 [podcast] Mint Mobile → SURVIVED
+       📰 I Survived promoting Mint Mobile's $15/month plan through podcast code SURVIVED
+    🟢 [podcast] TesterUp → url
+       📰 I Survived promotes TesterUp through podcast link for free download
+    🟢 [podcast] Tempo → SURVIVED
+       📰 Tempo offering 60% off first box through I Survived podcast code
+    🟡 [podcast] Apartments.com → mention
+       📰 I Survived podcast features Apartments.com as a resource for housing searches
+    🟢 [podcast] Mint → new 3-month premium wireless plan for just $15 a month
+       📰 Mint offering new customers a 3-month wireless plan for $15 monthly
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promoting Progressive car insurance quotes on podcast episodes
+    🟢 [podcast] TesterUp → Download TesterUp for free
+       📰 I Survived promoting free download of TesterUp through podcast link
+    🟢 [podcast] Apartments.com → Find whatever you’re searching for and more.
+       📰 I Survived podcast promoting Apartments.com for home searches
+    🟢 [podcast] Progressive → Quote your car insurance.
+       📰 I Survived promoting car insurance quotes from Progressive on podcast
+    🟢 [podcast] Shopify → Sign up for a one-dollar-per-month trial period.
+       📰 I Survived promoting Shopify's one-dollar-per-month trial for new users
+    🟢 [podcast] Stamps → ISURVIVED
+       📰 I Survived promotes Stamps with sixty days risk-free offer using code ISURVIVED
+    🟢 [podcast] Tempo → 60% off your first box
+       📰 Tempo offering 60% off first box through I Survived podcast
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promoting car insurance quotes from Progressive on podcast platform
+    🟢 [podcast] Apartments.com → Find whatever you’re searching for and more
+       📰 Apartments.com partners with I Survived podcast to promote property search platform
+    🟢 [podcast] BetterHelp → 10% off your first month
+       📰 BetterHelp offering 10% off first month through I Survived podcast
+    🟢 [podcast] Mint → new 3-month premium wireless plan for just $15 a month
+       📰 I Survived promotes Mint's $15 monthly wireless plan for new customers
+    🟢 [podcast] Progressive → Quote your car insurance
+       📰 I Survived promoting car insurance quotes from Progressive on podcast
+  🎙 Living the Urban Farmer Life (refresh)
+    📄 19 episodes parsed, avg desc length: 262 chars
+  🎙 Hey, ADHD Agent | Systems, Time Management, Real Estate Agent, Lead Generation, Realtor, Moms in Real Estate (refresh)
+    📄 20 episodes parsed, avg desc length: 2190 chars
+    🟢 [podcast] Flodesk → Get 25% off your first year
+       📰 Flodesk offers 25% off first year through Hey, ADHD Agent podcast
+    🟢 [podcast] Coffee and Contracts → $20 off your first month
+       📰 Hey, ADHD Agent promotes $20 off first month with Coffee and Contracts
+    🟢 [podcast] Coffee and Contracts → $20 off your first month
+       📰 Coffee and Contracts offering $20 off first month for new users
+    🟢 [podcast] Real Estate, Simplified → EPISODE50
+       📰 Hey, ADHD Agent offers special discount for 50th podcast episode
+    🟢 [podcast] Coffee & Contracts → HEYADHDAGENT
+       📰 Coffee & Contracts offers special discount code through Hey, ADHD Agent podcast
+  ✓ Podcasts: 126 sponsorships
+
+📰 Newsletter connector starting...
+  📋 3 newsletters to process
+  🔄 Re-processing 7 existing newsletters...
+  📰 Every Newsletter (refresh)
+  📰 Lenny's Newsletter (refresh)
+    🟢 [newsletter] Bolt → Turn your idea into a real product
+       📰 Lenny's Newsletter highlights Bolt's offer to turn ideas into products
+    🟢 [newsletter] Customer.io → Build customer engagement campaigns from a single prompt
+       📰 Lenny's Newsletter highlights Customer.io for streamlined customer engagement campaigns
+    ✗ extractFromContent error: Unterminated string in JSON at position 4593 (line 83 column 31)
+  📰 The Profile (refresh)
+    🟢 [newsletter] Alumni Ventures → Access to curated Next-Gen Consumer deals
+       📰 Alumni Ventures provides accredited investors access to curated consumer deals
+    🟡 [newsletter] Alumni Ventures → Access to curated Next-Gen Consumer deals
+       📰 Alumni Ventures provides access to curated Next-Gen Consumer deals via The Profile
+  📰 TLDR Newsletter (refresh)
+  📰 CB Insights Newsletter (refresh)
+  📰 Not Boring (refresh)
+    🟡 [newsletter] Mercury → mention
+       📰 Not Boring features Mercury in latest Weekly Dose newsletter
+    🟢 [newsletter] Framer → Build your company's website on Framer.
+       📰 Not Boring mentions Framer as a website building solution for companies
+    🟡 [newsletter] Mercury → Fintech banking services with AI integration.
+       📰 Not Boring highlights Mercury's AI-integrated fintech banking services in newsletter mention
+    🟢 [newsletter] Mercury → AI built directly into your Mercury account for finance tasks.
+       📰 Not Boring mentions Mercury's AI features for finance tasks in newsletter
+    🟡 [newsletter] Deel → Guide on global hiring and Employer of Record services
+       📰 Not Boring promotes Deel's guide on global hiring and services
+    🟡 [newsletter] Framer → Build your company's website on Framer.
+       📰 Not Boring highlights Framer for building company websites in latest newsletter
+    🟢 [newsletter] Guru → A central knowledge layer for AI tools.
+       📰 Not Boring highlights Guru's AI knowledge layer in latest newsletter
+    🟡 [newsletter] Framer → Build your company's website on Framer.
+       📰 Not Boring highlights Framer for building company websites in latest newsletter
+    🟡 [newsletter] Westmag → mention 🌱
+       📰 Not Boring mentions Westmag for their notable hat offerings
+  📰 Dense Discovery (refresh)
+  ✓ Newsletters: 13 sponsorships
+
+🎮 Twitch connector starting...
+  🎮 TioSaims (Just Chatting)
+  🎮 jorge (Just Chatting)
+  🎮 Swifty (Just Chatting)
+  🎮 PoliceChaseNetwork (Just Chatting)
+  🎮 Fafa (Just Chatting)
+  🎮 syanne (Just Chatting)
+  🎮 euEllenmaggnus (Just Chatting)
+  🎮 PantruAku (Fortnite)
+  🎮 worldwidewiley (Fortnite)
+  🎮 zlxbyy (Fortnite)
+  🎮 thriftyp (Fortnite)
+  🎮 bootlegd (Fortnite)
+  🎮 BigMan_Forever (Fortnite)
+  🎮 xxxDESPERADOxxx (Fortnite)
+  🎮 swaggy3g (Fortnite)
+  🎮 BCScanner (IRL)
+  🎮 brooklynfrost (IRL)
+  🎮 HAchubby (IRL)
+  🎮 alinitytv247 (IRL)
+  🎮 jussef (IRL)
+  🎮 aozami (IRL)
+  🎮 notdebpark (IRL)
+  🎮 prodbyDOMA (Palworld)
+  🎮 Arex (Palworld)
+  🎮 SelfmadeTV (Palworld)
+  🎮 Chibirobo1 (Palworld)
+  🎮 RaioGhost (Palworld)
+  🎮 raw_phil (Palworld)
+  🎮 BambiB00 (Palworld)
+  🎮 criatic1 (Marvel Rivals)
+  🎮 Nirvado (Marvel Rivals)
+  🎮 jitnoward (Marvel Rivals)
+  🎮 Sylin (Marvel Rivals)
+  🎮 peach (Marvel Rivals)
+  🎮 hotgirlrico (Marvel Rivals)
+  🎮 luka (Marvel Rivals)
+  🎮 IKM7SN (Marvel Rivals)
+  🎮 triplelift (League of Legends)
+  🎮 Nightblue247 (League of Legends)
+  🎮 Sara_cocina (League of Legends)
+  🎮 yulla (League of Legends)
+  🎮 quante (League of Legends)
+  🎮 paulbelter (League of Legends)
+  🎮 ManatyLoL (League of Legends)
+  🎮 RougeB0T (Dream Con)
+  🎮 1zull (Dream Con)
+  🎮 Nosiiree (Dream Con)
+  🎮 Its3dit (Dream Con)
+  🎮 infinite7g (Dream Con)
+  🎮 notthisonewhoy (Dream Con)
+  🎮 dirtychknz (Dream Con)
+  🎮 itznotrichardd (Dream Con)
+  🎮 Purplescoffee (LOCKDOWN Protocol)
+  🎮 OTP (VALORANT)
+  🎮 ennuival (VALORANT)
+  🎮 wedgekingg (VALORANT)
+  🎮 drewboi39 (VALORANT)
+  🎮 Inezka (VALORANT)
+  🎮 LeoDickinsonSumo (Sports)
+  🎮 Moreno (Sports)
+  🎮 HerrFloeter (Sports)
+  🎮 JoshVibesUp (Sports)
+  🎮 yummy_2 (Sports)
+  🎮 Djalito212 (Sports)
+  🎮 MikeLS_91 (Sports)
+  🎮 LuisitoLag (Sports)
+  🎮 perigofps7 (Grand Theft Auto V)
+  🎮 fearless_adott (Grand Theft Auto V)
+  🎮 XowLi (Grand Theft Auto V)
+  🎮 azrazk (Grand Theft Auto V)
+  🎮 laysamdsn (Grand Theft Auto V)
+  🎮 natalie_gabrielle (Grand Theft Auto V)
+  🎮 Ai_Zan (Grand Theft Auto V)
+  🎮 ToxicVenomTTV (Grand Theft Auto V)
+  🎮 byuthi_ (Dead by Daylight)
+  🎮 zyeef__ (Dead by Daylight)
+  🎮 cherri (Dead by Daylight)
+  🎮 Saphira (Dead by Daylight)
+  🎮 SophisticatedToddler (Dead by Daylight)
+  🎮 That_Kimmie_Girl (Dead by Daylight)
+  🎮 heauicia (Dead by Daylight)
+  🎮 Scream4918 (Dead by Daylight)
+  🎮 Merghan_ (Counter-Strike)
+  🎮 bigbodyoperations (Counter-Strike)
+  🎮 Brnz1k (Counter-Strike)
+  🎮 kanashiinyo (Counter-Strike)
+  🎮 EgorKK (Counter-Strike)
+  🎮 Kimikeks (Counter-Strike)
+  🎮 Michel (Counter-Strike)
+  🎮 GOIAMO (Counter-Strike)
+  🎮 TheFoolsFam (Minecraft)
+  🎮 Gliu (Minecraft)
+  🎮 CHRIS_ (Minecraft)
+  🎮 nikitoofps (Minecraft)
+  🎮 ianzaogg (Minecraft)
+  🎮 zuzu_fpss (Minecraft)
+  🎮 GameTimeWithEric (Minecraft)
+  ✓ Twitch: 0 sponsorships
+
+📊 Brand velocity scores updated
+
+📰 Backfilling missing headlines...
+  ✓ 0 headlines generated (0 were missing)
+
+🔍 Checking for data contamination...
+  ✓ No contamination detected this run
+
+═══════════════════════════════════════════════════════
+✅ Pipeline complete in 28m
+   YouTube:     98 sponsorships
+   Podcasts:    126 sponsorships
+   Reddit:      0 sponsorships
+   Newsletters: 13 sponsorships
+   Twitch:      0 sponsorships
+   Total:       237 sponsorships
+   YT Quota:    ~44323 / 48000 units used across 6 keys
+   Trend seeds: 20 active this run
+═══════════════════════════════════════════════════════

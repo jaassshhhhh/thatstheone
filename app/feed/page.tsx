@@ -44,14 +44,14 @@ async function computeAffinity(sessionId: string): Promise<string[]> {
 }
 
 const CARD_CONFIGS: Record<string, { label: string; icon: string; color: string; bg: string; border: string }> = {
-  VELOCITY: { label: 'Blowing up',          icon: 'ti-flame',        color: '#F87171', bg: 'rgba(239,68,68,.1)',   border: 'rgba(239,68,68,.25)' },
-  ORGANIC:  { label: 'Genuine love',        icon: 'ti-heart',        color: '#34D399', bg: 'rgba(16,185,129,.1)',  border: 'rgba(16,185,129,.25)' },
-  NEW_DEAL: { label: 'Just dropped',        icon: 'ti-speakerphone', color: '#818CF8', bg: 'rgba(99,102,241,.1)', border: 'rgba(99,102,241,.25)' },
-  TRENDING: { label: 'Everyone\'s talking', icon: 'ti-trending-up',  color: '#FBBF24', bg: 'rgba(245,158,11,.1)', border: 'rgba(245,158,11,.25)' },
-  MULTI:    { label: 'Creator consensus',   icon: 'ti-users',        color: '#C084FC', bg: 'rgba(139,92,246,.1)', border: 'rgba(139,92,246,.25)' },
-  HOT:      { label: 'Limited deal',        icon: 'ti-bolt',         color: '#34D399', bg: 'rgba(16,185,129,.1)', border: 'rgba(16,185,129,.25)' },
-  PERSONAL: { label: 'For you',             icon: 'ti-sparkles',     color: '#60A5FA', bg: 'rgba(59,130,246,.1)', border: 'rgba(59,130,246,.25)' },
-  EARLY:    { label: 'Just spotted',        icon: 'ti-eye',          color: '#A78BFA', bg: 'rgba(167,139,250,.1)', border: 'rgba(167,139,250,.25)' },
+  VELOCITY: { label: 'Blowing up',          icon: 'ti-flame',        color: '#EF9F27', bg: 'rgba(239,159,39,.1)',  border: 'rgba(239,159,39,.25)' },
+  ORGANIC:  { label: 'Genuine love',        icon: 'ti-heart',        color: '#7F77DD', bg: 'rgba(127,119,221,.1)', border: 'rgba(127,119,221,.25)' },
+  NEW_DEAL: { label: 'Just dropped',        icon: 'ti-speakerphone', color: 'rgba(255,255,255,.7)', bg: 'rgba(255,255,255,.05)', border: 'rgba(255,255,255,.15)' },
+  TRENDING: { label: 'Everyone\'s talking', icon: 'ti-trending-up',  color: '#EF9F27', bg: 'rgba(239,159,39,.1)',  border: 'rgba(239,159,39,.25)' },
+  MULTI:    { label: 'Creator consensus',   icon: 'ti-users',        color: '#7F77DD', bg: 'rgba(127,119,221,.1)', border: 'rgba(127,119,221,.25)' },
+  HOT:      { label: 'Limited deal',        icon: 'ti-bolt',         color: '#EF9F27', bg: 'rgba(239,159,39,.1)',  border: 'rgba(239,159,39,.25)' },
+  PERSONAL: { label: 'For you',             icon: 'ti-sparkles',     color: 'rgba(255,255,255,.7)', bg: 'rgba(255,255,255,.05)', border: 'rgba(255,255,255,.15)' },
+  EARLY:    { label: 'Just spotted',        icon: 'ti-eye',          color: '#EF9F27', bg: 'rgba(239,159,39,.1)',  border: 'rgba(239,159,39,.25)' },
 }
 
 const REACTIONS = [
@@ -97,7 +97,7 @@ function getTakeawayLine(s: any, cardId: string) {
   const hasDeal = s.best_code || s.promo_code || offer
   if (s.is_organic) {
     const idx = hashString(cardId + 'organic') % ORGANIC_PHRASES.length
-    return { text: ORGANIC_PHRASES[idx](creator), color: '#34D399', icon: '💡' }
+    return { text: ORGANIC_PHRASES[idx](creator), color: '#7F77DD', icon: '💡' }
   }
   if (hasDeal && offer) {
     const idx = hashString(cardId + 'sponsored') % SPONSORED_PHRASES.length
