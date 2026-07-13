@@ -14,16 +14,10 @@ export const supabase = createClient(
 )
 export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 const YT_KEYS = [
-    process.env.YOUTUBE_API_KEY,
-    process.env.YOUTUBE_API_KEY_2,
-    process.env.YOUTUBE_API_KEY_3,
-    process.env.YOUTUBE_API_KEY_4,
-    process.env.YOUTUBE_API_KEY_5,
-    process.env.YOUTUBE_API_KEY_6,
-  ].filter(Boolean)
-  
-  // Each key gets its own quota tracker — 8000 unit safety budget per key
-  const keyQuotas = YT_KEYS.map(() => ({ used: 0, limit: 8000 }))
+  process.env.YOUTUBE_API_KEY,
+].filter(Boolean)
+
+const keyQuotas = YT_KEYS.map(() => ({ used: 0, limit: 9000 }))
   
   // Round-robin key selector with automatic skip when a key is exhausted
   let currentKeyIndex = 0
@@ -1277,7 +1271,7 @@ async function runYouTube(knownIds, maxCreators = MAX_CREATORS_PER_RUN, trendSee
     .eq('platform', 'youtube')
     .not('channel_id', 'is', null)
     .order('last_scraped_at', { ascending: true, nullsFirst: true })
-    .limit(300)
+    .limit(40)
 
   console.log(`  🔄 Re-processing ${(existingToRefresh || []).length} existing creators for new content...`)
   for (const creator of (existingToRefresh || [])) {
@@ -1973,7 +1967,7 @@ async function run() {
   console.log(`   Newsletters: ${results.newsletters} sponsorships`)
   console.log(`   Twitch:      ${results.twitch} sponsorships`)
   console.log(`   Total:       ${total} sponsorships`)
-  console.log(`   YT Quota:    ~${totalQuotaUsed()} / ${totalQuotaLimit()} units used across ${YT_KEYS.length} keys`)
+  console.log(`   YT Quota:    ~${totalQuotaUsed()} / ${totalQuotaLimit()} units used (single project)`)
   console.log(`   Trend seeds: ${trendSeeds.length} active this run`)
   console.log(`${'═'.repeat(55)}`)
 }
