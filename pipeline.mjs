@@ -1906,7 +1906,8 @@ async function runTwitch() {
     for (const game of games) {
       const streamsRes = await fetch(`https://api.twitch.tv/helix/streams?game_id=${game.id}&first=100`, { headers })
       const streamsData = await streamsRes.json()
-      const pool = (streamsData.data || []).slice(20)
+      const pool = (streamsData.data || []).filter(s => (s.viewer_count || 0) >= 500)
+      if (pool.length) console.log(`  🎮 ${game.name}: ${pool.length} streams above 500 viewers`)
       const streams = pool.sort(() => Math.random() - 0.5).slice(0, 12)
 
       for (const stream of streams) {
