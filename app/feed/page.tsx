@@ -44,21 +44,21 @@ async function computeAffinity(sessionId: string): Promise<string[]> {
 }
 
 const CARD_CONFIGS: Record<string, { label: string; icon: string; color: string; bg: string; border: string }> = {
-  VELOCITY: { label: 'Blowing up',          icon: 'ti-flame',        color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' },
+  VELOCITY: { label: 'Blowing up',          icon: 'ti-flame',        color: '#FF7A00', bg: 'rgba(255,122,0,.12)',  border: 'rgba(255,122,0,.3)' },
   ORGANIC:  { label: 'Genuine love',        icon: 'ti-heart',        color: '#FF2E92', bg: 'rgba(255,46,146,.12)', border: 'rgba(255,46,146,.3)' },
-  NEW_DEAL: { label: 'Just dropped',        icon: 'ti-speakerphone', color: 'rgba(255,255,255,.7)', bg: 'rgba(255,255,255,.05)', border: 'rgba(255,255,255,.15)' },
+  NEW_DEAL: { label: 'Just dropped',        icon: 'ti-speakerphone', color: '#00E5FF', bg: 'rgba(0,229,255,.12)',  border: 'rgba(0,229,255,.3)' },
   TRENDING: { label: 'Everyone\'s talking', icon: 'ti-trending-up',  color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' },
-  MULTI:    { label: 'Creator consensus',   icon: 'ti-users',        color: '#FF2E92', bg: 'rgba(255,46,146,.12)', border: 'rgba(255,46,146,.3)' },
-  HOT:      { label: 'Limited deal',        icon: 'ti-bolt',         color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' },
-  PERSONAL: { label: 'For you',             icon: 'ti-sparkles',     color: 'rgba(255,255,255,.7)', bg: 'rgba(255,255,255,.05)', border: 'rgba(255,255,255,.15)' },
-  EARLY:    { label: 'Just spotted',        icon: 'ti-eye',          color: '#FFF23C', bg: 'rgba(255,242,60,.12)', border: 'rgba(255,242,60,.3)' },
+  MULTI:    { label: 'Creator consensus',   icon: 'ti-users',        color: '#B968FF', bg: 'rgba(185,104,255,.12)', border: 'rgba(185,104,255,.3)' },
+  HOT:      { label: 'Limited deal',        icon: 'ti-bolt',         color: '#FF3C3C', bg: 'rgba(255,60,60,.12)',  border: 'rgba(255,60,60,.3)' },
+  PERSONAL: { label: 'For you',             icon: 'ti-sparkles',     color: '#3C6BFF', bg: 'rgba(60,107,255,.12)', border: 'rgba(60,107,255,.3)' },
+  EARLY:    { label: 'Just spotted',        icon: 'ti-eye',          color: '#00FFA3', bg: 'rgba(0,255,163,.12)',  border: 'rgba(0,255,163,.3)' },
 }
 
 const REACTIONS = [
-  { type: 'upvote',       emoji: '👍', label: 'Helpful',    activeBg: 'rgba(99,102,241,.15)', activeColor: '#818CF8', activeBorder: 'rgba(99,102,241,.3)' },
-  { type: 'code_worked',  emoji: '✓',  label: 'Worked',     activeBg: 'rgba(52,211,153,.1)',  activeColor: '#34D399', activeBorder: 'rgba(52,211,153,.3)' },
-  { type: 'code_expired', emoji: '✗',  label: 'Expired',    activeBg: 'rgba(239,68,68,.1)',   activeColor: '#F87171', activeBorder: 'rgba(239,68,68,.3)' },
-  { type: 'use_this',     emoji: '♥',  label: 'I use this', activeBg: 'rgba(236,72,153,.1)',  activeColor: '#F472B6', activeBorder: 'rgba(236,72,153,.3)' },
+  { type: 'upvote',       emoji: '👍', label: 'Helpful',    activeBg: 'rgba(0,229,255,.15)', activeColor: '#00E5FF', activeBorder: 'rgba(0,229,255,.3)' },
+  { type: 'code_worked',  emoji: '✓',  label: 'Worked',     activeBg: 'rgba(0,255,163,.1)',  activeColor: '#00FFA3', activeBorder: 'rgba(0,255,163,.3)' },
+  { type: 'code_expired', emoji: '✗',  label: 'Expired',    activeBg: 'rgba(255,60,60,.1)',   activeColor: '#FF3C3C', activeBorder: 'rgba(255,60,60,.3)' },
+  { type: 'use_this',     emoji: '♥',  label: 'I use this', activeBg: 'rgba(255,46,146,.1)',  activeColor: '#FF2E92', activeBorder: 'rgba(255,46,146,.3)' },
 ]
 
 const ORGANIC_PHRASES = [
@@ -101,11 +101,11 @@ function getTakeawayLine(s: any, cardId: string) {
   }
   if (hasDeal && offer) {
     const idx = hashString(cardId + 'sponsored') % SPONSORED_PHRASES.length
-    return { text: SPONSORED_PHRASES[idx](creator, offer), color: '#818CF8', icon: '🎯' }
+    return { text: SPONSORED_PHRASES[idx](creator, offer), color: '#00E5FF', icon: '🎯' }
   }
   if (hasDeal) {
     const idx = hashString(cardId + 'sponsorednooffer') % SPONSORED_NO_OFFER_PHRASES.length
-    return { text: SPONSORED_NO_OFFER_PHRASES[idx](creator), color: '#818CF8', icon: '🎯' }
+    return { text: SPONSORED_NO_OFFER_PHRASES[idx](creator), color: '#00E5FF', icon: '🎯' }
   }
   return null
 }
@@ -629,14 +629,14 @@ export default function FeedPage() {
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.03em', color: '#fff', margin: '0 0 2px' }}>
               Pulse
-              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#34D399', marginLeft: 8, verticalAlign: 'middle', animation: 'pulse 2s infinite' }} />
+              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#00FFA3', marginLeft: 8, verticalAlign: 'middle', animation: 'pulse 2s infinite' }} />
             </h1>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,.3)', margin: 0 }}>
               {totalCount.toLocaleString()} sponsorships indexed · live
             </p>
           </div>
           {userSearches.length > 0 && (
-            <div style={{ fontSize: 11, padding: '5px 10px', borderRadius: 20, background: 'rgba(59,130,246,.1)', color: '#60A5FA', border: '0.5px solid rgba(59,130,246,.2)' }}>
+            <div style={{ fontSize: 11, padding: '5px 10px', borderRadius: 20, background: 'rgba(0,229,255,.1)', color: '#00E5FF', border: '0.5px solid rgba(0,229,255,.2)' }}>
               ✦ Personalised
             </div>
           )}
@@ -822,7 +822,7 @@ export default function FeedPage() {
                         {weeklyInsights.hiddenGem.best_code && (
                           <button
                             onClick={() => copyCode(weeklyInsights.hiddenGem.best_code, 'insight-gem', weeklyInsights.hiddenGem.brand_name)}
-                            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, background: copied === 'insight-gem' ? 'rgba(34,197,94,.2)' : cfg.bg, color: copied === 'insight-gem' ? '#34D399' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '.04em' }}>
+                            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, background: copied === 'insight-gem' ? 'rgba(0,255,163,.2)' : cfg.bg, color: copied === 'insight-gem' ? '#00FFA3' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '.04em' }}>
                             {copied === 'insight-gem' ? '✓ Copied!' : weeklyInsights.hiddenGem.best_code}
                           </button>
                         )}
@@ -885,7 +885,7 @@ export default function FeedPage() {
                         {weeklyInsights.bestDeal.best_code && (
                           <button
                             onClick={() => copyCode(weeklyInsights.bestDeal.best_code, 'insight-best', weeklyInsights.bestDeal.brand_name)}
-                            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, background: copied === 'insight-best' ? 'rgba(34,197,94,.2)' : cfg.bg, color: copied === 'insight-best' ? '#34D399' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '.04em' }}>
+                            style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, background: copied === 'insight-best' ? 'rgba(0,255,163,.2)' : cfg.bg, color: copied === 'insight-best' ? '#00FFA3' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '.04em' }}>
                             {copied === 'insight-best' ? '✓ Copied!' : weeklyInsights.bestDeal.best_code}
                           </button>
                         )}
@@ -916,7 +916,7 @@ export default function FeedPage() {
         <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
           {FILTERS.map(f => (
             <button key={f} className="filt" onClick={() => { setFilter(f); setPage(0) }}
-              style={{ fontSize: 11, padding: '5px 13px', borderRadius: 20, border: '0.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .15s', borderColor: filter === f ? '#6366F1' : 'rgba(255,255,255,.08)', background: filter === f ? 'rgba(99,102,241,.15)' : 'transparent', color: filter === f ? '#818CF8' : 'rgba(255,255,255,.4)' }}>
+              style={{ fontSize: 11, padding: '5px 13px', borderRadius: 20, border: '0.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all .15s', borderColor: filter === f ? '#00E5FF' : 'rgba(255,255,255,.08)', background: filter === f ? 'rgba(0,229,255,.15)' : 'transparent', color: filter === f ? '#00E5FF' : 'rgba(255,255,255,.4)' }}>
               {f === 'For you' ? '✦ For you' : f === 'Saved' ? `🔖 Saved${bookmarks.size > 0 ? ` · ${bookmarks.size}` : ''}` : f}
             </button>
           ))}
@@ -932,14 +932,14 @@ export default function FeedPage() {
             <p style={{ fontSize: 28, marginBottom: 12 }}>✦</p>
             <p style={{ fontSize: 15, fontWeight: 600, color: '#fff', marginBottom: 8 }}>Nothing personalised yet</p>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,.35)', marginBottom: 20, lineHeight: 1.6 }}>Search for brands or creators you care about<br />and we'll tailor your feed automatically</p>
-            <button onClick={() => setFilter('All')} style={{ fontSize: 13, padding: '8px 20px', borderRadius: 20, background: 'rgba(99,102,241,.15)', color: '#818CF8', border: '0.5px solid rgba(99,102,241,.25)', cursor: 'pointer' }}>Browse all</button>
+            <button onClick={() => setFilter('All')} style={{ fontSize: 13, padding: '8px 20px', borderRadius: 20, background: 'rgba(0,229,255,.15)', color: '#00E5FF', border: '0.5px solid rgba(0,229,255,.25)', cursor: 'pointer' }}>Browse all</button>
           </div>
         ) : filter === 'Saved' && feed.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0', background: 'rgba(255,255,255,.02)', borderRadius: 16, border: '0.5px solid rgba(255,255,255,.07)' }}>
             <p style={{ fontSize: 28, marginBottom: 12 }}>🔖</p>
             <p style={{ fontSize: 15, fontWeight: 600, color: '#fff', marginBottom: 8 }}>Nothing saved yet</p>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,.35)', marginBottom: 20, lineHeight: 1.6 }}>Tap the bookmark icon on any card<br />to save it for later</p>
-            <button onClick={() => setFilter('All')} style={{ fontSize: 13, padding: '8px 20px', borderRadius: 20, background: 'rgba(99,102,241,.15)', color: '#818CF8', border: '0.5px solid rgba(99,102,241,.25)', cursor: 'pointer' }}>Browse all</button>
+            <button onClick={() => setFilter('All')} style={{ fontSize: 13, padding: '8px 20px', borderRadius: 20, background: 'rgba(0,229,255,.15)', color: '#00E5FF', border: '0.5px solid rgba(0,229,255,.25)', cursor: 'pointer' }}>Browse all</button>
           </div>
         ) : feed.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
@@ -1015,7 +1015,7 @@ export default function FeedPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 11, color: 'rgba(255,255,255,.25)' }}>{timeAgo(s.last_seen || s.first_seen)}</span>
             <button className="bm" onClick={e => toggleBookmark(e, cardId, s.brand_name || '', s.creator_name || '')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: 14, opacity: isBookmarked ? 1 : 0.35, color: isBookmarked ? '#FBBF24' : 'rgba(255,255,255,.5)', transition: 'all .15s' }}>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: 14, opacity: isBookmarked ? 1 : 0.35, color: isBookmarked ? '#FFF23C' : 'rgba(255,255,255,.5)', transition: 'all .15s' }}>
               🔖
             </button>
           </div>
@@ -1049,7 +1049,7 @@ export default function FeedPage() {
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
               {brandName}
               {(s.verified_dar_score ?? s.best_dar_score ?? s.dar_score) >= 75 && (
-                <i className="ti ti-shield-check" style={{ fontSize: 13, color: '#34D399', opacity: .7 }} aria-hidden="true" />
+                <i className="ti ti-shield-check" style={{ fontSize: 13, color: '#00FFA3', opacity: .7 }} aria-hidden="true" />
               )}
             </p>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', margin: '2px 0 0' }}>
@@ -1096,8 +1096,8 @@ export default function FeedPage() {
 
         {/* Bottom row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, marginTop: 14, borderTop: '0.5px solid rgba(255,255,255,.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: s.is_active ? '#34D399' : 'rgba(255,255,255,.25)' }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.is_active ? '#34D399' : 'rgba(255,255,255,.25)', display: 'inline-block' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: s.is_active ? '#00FFA3' : 'rgba(255,255,255,.25)' }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.is_active ? '#00FFA3' : 'rgba(255,255,255,.25)', display: 'inline-block' }} />
             {s.is_active ? 'Active' : 'Unverified'}
             {s.platform && <span style={{ color: 'rgba(255,255,255,.2)' }}> · {s.platform}</span>}
           </div>
@@ -1120,7 +1120,7 @@ export default function FeedPage() {
                     </a>
                   )}
                   <button onClick={e => { e.stopPropagation(); copyCode(code, cardId, s.brand_name || '', s.brand_id, s.brand_category_group) }}
-                    style={{ fontSize: 12, padding: '7px 14px', borderRadius: 9, background: copied === cardId ? '#34D399' : cfg.color, color: '#060810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                    style={{ fontSize: 12, padding: '7px 14px', borderRadius: 9, background: copied === cardId ? '#00FFA3' : cfg.color, color: '#060810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                     {copied === cardId ? '✓ Copied' : 'Get code'}
                   </button>
                 </>
@@ -1138,7 +1138,7 @@ export default function FeedPage() {
               )
             ) : s.is_organic ? (
               <a href={promoUrl || fallbackUrl || '#'} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                style={{ fontSize: 12, padding: '7px 14px', borderRadius: 9, background: '#34D399', color: '#052e21', fontWeight: 600, textDecoration: 'none' }}>
+                style={{ fontSize: 12, padding: '7px 14px', borderRadius: 9, background: '#00FFA3', color: '#052e21', fontWeight: 600, textDecoration: 'none' }}>
                 Find this
               </a>
             ) : null}
@@ -1195,10 +1195,10 @@ export default function FeedPage() {
                     <div style={{ display: 'flex', gap: 10 }} onClick={e => e.stopPropagation()}>
                       <button className="rxn" title="Yes, correct"
                         onClick={e => toggleReaction(e, cardId, 'brand_confirmed', s.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('brand_confirmed') ? '#34D399' : 'rgba(255,255,255,.3)', padding: 0 }}>✓</button>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('brand_confirmed') ? '#00FFA3' : 'rgba(255,255,255,.3)', padding: 0 }}>✓</button>
                       <button className="rxn" title="No, wrong brand"
                         onClick={e => toggleReaction(e, cardId, 'brand_wrong', s.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('brand_wrong') ? '#F87171' : 'rgba(255,255,255,.3)', padding: 0 }}>✗</button>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('brand_wrong') ? '#FF3C3C' : 'rgba(255,255,255,.3)', padding: 0 }}>✗</button>
                     </div>
                   </div>
                 )}
@@ -1208,10 +1208,10 @@ export default function FeedPage() {
                     <div style={{ display: 'flex', gap: 10 }} onClick={e => e.stopPropagation()}>
                       <button className="rxn" title="Yes, accurate"
                         onClick={e => toggleReaction(e, cardId, 'quote_confirmed', s.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('quote_confirmed') ? '#34D399' : 'rgba(255,255,255,.3)', padding: 0 }}>✓</button>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('quote_confirmed') ? '#00FFA3' : 'rgba(255,255,255,.3)', padding: 0 }}>✓</button>
                       <button className="rxn" title="No, inaccurate"
                         onClick={e => toggleReaction(e, cardId, 'quote_wrong', s.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('quote_wrong') ? '#F87171' : 'rgba(255,255,255,.3)', padding: 0 }}>✗</button>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: myReactions[cardId]?.includes('quote_wrong') ? '#FF3C3C' : 'rgba(255,255,255,.3)', padding: 0 }}>✗</button>
                     </div>
                   </div>
                 )}
@@ -1227,7 +1227,7 @@ export default function FeedPage() {
                   </p>
                 )}
                 {offer && (
-                  <p style={{ fontSize: 12, color: '#34D399', marginBottom: code ? 10 : 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <p style={{ fontSize: 12, color: '#00FFA3', marginBottom: code ? 10 : 0, display: 'flex', alignItems: 'center', gap: 5 }}>
                     <i className="ti ti-gift" style={{ fontSize: 13 }} aria-hidden="true" />
                     {offer}
                   </p>
@@ -1236,7 +1236,7 @@ export default function FeedPage() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,.06)', borderRadius: 9, padding: '9px 12px' }}>
                     <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '.08em' }}>{code}</span>
                     <button onClick={() => copyCode(code, cardId, s.brand_name || '', s.brand_id, s.brand_category_group)}
-                      style={{ fontSize: 12, padding: '5px 14px', borderRadius: 7, background: copied === cardId ? '#34D399' : cfg.color, color: '#060810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                      style={{ fontSize: 12, padding: '5px 14px', borderRadius: 7, background: copied === cardId ? '#00FFA3' : cfg.color, color: '#060810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                       {copied === cardId ? '✓ Copied!' : 'Copy code'}
                     </button>
                   </div>
