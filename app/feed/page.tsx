@@ -399,6 +399,7 @@ const INSIGHT_CONFIG = {
 
 export default function FeedPage() {
   const [feed, setFeed] = useState<any[]>([])
+  const [feedOffset, setFeedOffset] = useState(0)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('All')
   const [page, setPage] = useState(0)
@@ -480,7 +481,15 @@ export default function FeedPage() {
 
   async function loadFeed(pageNum: number, reset = false) {
     setLoading(true)
-    const from = pageNum * 20
+
+    let offset = feedOffset
+    if (pageNum === 0 && filter === 'All') {
+      offset = Math.floor(Math.random() * 40)
+      setFeedOffset(offset)
+    } else if (filter !== 'All') {
+      offset = 0
+    }
+    const from = offset + pageNum * 20
     const to = from + 19
 
     if ((filter === 'For you' && userSearches.length === 0) || (filter === 'Saved' && bookmarks.size === 0)) {
