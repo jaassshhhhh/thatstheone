@@ -200,16 +200,16 @@ function generateHeadline(s: any, cardType: string, userSearches: string[], bran
 }
 
 const ORGANIC_TRAILING_PHRASES = [
-  'Barely any of them are getting paid for it.',
-  "None of it looks like a paid campaign.",
-  "Almost nobody's cutting them a check for this.",
-  'This is what genuine conviction looks like.',
-  'No sponsorship language anywhere in it.',
-  "That kind of agreement is hard to fake.",
-  "Nobody's telling them to say this.",
+  'Barely anyone here is getting paid for it.',
+  'Zero paid vibes — just genuine use.',
+  "Nobody's cutting a check for this one.",
+  'This is what real conviction looks like.',
+  'Not a hint of sponsorship language in sight.',
+  "Hard to fake this many people just... liking something.",
+  "Nobody told them to say any of this.",
   'Real recommendations, not paid placements.',
-  "This isn't manufactured — it's organic.",
-  'That kind of overlap is rare.',
+  "Not manufactured, just genuinely liked.",
+  "That kind of overlap doesn't happen by accident.",
 ]
 
 const CODE_TRAILING_PHRASES = [
@@ -241,14 +241,14 @@ const EVERYWHERE_TRAILING_PHRASES = [
 ]
 
 const RECOMMEND_TRAILING_PHRASES = [
-  "That's not a coincidence.",
-  "That kind of pattern doesn't happen by accident.",
+  "Kind of hard to ignore at that point.",
+  "That's not really a coincidence.",
   'Worth paying attention to.',
   "That's a real signal, not noise.",
-  'Multiple independent creators, same brand — that matters.',
-  "That's the kind of overlap worth noticing.",
-  'Not something that happens randomly.',
-  'A real pattern across independent creators.',
+  'Multiple people landing on the same thing — that matters.',
+  "That kind of overlap is worth noticing.",
+  "Doesn't happen by accident.",
+  'A real pattern, not a fluke.',
 ]
 
 function generatePooledHeadline(s: any): string {
