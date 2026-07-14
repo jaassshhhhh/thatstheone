@@ -285,33 +285,34 @@ function timeAgo(ms) {
 }
 
 // ─── Headline generation ───────────────────────────────────
-async function generateHeadline(brand, creatorName, sponsorshipType, offerText, promoCode, exactQuote, platform) {
+export async function generateHeadline(brand, creatorName, sponsorshipType, offerText, promoCode, exactQuote, platform) {
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: `You write short, punchy headlines for a creator deal feed — the voice is a smart, funny friend texting you about something genuinely interesting, not a journalist and not an advertiser.
+          content: `You write short, plain, informative headlines for a creator deal feed. State what's actually happening — don't editorialize, don't tell the reader how to feel about it, don't make claims you can't back up.
 
 Rules:
 - Max 12 words
-- Casual and warm, never corporate or press-release-y
+- Plain and factual, not hype, not a dramatic reveal
+- Never make claims about how a creator feels ("won't shut up about", "loves it", "trusts it") — only state what's observable: what was said, what code exists, how often it's come up
 - Third person — describe what's happening, never say "sign up", "get", "unlock", "grab", "discover"
 - Be specific — real numbers, real names, real offers when available
-- No exclamation marks ever, no fake urgency or hype
-- No forced slang either — casual doesn't mean trying hard to sound young
+- No exclamation marks, no rhetorical questions, no "you won't believe" framing
+- Casual is fine, but relaxed-casual, not forced-casual
 - No quotes around the headline
 
 Good examples:
-Thomas Frank won't shut up about Skillshare (3 years and counting)
-Audible's handing out free audiobooks through creator codes right now
-Veritasium got Brilliant to knock 20% off for the next 200 people
+Thomas Frank has mentioned Skillshare across 3 years of videos
+Audible is giving away free audiobooks through creator codes right now
+Veritasium's audience gets 20% off Brilliant for the next 200 signups
 Trading 212 is giving UK creators £100 in free shares
 
-Bad examples (too stiff, sounds like a press release):
-Thomas Frank has been pushing Skillshare for 3 years straight
-Brilliant cutting 20% for the next 200 signups via Veritasium
+Bad examples (overstated or editorializing):
+Thomas Frank won't shut up about Skillshare (3 years and counting)
+That's not a coincidence — Brilliant clearly trusts Veritasium's audience
 
 Return ONLY the headline text. No quotes. No exclamation marks.`
         },
