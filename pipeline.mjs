@@ -1343,18 +1343,19 @@ const BOOTSTRAP_PODCASTS = [
 ]
 
 async function getRotatingPodcastSeeds(count = 40) {
-const { data: candidates } = await supabase
-  .from('podcast_seed_terms')
-  .select('id, term')
-  .order('used_at', { ascending: true, nullsFirst: true })
-  .limit(count)
-
-let terms = (candidates || []).map(t => t.term)
-const usedIds = (candidates || []).map(t => t.id)
-
-if (terms.length < count) {
-  const needed = count - terms.length
-  const { data: existingTerms } = await supabase.from('podcast_seed_terms').select('term')
+  const { data: candidates } = await supabase
+    .from('podcast_seed_terms')
+    .select('id, term')
+    .order('used_at', { ascending: true, nullsFirst: true })
+    .limit(count)
+  
+  let terms = (candidates || []).map(t => t.term)
+  const usedIds = (candidates || []).map(t => t.id)
+  
+  const genCount = 5
+  {
+    const needed = genCount
+    const { data: existingTerms } = await supabase.from('podcast_seed_terms').select('term')
   const existingSet = new Set((existingTerms || []).map(t => t.term.toLowerCase()))
   try {
     const completion = await openai.chat.completions.create({
