@@ -199,56 +199,36 @@ function generateHeadline(s: any, cardType: string, userSearches: string[], bran
   return `${creator} and ${brand} — ${mentions > 1 ? `${mentions} mentions` : 'new partnership'}`
 }
 
-const ORGANIC_TRAILING_PHRASES = [
-  'Barely anyone here is getting paid for it.',
-  'Zero paid vibes — just genuine use.',
-  "Nobody's cutting a check for this one.",
-  'This is what real conviction looks like.',
-  'Not a hint of sponsorship language in sight.',
-  "Hard to fake this many people just... liking something.",
-  "Nobody told them to say any of this.",
-  'Real recommendations, not paid placements.',
-  "Not manufactured, just genuinely liked.",
-  "That kind of overlap doesn't happen by accident.",
+const POOLED_ORGANIC_PHRASES = [
+  (count: number, brand: string, desc: string) => `${count} creators have mentioned ${brand}${desc} without a sponsorship or code attached`,
+  (count: number, brand: string, desc: string) => `${count} creators have brought up ${brand}${desc}, none of it paid`,
+  (count: number, brand: string, desc: string) => `${count} creators mentioned ${brand}${desc} with no code or paid offer involved`,
+  (count: number, brand: string, desc: string) => `${brand}${desc} has come up across ${count} creators, no sponsorship language in any of it`,
+  (count: number, brand: string, desc: string) => `${count} creators have mentioned ${brand}${desc} — no code, no paid deal`,
 ]
 
-const CODE_TRAILING_PHRASES = [
-  (count: number) => `trusted by ${count} creators who run their own codes for it`,
-  (count: number) => `backed by real codes from ${count} different creators`,
-  (count: number) => `${count} creators have their own discount code for this`,
-  (count: number) => `verified across ${count} creators, each with a working code`,
-  (count: number) => `${count} creators are actively promoting real deals here`,
-  (count: number) => `worth checking — ${count} creators have codes for it`,
-  (count: number) => `a real, active deal confirmed by ${count} creators`,
-  (count: number) => `${count} creators are running their own version of this deal`,
-  (count: number) => `real, working codes from ${count} different creators`,
-  (count: number) => `enough creators run codes for this to be worth a look — ${count} so far`,
-  (count: number) => `${count} creators have put their own name on a code for this`,
-  (count: number) => `a genuinely active deal, confirmed independently by ${count} creators`,
+const POOLED_CODE_PHRASES = [
+  (count: number, brand: string, desc: string) => `${brand}${desc} — ${count} creators have their own code for it`,
+  (count: number, brand: string, desc: string) => `${count} creators are running their own code for ${brand}${desc}`,
+  (count: number, brand: string, desc: string) => `${brand}${desc}: ${count} creators each have a working code`,
+  (count: number, brand: string, desc: string) => `${count} creators have a discount code for ${brand}${desc}`,
+  (count: number, brand: string, desc: string) => `${brand}${desc} — ${count} creators are currently running codes for it`,
 ]
 
-const EVERYWHERE_TRAILING_PHRASES = [
-  (count: number) => `everywhere right now, ${count} different creators and counting`,
-  (count: number) => `showing up across ${count} creators and climbing`,
-  (count: number) => `hard to miss lately — ${count} creators, and growing`,
-  (count: number) => `genuinely everywhere — ${count} creators so far`,
-  (count: number) => `${count} creators deep and still climbing`,
-  (count: number) => `this keeps showing up — ${count} creators and counting`,
-  (count: number) => `${count} different creators, all in the last stretch`,
-  (count: number) => `spreading fast — ${count} creators already on board`,
-  (count: number) => `${count} creators in, and it's not slowing down`,
-  (count: number) => `becoming impossible to miss — ${count} creators so far`,
+const POOLED_EVERYWHERE_PHRASES = [
+  (count: number, brand: string, desc: string) => `${brand}${desc} has been mentioned by ${count} different creators so far`,
+  (count: number, brand: string, desc: string) => `${count} creators have mentioned ${brand}${desc} recently`,
+  (count: number, brand: string, desc: string) => `${brand}${desc} is showing up across ${count} creators' content`,
+  (count: number, brand: string, desc: string) => `${count} different creators have brought up ${brand}${desc} lately`,
+  (count: number, brand: string, desc: string) => `${brand}${desc} has appeared across ${count} creators so far`,
 ]
 
-const RECOMMEND_TRAILING_PHRASES = [
-  "Kind of hard to ignore at that point.",
-  "That's not really a coincidence.",
-  'Worth paying attention to.',
-  "That's a real signal, not noise.",
-  'Multiple people landing on the same thing — that matters.',
-  "That kind of overlap is worth noticing.",
-  "Doesn't happen by accident.",
-  'A real pattern, not a fluke.',
+const POOLED_RECOMMEND_PHRASES = [
+  (count: number, brand: string, desc: string) => `${count} different creators have mentioned ${brand}${desc} recently`,
+  (count: number, brand: string, desc: string) => `${count} creators have brought up ${brand}${desc} in their content`,
+  (count: number, brand: string, desc: string) => `${brand}${desc} has come up across ${count} separate creators`,
+  (count: number, brand: string, desc: string) => `${count} creators have mentioned ${brand}${desc} independently of each other`,
+  (count: number, brand: string, desc: string) => `${brand}${desc} has been mentioned by ${count} different creators`,
 ]
 
 function generatePooledHeadline(s: any): string {
@@ -257,24 +237,20 @@ function generatePooledHeadline(s: any): string {
   const desc = s.brand_description ? ` — ${s.brand_description.replace(/\.$/, '')}` : ''
   const seed = hashString(s.brand_id || brand)
   if (count === 1) {
-    const base = s.best_headline || `${s.creator_name || 'A creator'} is working with ${brand}`
+    const base = s.best_headline || `${s.creator_name || 'A creator'} has mentioned ${brand}`
     return desc ? `${base}${desc}` : base
   }
   const organicPct = s.organic_pct ?? 0
   if (organicPct >= 70) {
-    const trailing = ORGANIC_TRAILING_PHRASES[seed % ORGANIC_TRAILING_PHRASES.length]
-    return `${count} creators independently love ${brand}${desc}. ${trailing}`
+    return POOLED_ORGANIC_PHRASES[seed % POOLED_ORGANIC_PHRASES.length](count, brand, desc)
   }
   if (s.best_code) {
-    const trailing = CODE_TRAILING_PHRASES[seed % CODE_TRAILING_PHRASES.length](count)
-    return `${brand}${desc} — ${trailing}`
+    return POOLED_CODE_PHRASES[seed % POOLED_CODE_PHRASES.length](count, brand, desc)
   }
   if (count >= 10) {
-    const trailing = EVERYWHERE_TRAILING_PHRASES[seed % EVERYWHERE_TRAILING_PHRASES.length](count)
-    return `${brand}${desc} — ${trailing}`
+    return POOLED_EVERYWHERE_PHRASES[seed % POOLED_EVERYWHERE_PHRASES.length](count, brand, desc)
   }
-  const trailing = RECOMMEND_TRAILING_PHRASES[seed % RECOMMEND_TRAILING_PHRASES.length]
-  return `${count} different creators all recommend ${brand}${desc}. ${trailing}`
+  return POOLED_RECOMMEND_PHRASES[seed % POOLED_RECOMMEND_PHRASES.length](count, brand, desc)
 }
 
 function getBestDealReason(s: any): string {
