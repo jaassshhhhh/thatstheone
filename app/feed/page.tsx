@@ -453,7 +453,7 @@ export default function FeedPage() {
         return q
       }),
       fetchWithFallback(cat => {
-        let q = supabase.from('brand_feed_cards').select('brand_name, total_mentions, brand_slug').eq('best_is_organic', true).order('total_mentions', { ascending: false }).limit(1)
+        let q = supabase.from('brand_feed_cards').select('brand_name, total_mentions, brand_slug').eq('best_is_organic', true).is('best_code', null).order('total_mentions', { ascending: false }).limit(1)
         if (cat) q = q.eq('brand_category_group', cat)
         return q
       }),
@@ -509,7 +509,7 @@ export default function FeedPage() {
 
     let q = supabase.from('brand_feed_cards').select('*').order('freshness_rank', { ascending: true }).order('best_dar_score', { ascending: false }).order('last_seen', { ascending: false }).range(from, to)
     if (filter === 'Deals') q = q.not('best_code', 'is', null)
-    if (filter === 'Organic') q = q.eq('best_is_organic', true)
+      if (filter === 'Organic') q = q.eq('best_is_organic', true).is('best_code', null)
     if (filter === 'New') q = q.gte('first_seen', new Date(Date.now() - 14 * 86400000).toISOString())
     if (filter === 'Trending') q = q.gte('best_dar_score', 70)
     if (filter === 'Saved') q = q.in('best_sponsorship_id', [...bookmarks])
