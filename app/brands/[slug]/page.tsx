@@ -36,6 +36,8 @@ export default function BrandPage() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [allMentions, setAllMentions] = useState<Record<string, any[]>>({})
+  const [loadingMentions, setLoadingMentions] = useState<string | null>(null)
 
   useEffect(() => { if (slug) load() }, [slug])
 
@@ -65,6 +67,19 @@ export default function BrandPage() {
     await navigator.clipboard.writeText(code)
     setCopied(id)
     setTimeout(() => setCopied(null), 2000)
+  }
+
+  async function loadAllMentions(creatorId: string, brandId: string) {
+    if (allMentions[creatorId]) return
+    setLoadingMentions(creatorId)
+    const { data } = await supabase
+      .from('sponsorships')
+      .select('video_id, video_title, first_seen, platform')
+      .eq('creator_id', creatorId)
+      .eq('brand_id', brandId)
+      .order('first_seen', { ascending: false })
+    setAllMentions(prev => ({ ...prev, [creatorId]: data || [] }))
+    setLoadingMentions(null)
   }
 
   if (loading) return (
@@ -230,7 +245,11 @@ export default function BrandPage() {
                   padding: '14px 16px',
                   cursor: 'pointer',
                 }}
-                onClick={() => setExpanded(isOpen ? null : c.creator_id)}>
+                onClick={() => {
+                  const next = isOpen ? null : c.creator_id
+                  setExpanded(next)
+                  if (next && c.mention_count > 1) loadAllMentions(c.creator_id, c.brand_id)
+                }}>
 
                 {/* Creator row */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -296,6 +315,31 @@ export default function BrandPage() {
     </p>
   </div>
 )}
+
+                {/* All individual mentions — the real evidence behind the count */}
+                {isOpen && c.mention_count > 1 && (
+                  <div style={{ marginTop: 12 }} onClick={e => e.stopPropagation()}>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                      All {c.mention_count} mentions
+                    </p>
+                    {loadingMentions === c.creator_id ? (
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,.25)' }}>Loading...</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
+                        {(allMentions[c.creator_id] || []).map((m, mi) => (
+                          <div key={mi} style={{ background: 'rgba(255,255,255,.03)', borderRadius: 9, padding: '8px 11px' }}>
+                            <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {m.video_title || 'Untitled'}
+                            </p>
+                            <p style={{ fontSize: 10, color: 'rgba(255,255,255,.25)', margin: '2px 0 0' }}>
+                              {timeAgo(m.first_seen)}{m.platform ? ` · ${m.platform}` : ''}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Expanded deal panel */}
                 {isOpen && (c.best_code || c.best_offer || promoUrl) && (
