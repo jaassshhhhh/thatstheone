@@ -357,7 +357,7 @@ export async function extractFromContent(content) {
             "sponsorship_type": "code"|"url"|"offer"|"mention",
             "promo_code": "2-12 char alphanumeric OR null",
             "promo_url": "custom tracking URL OR null",
-            "offer_text": "deal description in English OR null",
+            "offer_text": "the SPECIFIC concrete deal — a percentage off, a free trial, a dollar amount, a giveaway. Never a phrase that's just enthusiasm ('my favorite', 'love this', 'so good') with no actual concrete benefit attached. If there's no real, specific deal stated, use null.",
             "exact_quote": "exact sentence mentioning brand max 200 chars NO URLs OR null",
             "confidence": 0.85-1.0,
             "is_organic": true|false,
