@@ -399,7 +399,11 @@ export default function FeedPage() {
     loadBookmarks()
     loadWeeklyInsights()
     const session = getSession()
-    if (session) computeAffinity(session).then(cats => { setAffinityCategories(cats); console.log('🎯 affinity categories:', cats) })
+    if (session) computeAffinity(session).then(cats => {
+      setAffinityCategories(cats)
+      console.log('🎯 affinity categories:', cats)
+      if (cats.length > 0) loadWeeklyInsights(cats)
+    })
   }, [])
 
   useEffect(() => { loadFeed(0, true) }, [filter, userSearches, affinityCategories.join(',')])
@@ -423,23 +427,54 @@ export default function FeedPage() {
     setBookmarks(new Set((data || []).map((b: any) => b.target_id)))
   }
 
-  async function loadWeeklyInsights() {
+  async function loadWeeklyInsights(affinityCategories: string[] = []) {
     const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString()
-    const [{ data: velocityData }, { data: earlyData }, { data: organicData }, { data: hiddenGemData }, { data: bestDealData }] = await Promise.all([
-      supabase.from('creator_brand_relationships').select('brand_name, mention_count, brand_slug').gte('last_seen', twoWeeksAgo).order('mention_count', { ascending: false }).limit(1),
-      supabase.from('creator_brand_relationships').select('brand_name, creator_name, first_seen, brand_slug').gte('first_seen', twoWeeksAgo).order('first_seen', { ascending: false }).limit(1),
-      supabase.from('creator_brand_relationships').select('brand_name, mention_count, brand_slug').eq('is_organic', true).order('mention_count', { ascending: false }).limit(1),
-      // Hidden gem: has a code, low mention count (under the radar), active
-      supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, brand_slug, best_promo_url').not('best_code', 'is', null).lt('mention_count', 4).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('verified_dar_score', { ascending: false }).limit(1),
-      // Best verified deal: highest DAR score with an active code, excluding crypto/finance categories
-      supabase.from('creator_brand_relationships').select('brand_name, creator_name, best_code, best_offer, verified_dar_score, brand_slug, best_promo_url').not('best_code', 'is', null).eq('is_active', true).not('brand_name', 'in', '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")').order('verified_dar_score', { ascending: false }).limit(1),
+    const category = affinityCategories[0] || null
+    const EXCLUDE_BRANDS = '("iTrustCapital","Coinbase","Binance","Kraken","eToro","Robinhood","Webull","Public","Moomoo","Acorns")'
+
+    async function fetchWithFallback(build: (cat: string | null) => any) {
+      if (category) {
+        const { data } = await build(category)
+        if (data && data.length > 0) return data
+      }
+      const { data } = await build(null)
+      return data
+    }
+
+    const [velocityData, earlyData, organicData, hiddenGemData, bestDealData] = await Promise.all([
+      fetchWithFallback(cat => {
+        let q = supabase.from('brand_feed_cards').select('brand_name, total_mentions, brand_slug').gte('last_seen', twoWeeksAgo).order('total_mentions', { ascending: false }).limit(1)
+        if (cat) q = q.eq('brand_category_group', cat)
+        return q
+      }),
+      fetchWithFallback(cat => {
+        let q = supabase.from('brand_feed_cards').select('brand_name, best_creator_name, first_seen, brand_slug').gte('first_seen', twoWeeksAgo).order('first_seen', { ascending: false }).limit(1)
+        if (cat) q = q.eq('brand_category_group', cat)
+        return q
+      }),
+      fetchWithFallback(cat => {
+        let q = supabase.from('brand_feed_cards').select('brand_name, total_mentions, brand_slug').eq('best_is_organic', true).order('total_mentions', { ascending: false }).limit(1)
+        if (cat) q = q.eq('brand_category_group', cat)
+        return q
+      }),
+      fetchWithFallback(cat => {
+        let q = supabase.from('brand_feed_cards').select('brand_name, best_creator_name, best_code, best_offer, brand_slug, best_promo_url').not('best_code', 'is', null).lt('total_mentions', 4).not('brand_name', 'in', EXCLUDE_BRANDS).order('best_dar_score', { ascending: false }).limit(1)
+        if (cat) q = q.eq('brand_category_group', cat)
+        return q
+      }),
+      fetchWithFallback(cat => {
+        let q = supabase.from('brand_feed_cards').select('brand_name, best_creator_name, best_code, best_offer, best_dar_score, brand_slug, best_promo_url').not('best_code', 'is', null).eq('any_active', true).not('brand_name', 'in', EXCLUDE_BRANDS).order('best_dar_score', { ascending: false }).limit(1)
+        if (cat) q = q.eq('brand_category_group', cat)
+        return q
+      }),
     ])
-     setWeeklyInsights({
-      blowingUp: velocityData?.[0] || null,
-      justStarted: earlyData?.[0] || null,
-      mostGenuine: organicData?.[0] || null,
-      hiddenGem: hiddenGemData?.[0] || null,
-      bestDeal: bestDealData?.[0] || null,
+
+    setWeeklyInsights({
+      blowingUp: velocityData?.[0] ? { brand_name: velocityData[0].brand_name, mention_count: velocityData[0].total_mentions, brand_slug: velocityData[0].brand_slug } : null,
+      justStarted: earlyData?.[0] ? { brand_name: earlyData[0].brand_name, creator_name: earlyData[0].best_creator_name, first_seen: earlyData[0].first_seen, brand_slug: earlyData[0].brand_slug } : null,
+      mostGenuine: organicData?.[0] ? { brand_name: organicData[0].brand_name, mention_count: organicData[0].total_mentions, brand_slug: organicData[0].brand_slug } : null,
+      hiddenGem: hiddenGemData?.[0] ? { brand_name: hiddenGemData[0].brand_name, creator_name: hiddenGemData[0].best_creator_name, best_code: hiddenGemData[0].best_code, best_offer: hiddenGemData[0].best_offer, brand_slug: hiddenGemData[0].brand_slug, best_promo_url: hiddenGemData[0].best_promo_url } : null,
+      bestDeal: bestDealData?.[0] ? { brand_name: bestDealData[0].brand_name, creator_name: bestDealData[0].best_creator_name, best_code: bestDealData[0].best_code, best_offer: bestDealData[0].best_offer, verified_dar_score: bestDealData[0].best_dar_score, brand_slug: bestDealData[0].brand_slug, best_promo_url: bestDealData[0].best_promo_url } : null,
     })
   }
   async function toggleBookmark(e: React.MouseEvent, cardId: string, brandName: string, creatorName: string) {
