@@ -298,6 +298,7 @@ function adaptBrandCard(row: any) {
     organic_pct: row.organic_pct,
     product_mentioned: row.best_product_mentioned,
     product_url: row.best_product_url,
+    product_source: row.best_product_source,
     platform: row.best_content_platform || row.best_platform,
   }
 }
@@ -1070,6 +1071,9 @@ export default function FeedPage() {
             {s.product_mentioned && (
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', margin: '2px 0 0' }}>
                 recommends: <span style={{ color: 'rgba(255,255,255,.55)' }}>{s.product_mentioned}</span>
+                {s.product_source === 'comment_confirmed' && (
+                  <span style={{ color: 'rgba(255,255,255,.25)', fontStyle: 'italic' }}> (confirmed in comments)</span>
+                )}
               </p>
             )}
             {s.brand_description && (
