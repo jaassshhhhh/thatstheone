@@ -364,7 +364,8 @@ export async function extractFromContent(content) {
             "detected_language": "en"|"hi"|"ja"|"es"|"fr"|"other",
             "brand_category": "Tech"|"Finance"|"Health"|"Lifestyle"|"Education"|"Gaming"|"Beauty"|"Food"|null,
             "brand_description": "one plain sentence explaining what the product actually IS, max 100 chars, OR null",
-            "product_mentioned": "the SPECIFIC product/model name if one is mentioned, e.g. 'Ultra Boost' or 'AG1 Travel Packs', max 80 chars, OR null if only the brand is mentioned generically"
+            "product_mentioned": "the SPECIFIC product/model name if one is mentioned, e.g. 'Ultra Boost' or 'AG1 Travel Packs', max 80 chars, OR null if only the brand is mentioned generically",
+            "product_source": "creator_stated"|"comment_confirmed"|null
           }
 
           brand_category: classify what the BRAND/PRODUCT itself actually is — a supplement company is "Health" even if it's advertised on a finance podcast. A budgeting app is "Finance" even if a gaming streamer reads the ad. Judge the product, never the show or creator it appears on. Use null only if genuinely unclear from the text.
@@ -372,6 +373,10 @@ export async function extractFromContent(content) {
          brand_description: a plain-language answer to "what even is this product" for someone who's never heard of it — e.g. "A daily greens and vitamins supplement drink" or "A phone system for small businesses." Base it only on what the content actually says about the product, never guess or invent details. Use null if the text gives no real clue what the product does.
 
           product_mentioned: ONLY fill this when a SPECIFIC product, model, or variant is named — not the brand alone. "Adidas Ultra Boost" → product_mentioned: "Ultra Boost". "these Adidas shoes" with no model name → product_mentioned: null. Never guess or infer a model name that isn't explicitly in the text.
+
+          product_mentioned MUST come from the DESCRIPTION, TRANSCRIPT, CHAPTERS, or a CREATOR REPLIES entry. NEVER take a product name from the VIEWER COMMENTS section alone — a viewer guessing "those look like Ultra Boosts" is not confirmation unless a CREATOR REPLIES entry confirms it. If the only source is an unconfirmed viewer comment, leave product_mentioned null.
+
+          product_source: "creator_stated" when the product name appears in the creator's own DESCRIPTION, TRANSCRIPT, or CHAPTERS. "comment_confirmed" when the product name only appears because a CREATOR REPLIES entry confirmed it. null whenever product_mentioned is null.
 
           is_organic = true when creator expresses genuine personal use WITHOUT payment language — in ANY language. Look for: personal pronouns + product name + positive sentiment + no code/affiliate language.
 
@@ -393,7 +398,7 @@ Title: "${content.title}"
 Content type: ${content.contentType}
 
 Text:
-${content.rawText.slice(0, 3000)}`
+${content.rawText.slice(0, 6000)}`
         }
       ],
       temperature: 0.05,
@@ -413,6 +418,11 @@ ${content.rawText.slice(0, 3000)}`
         brand_category: VALID_CATEGORIES.has(s.brand_category) ? s.brand_category : null,
         brand_description: typeof s.brand_description === 'string' ? s.brand_description.trim().slice(0, 120) || null : null,
         product_mentioned: typeof s.product_mentioned === 'string' ? s.product_mentioned.trim().slice(0, 80) || null : null,
+        product_source: (() => {
+          const mentioned = typeof s.product_mentioned === 'string' ? s.product_mentioned.trim() : ''
+          if (!mentioned) return null
+          return s.product_source === 'comment_confirmed' ? 'comment_confirmed' : 'creator_stated'
+        })(),
         dar_score: computeDAR(s),
         dar_source: 'ai_extracted',
       }))
@@ -586,6 +596,7 @@ export async function saveToDatabase(content, sponsors, creatorId) {
         headline,
         product_mentioned: s.product_mentioned || null,
         product_url: productUrl,
+        product_source: s.product_source || null,
       }, { onConflict: 'video_id,brand_id' })
 
     if (!error) {
@@ -917,21 +928,45 @@ function extractChapters(video) {
   }
   
   // ─── YouTube comments ──────────────────────────────────────
-  async function getVideoComments(videoId) {
+  // ─── YouTube comments ──────────────────────────────────────
+  async function getVideoComments(videoId, creatorChannelId) {
     try {
       const active = getActiveKey()
-      if (!active || !useQuotaForKey(active.index, 1)) return null
-      const url = `https://www.googleapis.com/youtube/v3/commentThreads?key=${active.key}&videoId=${videoId}&part=snippet&maxResults=30&order=relevance`
+      if (!active || !useQuotaForKey(active.index, 1)) return { text: null, creatorReplies: null }
+      const url = `https://www.googleapis.com/youtube/v3/commentThreads?key=${active.key}&videoId=${videoId}&part=snippet,replies&maxResults=30&order=relevance`
       const res = await fetch(url)
       const data = await res.json()
-      if (data.error || !data.items?.length) return null
-      const comments = data.items
-        .map(item => item.snippet?.topLevelComment?.snippet?.textDisplay || '')
-        .filter(c => c.length > 10 && c.length < 300)
-        .slice(0, 20)
-        .join('\n')
-      return comments || null
-    } catch { return null }
+      if (data.error || !data.items?.length) return { text: null, creatorReplies: null }
+
+      const commentLines = []
+      const creatorReplyLines = []
+
+      for (const item of data.items) {
+        const topSnippet = item.snippet?.topLevelComment?.snippet
+        const topText = topSnippet?.textDisplay || ''
+        if (topText.length > 10 && topText.length < 300) {
+          commentLines.push(topText)
+        }
+
+        // commentThreads returns up to a handful of replies inline when part=replies is set —
+        // check each for one authored by the video's own channel (a genuine creator confirmation,
+        // not a viewer guess).
+        const replies = item.replies?.comments || []
+        for (const reply of replies) {
+          const replySnippet = reply.snippet
+          const isCreatorReply = creatorChannelId && replySnippet?.authorChannelId?.value === creatorChannelId
+          const replyText = replySnippet?.textDisplay || ''
+          if (isCreatorReply && replyText.length > 5 && replyText.length < 300) {
+            creatorReplyLines.push(`Viewer asked: "${topText.slice(0, 150)}" — Creator replied: "${replyText}"`)
+          }
+        }
+      }
+
+      return {
+        text: commentLines.slice(0, 20).join('\n') || null,
+        creatorReplies: creatorReplyLines.slice(0, 10).join('\n') || null,
+      }
+    } catch { return { text: null, creatorReplies: null } }
   }
   
   // ─── YouTube transcript ────────────────────────────────────
@@ -950,28 +985,30 @@ function extractChapters(video) {
     } catch { return null }
   }
   
-  // ─── Build rich video context ──────────────────────────────
-  export async function buildVideoContext(video, creatorName) {
-    const videoId = video.id
-    const description = video.snippet?.description || ''
-    const title = video.snippet?.title || ''
-    const chapters = extractChapters(video)
-  
-    // Fetch comments and transcript in parallel
-    const [comments, transcript] = await Promise.all([
-      getVideoComments(videoId),
-      getVideoTranscript(videoId),
-    ])
-  
-    const parts = []
-    parts.push(`TITLE: ${title}`)
-    parts.push(`\nDESCRIPTION:\n${description.slice(0, 1500)}`)
-    if (chapters) parts.push(`\nCHAPTERS:\n${chapters}`)
-    if (transcript) parts.push(`\nTRANSCRIPT (partial):\n${transcript}`)
-    if (comments) parts.push(`\nTOP COMMENTS:\n${comments}`)
-  
-    return parts.join('\n')
-  }
+ // ─── Build rich video context ──────────────────────────────
+ export async function buildVideoContext(video, creatorName) {
+  const videoId = video.id
+  const description = video.snippet?.description || ''
+  const title = video.snippet?.title || ''
+  const channelId = video.snippet?.channelId || null
+  const chapters = extractChapters(video)
+
+  // Fetch comments and transcript in parallel
+  const [commentData, transcript] = await Promise.all([
+    getVideoComments(videoId, channelId),
+    getVideoTranscript(videoId),
+  ])
+
+  const parts = []
+  parts.push(`TITLE: ${title}`)
+  parts.push(`\nDESCRIPTION:\n${description.slice(0, 1500)}`)
+  if (chapters) parts.push(`\nCHAPTERS:\n${chapters}`)
+  if (transcript) parts.push(`\nTRANSCRIPT (partial):\n${transcript}`)
+  if (commentData.creatorReplies) parts.push(`\nCREATOR REPLIES TO VIEWER QUESTIONS (these ARE the creator's own words):\n${commentData.creatorReplies}`)
+  if (commentData.text) parts.push(`\nVIEWER COMMENTS (NOT the creator's own words — never source product_mentioned from this section alone):\n${commentData.text}`)
+
+  return parts.join('\n')
+}
   
   // ─── Process trending videos directly ─────────────────────
   async function processTrendingVideos(trendSeeds, sponsorships, knownIds) {
