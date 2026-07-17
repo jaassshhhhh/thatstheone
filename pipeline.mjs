@@ -425,19 +425,41 @@ ${content.rawText.slice(0, 3000)}`
 let collabBrandMap = null // lowercase name -> id
 let collabPattern = null
 
+// Short brand names and common English words that happen to also be real brand
+// names (Fin, MAC, Box, Crew, Share...) generate near-100% false-positive rates
+// in the collab regex — either matching as generic substrings inside unrelated
+// words ("MAC" inside "macy") or matching plain English sentences ("finally
+// collab with the crew"). Excluded from collab-candidate eligibility entirely.
+const COLLAB_MIN_NAME_LENGTH = 5
+const COLLAB_GENERIC_WORDS = new Set([
+  'crew', 'share', 'change', 'face', 'play', 'game', 'games', 'deal', 'shop',
+  'store', 'life', 'live', 'team', 'club', 'plus', 'pro', 'home', 'love',
+  'care', 'link', 'code', 'free', 'main', 'post', 'news', 'show', 'talk',
+  'chat', 'fund', 'bank', 'card', 'cash', 'wave', 'wire', 'app', 'tech',
+  'data', 'cloud', 'box', 'fin', 'mac', 'reddit', 'video', 'music', 'sound',
+])
+
 async function loadCollabDetector() {
   if (collabPattern) return
   const { data: brands } = await supabase.from('brands').select('id, name')
-  const names = (brands || []).filter(b => b.name && b.name.length > 2)
+  const names = (brands || []).filter(b =>
+    b.name &&
+    b.name.length >= COLLAB_MIN_NAME_LENGTH &&
+    !COLLAB_GENERIC_WORDS.has(b.name.toLowerCase())
+  )
   collabBrandMap = new Map(names.map(b => [b.name.toLowerCase(), b.id]))
   const sortedNames = names.map(b => b.name).sort((a, b) => b.length - a.length)
+  const escaped = sortedNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  // Word boundaries (\b) on both the brand names AND the "x" separator prevent
+  // matches fragmenting inside a longer word — "Xbox" can no longer be read as
+  // brand "X" (if it existed) plus separator "x" plus brand "box".
   collabPattern = new RegExp(
-    `(${sortedNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})` +
-    `\\s*(?:x|×|.{0,20}(?:collab|collaboration|teamed up with|limited edition with).{0,20})\\s*` +
-    `(${sortedNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+    `\\b(${escaped.join('|')})\\b` +
+    `\\s*(?:\\bx\\b|×|.{0,20}(?:collab|collaboration|teamed up with|limited edition with).{0,20})\\s*` +
+    `\\b(${escaped.join('|')})\\b`,
     'gi'
   )
-  console.log(`  🔗 Collab detector loaded: ${names.length} known brands`)
+  console.log(`  🔗 Collab detector loaded: ${names.length} eligible brands (${(brands || []).length - names.length} excluded as too short/generic)`)
 }
 
 async function detectAndLogCollabs(content, creatorId) {
