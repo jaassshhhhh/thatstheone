@@ -1898,6 +1898,251 @@ async function runNewsletters() {
     return total
   }
 
+  // ═══════════════════════════════════════════════════════════
+// CONNECTOR 6 — Linktree
+// ═══════════════════════════════════════════════════════════
+
+const LINKTREE_SKIP_DOMAINS = new Set([
+  'youtube.com', 'youtu.be', 'instagram.com', 'twitter.com', 'x.com',
+  'tiktok.com', 'facebook.com', 'linkedin.com', 'spotify.com', 'apple.com',
+  'podcasts.apple.com', 'open.spotify.com', 'discord.gg', 'discord.com',
+  'twitch.tv', 'patreon.com', 'ko-fi.com', 'buymeacoffee.com',
+  'linktr.ee', 'linktree.com', 'beacons.ai', 'bio.link', 'allmylinks.com',
+  'google.com', 'gmail.com', 'docs.google.com', 'forms.gle',
+  'cameo.com', 'substack.com', 'medium.com', 'wordpress.com',
+  'shopify.com', 'etsy.com', 'ebay.com',
+  'bit.ly', 'tinyurl.com', 'ow.ly', 'buff.ly', 'lnk.to',
+  'amzn.to',
+  'snipfeed.co', 'stan.store', 'gumroad.com', 'teachable.com',
+  'soundcloud.com', 'bandcamp.com', 'anchor.fm', 'buzzsprout.com',
+  'depop.com', 'poshmark.com', 'vinted.com',
+  'threads.net', 'pinterest.com', 'tumblr.com',
+  'whatsapp.com', 'telegram.org', 't.me',
+  'paypal.com', 'venmo.com', 'cashapp.com',
+  'streamlabs.com', 'streamelements.com',
+  'fonts.googleapis.com', 'fonts.gstatic.com',
+  'yahoo.com', 'cbsn.lvstreamhd.com',
+  'geni.us', 'ntck.co', 'ban.ggood.vip',
+  'eventbrite.com', 'eventbrite.co.uk',
+  'publishing.andrewsmcmeel.com',
+  'theplug.co', 'kingoftheclicks.com',
+  'raidcoins.com', 'posh.mk',
+  'whenweallvote.org', 'discoveryplus.com', 'beatstars.com',
+  'deezer.com', 'link.deezer.com',
+  'music.amazon.com', 'music.heardwell.com',
+  'tr.ee', 'target.com', 'walmart.com', 'udemy.com',
+])
+
+function getLinktreeDomain(url) {
+  try {
+    const u = new URL(url.startsWith('http') ? url : `https://${url}`)
+    return u.hostname.replace(/^www\./, '').toLowerCase()
+  } catch { return null }
+}
+
+function shouldSkipLinktreeDomain(domain) {
+  if (!domain) return true
+  if (domain.length < 4) return true
+  for (const skip of LINKTREE_SKIP_DOMAINS) {
+    if (domain === skip || domain.endsWith(`.${skip}`)) return true
+  }
+  const parts = domain.split('.')
+  if (parts.length > 2) {
+    const apex = parts.slice(-2).join('.')
+    if (LINKTREE_SKIP_DOMAINS.has(apex)) return true
+  }
+  return false
+}
+
+function domainToBrandName(domain) {
+  const name = domain.split('.')[0]
+  if (!name || name.length < 2) return null
+  if (name.includes('-')) {
+    return name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  }
+  if (/[a-z][A-Z]/.test(name)) return name
+  if (name.length <= 4 && name === name.toUpperCase()) return name.toUpperCase()
+  return name.charAt(0).toUpperCase() + name.slice(1)
+}
+
+async function fetchLinktree(creatorName) {
+  const variants = [
+    creatorName.replace(/\s+/g, ''),
+    creatorName.toLowerCase().replace(/\s+/g, ''),
+    creatorName.toLowerCase().replace(/[^a-z0-9]/g, ''),
+    creatorName.toLowerCase().replace(/\s+/g, '_'),
+    creatorName.toLowerCase().replace(/\s+/g, '-'),
+  ]
+  for (const variant of [...new Set(variants)]) {
+    const url = `https://linktr.ee/${variant}`
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        redirect: 'follow',
+      })
+      if (!res.ok) continue
+      const html = await res.text()
+      if (html.includes('"statusCode":404')) continue
+      if (html.length < 1000) continue
+      if (!html.includes('linktr.ee') && !html.includes('__NEXT_DATA__')) continue
+      return { html, url }
+    } catch {}
+    await new Promise(r => setTimeout(r, 500))
+  }
+  return null
+}
+
+function extractLinksFromHtml(html) {
+  const links = []
+  const seen = new Set()
+  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/)
+  if (nextDataMatch) {
+    try {
+      const nextData = JSON.parse(nextDataMatch[1])
+      const possibleLinkArrays = [
+        nextData?.props?.pageProps?.account?.links,
+        nextData?.props?.pageProps?.links,
+        nextData?.props?.pageProps?.data?.account?.links,
+        nextData?.props?.pageProps?.data?.links,
+      ]
+      for (const arr of possibleLinkArrays) {
+        if (!Array.isArray(arr)) continue
+        for (const link of arr) {
+          const url = link?.url || link?.href || link?.destination
+          const title = link?.title || link?.label || link?.name || ''
+          if (url && !seen.has(url)) { seen.add(url); links.push({ url, title }) }
+        }
+      }
+    } catch {}
+  }
+  if (links.length === 0) {
+    const hrefPattern = /href="(https?:\/\/[^"#\s]{8,}?)"/g
+    let match
+    while ((match = hrefPattern.exec(html)) !== null) {
+      const url = match[1]
+      if (!seen.has(url)) { seen.add(url); links.push({ url, title: '' }) }
+    }
+  }
+  return links
+}
+
+async function saveLinktreeData(creator, links) {
+  let saved = 0
+  const brandLinks = []
+
+  for (const { url, title } of links) {
+    const domain = getLinktreeDomain(url)
+    if (!domain || shouldSkipLinktreeDomain(domain)) continue
+    if (url.includes('amazon.com/shop') || url.includes('amazon.co.uk/shop')) {
+      await supabase.from('creators').update({ amazon_storefront_url: url }).eq('id', creator.id)
+      console.log(`    🛒 Amazon storefront saved: ${url}`)
+      continue
+    }
+    const brandName = domainToBrandName(domain)
+    if (!brandName || brandName.length < 2) continue
+    const creatorSlugClean = creator.slug.replace(/-/g, '')
+    if (domain.includes(creatorSlugClean) || domain.includes(creator.name.toLowerCase().replace(/\s+/g, ''))) continue
+    brandLinks.push({ url, title, brandName, domain })
+  }
+
+  if (brandLinks.length === 0) return 0
+  console.log(`  🔗 ${brandLinks.length} brand links extracted`)
+
+  for (const { url, title, brandName, domain } of brandLinks) {
+    const slug = makeSlug(brandName)
+    if (!slug) continue
+
+    const { data: brandData } = await supabase
+      .from('brands')
+      .upsert({ name: brandName, slug, website_url: `https://${domain}` }, { onConflict: 'slug' })
+      .select().single()
+    if (!brandData) continue
+
+    if (!brandData.website_url) {
+      await supabase.from('brands').update({ website_url: `https://${domain}` }).eq('id', brandData.id)
+    }
+
+    // Same embedding-generation pattern used for brands discovered elsewhere,
+    // so Linktree-sourced brands are also covered by semantic search.
+    if (!brandData.embedding) {
+      try {
+        const input = `${brandData.name}. ${brandData.description || ''}`.trim()
+        const embeddingRes = await openai.embeddings.create({ model: 'text-embedding-3-small', input })
+        await supabase.from('brands')
+          .update({ embedding: embeddingRes.data[0].embedding })
+          .eq('id', brandData.id)
+          .is('embedding', null)
+      } catch {}
+    }
+
+    const videoId = `linktree_${creator.slug}_${slug}`.slice(0, 200)
+    const quote = title?.length > 3
+      ? `${creator.name} features "${title}" on their Linktree`
+      : `${creator.name} links to ${brandName} on their Linktree`
+    const headline = title?.length > 3
+      ? `${creator.name} permanently features ${brandName} — "${title.slice(0, 40)}"`
+      : `${creator.name} links to ${brandName} from their Linktree`
+
+    const { error } = await supabase
+      .from('sponsorships')
+      .upsert({
+        creator_id: creator.id,
+        brand_id: brandData.id,
+        sponsorship_type: 'url',
+        is_organic: true,
+        platform: 'linktree',
+        video_id: videoId,
+        video_title: `Linktree — ${title || brandName}`,
+        exact_quote: quote,
+        promo_url: url,
+        first_seen: new Date().toISOString(),
+        last_seen: new Date().toISOString(),
+        is_active: true,
+        dar_score: 62,
+        dar_source: 'linktree',
+        headline,
+      }, { onConflict: 'video_id,brand_id' })
+
+    if (!error) {
+      saved++
+      console.log(`    🌱 ${brandName} (${domain}) → ${title || url.slice(0, 50)}`)
+    }
+  }
+  return saved
+}
+
+async function runLinktree() {
+  console.log('\n🌳 Linktree connector starting...')
+  const { data: creators } = await supabase
+    .from('creators')
+    .select('id, name, slug, subscriber_count')
+    .eq('platform', 'youtube')
+    .order('subscriber_count', { ascending: false, nullsFirst: false })
+    .limit(60)
+
+  let found = 0
+  let totalSaved = 0
+
+  for (const creator of (creators || [])) {
+    const result = await fetchLinktree(creator.name)
+    if (!result) {
+      await new Promise(r => setTimeout(r, 500))
+      continue
+    }
+    found++
+    const links = extractLinksFromHtml(result.html)
+    totalSaved += await saveLinktreeData(creator, links)
+    await new Promise(r => setTimeout(r, 1000))
+  }
+
+  console.log(`  ✓ Linktree: ${found} profiles found, ${totalSaved} sponsorships`)
+  return totalSaved
+}
+
 // ═══════════════════════════════════════════════════════════
 // CONNECTOR 5 — Twitch
 // ═══════════════════════════════════════════════════════════
@@ -2013,6 +2258,7 @@ async function run() {
     reddit: 0,
     newsletters: await runNewsletters(),
     twitch: await runTwitch(),
+    linktree: await runLinktree(),
   }
 
   // Update brand velocity scores
@@ -2058,6 +2304,7 @@ async function run() {
   console.log(`   Reddit:      ${results.reddit} sponsorships`)
   console.log(`   Newsletters: ${results.newsletters} sponsorships`)
   console.log(`   Twitch:      ${results.twitch} sponsorships`)
+  console.log(`   Linktree:    ${results.linktree} sponsorships`)
   console.log(`   Total:       ${total} sponsorships`)
   console.log(`   YT Quota:    ~${totalQuotaUsed()} / ${totalQuotaLimit()} units used (single project)`)
   console.log(`   Trend seeds: ${trendSeeds.length} active this run`)
