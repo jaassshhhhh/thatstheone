@@ -251,7 +251,7 @@ function extractBrandUrl(description, brandName) {
 // When no reliable URL was found in the content text, actively check if the
 // brand's obvious .com domain is real and reachable, rather than leaving
 // website_url blank. Only saves a URL that's been confirmed to resolve.
-async function verifyBrandDomain(brandName) {
+export async function verifyBrandDomain(brandName) {
   try {
     const slug = brandName.toLowerCase().replace(/[^a-z0-9]/g, '')
     if (slug.length < 3) return null
