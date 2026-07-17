@@ -275,7 +275,7 @@ function adaptBrandCard(row: any) {
     creator_name: row.best_creator_name,
     creator_slug: row.best_creator_slug,
     subscriber_count: row.best_subscriber_count,
-    platform: row.best_platform,
+    // platform: row.best_platform,
     mention_count: row.total_mentions,
     first_seen: row.first_seen,
     last_seen: row.last_seen,
@@ -298,6 +298,7 @@ function adaptBrandCard(row: any) {
     organic_pct: row.organic_pct,
     product_mentioned: row.best_product_mentioned,
     product_url: row.best_product_url,
+    platform: row.best_content_platform || row.best_platform,
   }
 }
 
@@ -1110,7 +1111,7 @@ export default function FeedPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: s.is_active ? '#00FFA3' : 'rgba(255,255,255,.25)' }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.is_active ? '#00FFA3' : 'rgba(255,255,255,.25)', display: 'inline-block' }} />
             {s.is_active ? 'Active' : 'Unverified'}
-            {s.platform && <span style={{ color: 'rgba(255,255,255,.2)' }}> · {s.platform}</span>}
+            {s.platform && <span style={{ color: 'rgba(255,255,255,.2)' }}> · {s.platform === 'linktree' ? '🌳 linktree' : s.platform}</span>}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {sourceUrl && (
