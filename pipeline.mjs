@@ -271,6 +271,22 @@ async function verifyBrandDomain(brandName) {
   }
 }
 
+async function verifyUrlLive(url) {
+  try {
+    const res = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(5000),
+    })
+    if (res.ok || (res.status >= 300 && res.status < 400)) {
+      return res.url || url
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 function cleanQuote(quote) {
   if (!quote) return null
   return quote.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, 200) || null
@@ -557,10 +573,16 @@ export async function saveToDatabase(content, sponsors, creatorId) {
       }
   
       let brandUrl = extractBrandUrl(content.rawText, s.brand)
+    if (brandUrl) {
+      brandUrl = await verifyUrlLive(brandUrl)
+    }
     if (!brandUrl) {
       brandUrl = await verifyBrandDomain(s.brand)
     }
-    const productUrl = extractProductUrl(content.rawText, s.brand)
+    let productUrl = extractProductUrl(content.rawText, s.brand)
+    if (productUrl) {
+      productUrl = await verifyUrlLive(productUrl)
+    }
     if (brandUrl) {
       await supabase.from('brands')
         .update({ website_url: brandUrl })
