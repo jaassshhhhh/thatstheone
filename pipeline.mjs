@@ -289,7 +289,13 @@ async function verifyUrlLive(url) {
 
 function cleanQuote(quote) {
   if (!quote) return null
-  return quote.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, 200) || null
+  const cleaned = quote.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, 200)
+  if (!cleaned) return null
+  // Reject leftover link labels / list headings, e.g. "Brand Name:" after a URL was stripped —
+  // a real quote doesn't end in a bare colon and needs enough content to be an actual sentence.
+  if (/:$/.test(cleaned)) return null
+  if (cleaned.length < 15) return null
+  return cleaned
 }
 
 function timeAgo(ms) {
@@ -399,7 +405,7 @@ export async function extractFromContent(content) {
           is_organic = false when there is a code, affiliate link, "sponsored by" or equivalent in any language.
           
           promo_code: 2-12 chars only. NOT video IDs, generic words, URLs.
-          exact_quote: Remove URLs. Keep readable. Translate to English if non-English.
+         exact_quote: Must be an actual sentence about the brand, not a link label or list heading (e.g. never just "Brand Name:"). Remove URLs. Keep readable. Translate to English if non-English. If nothing in the text is a real sentence, use null.
           
           IGNORE: YouTube, Google, Instagram, Twitter, TikTok, Facebook, Spotify, Netflix, Amazon, Meta.
           IGNORE video games as brands: Fortnite, Minecraft, Valorant, Roblox, GTA, Apex, Overwatch, CS, Dead by Daylight, Dota, Warzone, Elden Ring, Marvel Rivals, Hearthstone, Diablo.

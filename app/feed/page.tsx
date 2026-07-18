@@ -234,7 +234,7 @@ const POOLED_RECOMMEND_PHRASES = [
 function generatePooledHeadline(s: any): string {
   const brand = s.brand_name || 'this brand'
   const count = s.distinct_creator_count || 1
-  const desc = s.brand_description ? ` — ${s.brand_description.replace(/\.$/, '')}` : ''
+  const desc = s.brand_description ? ` (${s.brand_description.replace(/\.$/, '')})` : ''
   const seed = hashString(s.brand_id || brand)
   if (count === 1) {
     const base = s.best_headline || `${s.creator_name || 'A creator'} has mentioned ${brand}`
