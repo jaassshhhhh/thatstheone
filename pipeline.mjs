@@ -578,6 +578,13 @@ export async function saveToDatabase(content, sponsors, creatorId) {
           .is('description', null)
       }
   
+      // ── URL integrity checkpoint ──────────────────────────────────
+      // Every URL saved to the DB (brand homepage, product link, promo/tracking link)
+      // passes through here. Extraction — regex or AI — only ever produces a
+      // CANDIDATE; nothing gets saved as truth until it resolves live via HEAD.
+      // If you add a new URL field anywhere in this pipeline, it goes through
+      // verifyUrlLive() before it touches the database. No exceptions — an
+      // unverified link on a live card is a trust failure, not a cosmetic bug.
       let brandUrl = extractBrandUrl(content.rawText, s.brand)
     if (brandUrl) {
       brandUrl = await verifyUrlLive(brandUrl)
@@ -589,6 +596,11 @@ export async function saveToDatabase(content, sponsors, creatorId) {
     if (productUrl) {
       productUrl = await verifyUrlLive(productUrl)
     }
+    let promoUrl = normalizeUrl(s.promo_url)
+    if (promoUrl) {
+      promoUrl = await verifyUrlLive(promoUrl)
+    }
+    // ── end URL integrity checkpoint ────────────────────────────────
     if (brandUrl) {
       await supabase.from('brands')
         .update({ website_url: brandUrl })
@@ -607,7 +619,7 @@ export async function saveToDatabase(content, sponsors, creatorId) {
         creator_id: creatorId,
         brand_id: brandData.id,
         promo_code: s.promo_code,
-        promo_url: normalizeUrl(s.promo_url),
+        promo_url: promoUrl,
         content_url: normalizeUrl(content.mediaUrl),
         offer_text: s.offer_text,
         exact_quote: s.exact_quote,
