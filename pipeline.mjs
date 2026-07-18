@@ -8,17 +8,73 @@ import { fileURLToPath } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 config({ path: resolve(__dirname, '.env.local') })
 
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('❌ SUPABASE_SERVICE_ROLE_KEY missing from .env.local — pipeline writes require it. Refusing to run with the public anon key.')
+  process.exit(1)
+}
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 const YT_KEYS = [
   process.env.YOUTUBE_API_KEY,
 ].filter(Boolean)
 
-const keyQuotas = YT_KEYS.map(() => ({ used: 0, limit: 9000 }))
-  
+// `persisted` tracks what's already written to the DB, so we only flush deltas.
+const keyQuotas = YT_KEYS.map(() => ({ used: 0, persisted: 0, limit: 9000 }))
+
+// Google's quota day resets at midnight PACIFIC, not UTC and not local time.
+// Getting this wrong means either wasting a day's budget or overspending across
+// the boundary — so the date key is always computed in America/Los_Angeles.
+function pacificDate() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+}
+
+// Must be called before any quota is spent. Without this, a second run in the
+// same quota day starts from zero and double-spends against Google's real budget.
+export async function loadQuotaUsage() {
+  const today = pacificDate()
+  const { data, error } = await supabase
+    .from('youtube_quota_usage')
+    .select('key_index, used')
+    .eq('quota_date', today)
+
+  if (error) {
+    console.log(`  ⚠️  Could not load persisted quota (${error.message}) — assuming 0 used. OVERSPEND RISK.`)
+    return
+  }
+  for (const row of data || []) {
+    if (keyQuotas[row.key_index]) {
+      keyQuotas[row.key_index].used = row.used
+      keyQuotas[row.key_index].persisted = row.used
+    }
+  }
+  const already = keyQuotas.reduce((s, q) => s + q.used, 0)
+  const limit = keyQuotas.reduce((s, q) => s + q.limit, 0)
+  if (already > 0) {
+    console.log(`  📊 Quota already spent today (Pacific ${today}): ${already} / ${limit} units — resuming from there`)
+  }
+}
+
+export async function flushQuotaUsage() {
+  const today = pacificDate()
+  for (let i = 0; i < keyQuotas.length; i++) {
+    const q = keyQuotas[i]
+    if (q.used === q.persisted) continue
+    const { error } = await supabase
+      .from('youtube_quota_usage')
+      .upsert(
+        { key_index: i, quota_date: today, used: q.used, updated_at: new Date().toISOString() },
+        { onConflict: 'key_index,quota_date' }
+      )
+    if (!error) q.persisted = q.used
+  }
+}
+
   // Round-robin key selector with automatic skip when a key is exhausted
   let currentKeyIndex = 0
   function getActiveKey() {
@@ -31,9 +87,16 @@ const keyQuotas = YT_KEYS.map(() => ({ used: 0, limit: 9000 }))
     }
     return null // all keys exhausted
   }
-  
+
+  let flushPending = false
   function useQuotaForKey(keyIndex, units) {
     keyQuotas[keyIndex].used += units
+    // Flush in the background every ~50 units. Frequent enough that a crash or a
+    // sleeping laptop loses almost nothing, rare enough to avoid hammering the DB.
+    if (keyQuotas[keyIndex].used - keyQuotas[keyIndex].persisted >= 50 && !flushPending) {
+      flushPending = true
+      flushQuotaUsage().finally(() => { flushPending = false })
+    }
     return keyQuotas[keyIndex].used <= keyQuotas[keyIndex].limit
   }
   
@@ -2330,6 +2393,8 @@ async function run() {
   console.log(`   YouTube strategies: Category · Popularity · Brand · Related · Trends · Gap`)
   console.log(`${'═'.repeat(55)}`)
 
+  await loadQuotaUsage()
+
   const knownIds = await getKnownChannelIds()
   console.log(`📚 ${knownIds.size} creators already in database\n`)
 
@@ -2396,5 +2461,17 @@ async function run() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  run().catch(console.error)
+  // A killed or slept process must not lose its spend record — that's how the
+  // in-memory counter silently overspent before.
+  const flushAndExit = async (signal) => {
+    console.log(`\n⚠️  Received ${signal} — flushing quota usage before exit...`)
+    await flushQuotaUsage()
+    process.exit(0)
+  }
+  process.on('SIGINT', () => flushAndExit('SIGINT'))
+  process.on('SIGTERM', () => flushAndExit('SIGTERM'))
+
+  run()
+    .catch(console.error)
+    .finally(() => flushQuotaUsage())
 }

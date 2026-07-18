@@ -1,6 +1,8 @@
 import {
-    supabase,
-    getYouTubeVideos,
+  supabase,
+  loadQuotaUsage,
+  flushQuotaUsage,
+  getYouTubeVideos,
     buildVideoContext,
     makeContent,
     extractFromContent,
@@ -19,6 +21,7 @@ import {
   
   async function run() {
     console.log('🎯 Deep backfill — pulling maximum history for outreach-bound creators...\n')
+    await loadQuotaUsage()
   
     const { data: targets } = await supabase
       .from('creators')
@@ -72,4 +75,4 @@ import {
     console.log(`✅ Deep backfill complete: ${total} new sponsorships found across ${(targets || []).length} creators`)
   }
   
-  run().catch(console.error)
+  run().finally(() => flushQuotaUsage())
