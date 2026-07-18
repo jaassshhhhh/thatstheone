@@ -252,39 +252,46 @@ function extractBrandUrl(description, brandName) {
 // brand's obvious .com domain is real and reachable, rather than leaving
 // website_url blank. Only saves a URL that's been confirmed to resolve.
 export async function verifyBrandDomain(brandName) {
-  try {
-    const slug = brandName.toLowerCase().replace(/[^a-z0-9]/g, '')
-    if (slug.length < 3) return null
-    const candidateUrl = `https://${slug}.com`
-    const res = await fetch(candidateUrl, {
-      method: 'HEAD',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(5000),
-    })
-    // Accept normal success and redirect-resolved responses only
-    if (res.ok || (res.status >= 300 && res.status < 400)) {
-      return res.url || candidateUrl
-    }
-    return null
-  } catch {
-    return null
-  }
+  const slug = brandName.toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (slug.length < 3) return null
+  const candidateUrl = `https://${slug}.com`
+  const status = await checkUrlStatus(candidateUrl)
+  return status === 'live' ? candidateUrl : null
 }
 
-async function verifyUrlLive(url) {
-  try {
-    const res = await fetch(url, {
-      method: 'HEAD',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(5000),
-    })
-    if (res.ok || (res.status >= 300 && res.status < 400)) {
-      return res.url || url
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+}
+
+// Returns 'live' | 'dead' | 'unknown'. 'dead' is ONLY returned when DNS resolution
+// itself fails on repeated attempts — the domain does not exist, period (this is what
+// caught adidas.njih). Bot-blocks, timeouts, rate limits, and 5xx are 'unknown' — those
+// mean we couldn't confirm, not that the site is down. Callers must never delete existing
+// data on 'unknown'.
+export async function checkUrlStatus(url) {
+  const attempt = async (method) => {
+    try {
+      const res = await fetch(url, { method, redirect: 'follow', headers: BROWSER_HEADERS, signal: AbortSignal.timeout(8000) })
+      return { res, errCode: null }
+    } catch (err) {
+      return { res: null, errCode: err?.cause?.code || err?.code || null }
     }
-    return null
-  } catch {
-    return null
   }
+
+  const head = await attempt('HEAD')
+  if (head.res && (head.res.ok || (head.res.status >= 300 && head.res.status < 400))) return 'live'
+
+  // Some servers reject/block HEAD specifically but serve GET fine — always retry before giving up.
+  const get = await attempt('GET')
+  if (get.res && (get.res.ok || (get.res.status >= 300 && get.res.status < 400))) return 'live'
+
+  if (head.errCode === 'ENOTFOUND' && get.errCode === 'ENOTFOUND') return 'dead'
+  return 'unknown'
+}
+
+export async function verifyUrlLive(url) {
+  return (await checkUrlStatus(url)) === 'live' ? url : null
 }
 
 function cleanQuote(quote) {
