@@ -359,10 +359,9 @@ export async function verifyUrlLive(url) {
 
 function cleanQuote(quote) {
   if (!quote) return null
-  const cleaned = quote.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, 200)
+  let cleaned = quote.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, 200)
+  cleaned = cleaned.replace(/\s+(at|on|via|from|here)\s*$/i, '').trim()
   if (!cleaned) return null
-  // Reject leftover link labels / list headings, e.g. "Brand Name:" after a URL was stripped —
-  // a real quote doesn't end in a bare colon and needs enough content to be an actual sentence.
   if (/:$/.test(cleaned)) return null
   if (cleaned.length < 15) return null
   return cleaned
