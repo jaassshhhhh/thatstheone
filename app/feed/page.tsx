@@ -82,6 +82,12 @@ const SPONSORED_NO_OFFER_PHRASES = [
   (creator: string) => `${creator} is sponsored by this brand`,
 ]
 
+function isRealCode(code: any): code is string {
+  if (!code || typeof code !== 'string') return false
+  const junk = new Set(['NULL', 'N/A', 'NONE', 'UNDEFINED', 'NA'])
+  return !junk.has(code.trim().toUpperCase())
+}
+
 function hashString(str: string) {
   let hash = 0
   for (let i = 0; i < str.length; i++) {
@@ -812,7 +818,7 @@ export default function FeedPage() {
                       <p style={{ fontSize: 12, color: 'rgba(255,255,255,.7)', margin: 0, lineHeight: 1.4 }}>
                         <span style={{ color: cfg.color, fontWeight: 600 }}>{weeklyInsights.hiddenGem.brand_name}</span>
                         {' '}— active deal, barely anyone's talking about it yet
-                        {weeklyInsights.hiddenGem.best_code && (
+                        {isRealCode(weeklyInsights.hiddenGem.best_code) && (
                           <span style={{ marginLeft: 6, fontFamily: 'monospace', fontSize: 11, color: cfg.color, background: cfg.bg, padding: '1px 6px', borderRadius: 5 }}>
                             {weeklyInsights.hiddenGem.best_code}
                           </span>
@@ -832,7 +838,7 @@ export default function FeedPage() {
                       <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', margin: '0 0 6px', lineHeight: 1.6 }}>{cfg.why}</p>
                       <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', margin: '0 0 10px', lineHeight: 1.6, fontStyle: 'italic' }}>{cfg.implication}</p>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {weeklyInsights.hiddenGem.best_code && (
+                      {isRealCode(weeklyInsights.hiddenGem.best_code) && (
                           <button
                             onClick={() => copyCode(weeklyInsights.hiddenGem.best_code, 'insight-gem', weeklyInsights.hiddenGem.brand_name)}
                             style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, background: copied === 'insight-gem' ? 'rgba(0,255,163,.2)' : cfg.bg, color: copied === 'insight-gem' ? '#00FFA3' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '.04em' }}>
@@ -895,7 +901,7 @@ export default function FeedPage() {
                       <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', margin: '0 0 6px', lineHeight: 1.6 }}>{cfg.why}</p>
                       <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', margin: '0 0 10px', lineHeight: 1.6, fontStyle: 'italic' }}>{cfg.implication}</p>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {weeklyInsights.bestDeal.best_code && (
+                      {isRealCode(weeklyInsights.bestDeal.best_code) && (
                           <button
                             onClick={() => copyCode(weeklyInsights.bestDeal.best_code, 'insight-best', weeklyInsights.bestDeal.brand_name)}
                             style={{ fontSize: 12, padding: '5px 14px', borderRadius: 8, background: copied === 'insight-best' ? 'rgba(0,255,163,.2)' : cfg.bg, color: copied === 'insight-best' ? '#00FFA3' : cfg.color, border: `0.5px solid ${cfg.border}`, cursor: 'pointer', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '.04em' }}>
