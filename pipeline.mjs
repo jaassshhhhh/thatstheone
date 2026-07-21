@@ -2269,7 +2269,7 @@ async function runLinktree() {
     .select('id, name, slug, subscriber_count')
     .eq('platform', 'youtube')
     .order('subscriber_count', { ascending: false, nullsFirst: false })
-    .limit(60)
+    .limit(200)
 
   let found = 0
   let totalSaved = 0
